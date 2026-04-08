@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>ru.stockmann</groupId>
-	<artifactId>replenishment.storeturnover</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<artifactId>replenishment</artifactId>
+	<version>1.0</version>
 	<packaging>war</packaging>
-	<name>replenishment.storeturnover</name>
+	<name>replenishment</name>
 	<description>Store turnover load from csv</description>
 	<url/>
 	<licenses>
