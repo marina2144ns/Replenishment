@@ -1,4 +1,4 @@
-package ru.stockmann.replenishment.storeturnover.models;
+package ru.stockmann.replenishment.models;
 
 public class ABCDataLoadRequest {
     // Полный путь к CSV; пример: C:\\data\\abc.csv

@@ -22,7 +22,7 @@
     </appender>
 
     <!-- только твой класс -->
-    <logger name="ru.stockmann.replenishment.storeturnover.services.WeeklyDataBulkLoader"
+    <logger name="ru.stockmann.replenishment.services.WeeklyDataBulkLoader"
             level="INFO"
             additivity="true">
         <appender-ref ref="WEEKLY_FILE"/>

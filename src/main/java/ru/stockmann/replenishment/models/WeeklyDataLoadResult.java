@@ -1,4 +1,4 @@
-package ru.stockmann.replenishment.storeturnover.models;
+package ru.stockmann.replenishment.models;
 
 public record WeeklyDataLoadResult(Long loadSessionId, String status, String message) {
 

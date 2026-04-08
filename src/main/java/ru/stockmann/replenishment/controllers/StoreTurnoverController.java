@@ -1,4 +1,4 @@
-package ru.stockmann.replenishment.storeturnover.controllers;
+package ru.stockmann.replenishment.controllers;
 
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import ru.stockmann.replenishment.storeturnover.models.StoreTurnover;
-import ru.stockmann.replenishment.storeturnover.services.StoreTurnoverService;
+import ru.stockmann.replenishment.models.StoreTurnover;
+import ru.stockmann.replenishment.services.StoreTurnoverService;
 
 
 import java.io.FileReader;
@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @RestController
-@RequestMapping("/v1.0/")
+@RequestMapping("/storeturnover/v1.0/")
 public class StoreTurnoverController {
     @Autowired
     private StoreTurnoverService storeTurnoverService;

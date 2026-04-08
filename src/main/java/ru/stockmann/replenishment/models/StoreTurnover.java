@@ -1,4 +1,4 @@
-package ru.stockmann.replenishment.storeturnover.models;
+package ru.stockmann.replenishment.models;
 
 import jakarta.persistence.*;
 

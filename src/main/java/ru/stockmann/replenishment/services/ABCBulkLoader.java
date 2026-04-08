@@ -1,4 +1,4 @@
-package ru.stockmann.replenishment.storeturnover.services;
+package ru.stockmann.replenishment.services;
 
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;

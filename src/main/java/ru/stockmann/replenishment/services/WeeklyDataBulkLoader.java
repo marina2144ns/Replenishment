@@ -1,4 +1,4 @@
-package ru.stockmann.replenishment.storeturnover.services;
+package ru.stockmann.replenishment.services;
 
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.ss.usermodel.*;
@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.xml.sax.InputSource;
 import org.xml.sax.XMLReader;
-import ru.stockmann.replenishment.storeturnover.models.WeeklyDataLoadResult;
+import ru.stockmann.replenishment.models.WeeklyDataLoadResult;
 
 import javax.sql.DataSource;
 import java.io.InputStream;

@@ -1,4 +1,4 @@
-package ru.stockmann.replenishment.storeturnover.controllers;
+package ru.stockmann.replenishment.controllers;
 
 
 import org.springframework.http.HttpStatus;
@@ -7,8 +7,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import ru.stockmann.replenishment.storeturnover.models.ABCDataLoadRequest;
-import ru.stockmann.replenishment.storeturnover.services.ABCBulkLoader;
+import ru.stockmann.replenishment.models.ABCDataLoadRequest;
+import ru.stockmann.replenishment.services.ABCBulkLoader;
 
 
 import java.util.Set;

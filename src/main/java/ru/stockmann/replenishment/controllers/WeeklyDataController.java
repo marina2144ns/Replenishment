@@ -1,11 +1,11 @@
-package ru.stockmann.replenishment.storeturnover.controllers;
+package ru.stockmann.replenishment.controllers;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import ru.stockmann.replenishment.storeturnover.models.WeeklyDataLoadRequest;
-import ru.stockmann.replenishment.storeturnover.models.WeeklyDataLoadResult;
-import ru.stockmann.replenishment.storeturnover.services.WeeklyDataBulkLoader;
+import ru.stockmann.replenishment.models.WeeklyDataLoadRequest;
+import ru.stockmann.replenishment.services.WeeklyDataBulkLoader;
+import ru.stockmann.replenishment.models.WeeklyDataLoadResult;
 
 @RestController
 @RequestMapping("/weeklydata/v1.0")

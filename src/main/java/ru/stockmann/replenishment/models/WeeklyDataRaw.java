@@ -1,24 +1,22 @@
-package ru.stockmann.replenishment.storeturnover.models;
-
+package ru.stockmann.replenishment.models;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "Weekly_data")
-public class WeeklyData {
-
+@Table(name = "Weekly_data_raw")
+public class WeeklyDataRaw {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Short year21;
-    private Short week21;
+    private String year21;
+    private String week21;
 
-    private Short yearCorr;
-    private Short weekCorr;
+    private String yearCorr;
+    private String weekCorr;
 
-    private Short year;
-    private Short week;
+    private String year;
+    private String week;
 
     private String salesChannelBpo;
     private String storeRusBpo;
@@ -30,15 +28,15 @@ public class WeeklyData {
     private String skuSeasonBudget;
     private String typeOfSales;
 
-    private Integer totalStockPcs;
-    private Integer totalStockDdp;
+    private String totalStockPcs;
+    private String totalStockDdp;
 
-    private Integer salesPcs;
-    private Integer salesRub;
+    private String salesPcs;
+    private String salesRub;
 
-    private Integer revenue;
-    private Integer gp;
-    private Integer discountTotalRub;
+    private String revenue;
+    private String gp;
+    private String discountTotalRub;
 
     private String mfpDivision;
     private String season;
@@ -52,51 +50,51 @@ public class WeeklyData {
         return id;
     }
 
-    public Short getYear21() {
+    public String getYear21() {
         return year21;
     }
 
-    public void setYear21(Short year21) {
+    public void setYear21(String year21) {
         this.year21 = year21;
     }
 
-    public Short getWeek21() {
+    public String getWeek21() {
         return week21;
     }
 
-    public void setWeek21(Short week21) {
+    public void setWeek21(String week21) {
         this.week21 = week21;
     }
 
-    public Short getYearCorr() {
+    public String getYearCorr() {
         return yearCorr;
     }
 
-    public void setYearCorr(Short yearCorr) {
+    public void setYearCorr(String yearCorr) {
         this.yearCorr = yearCorr;
     }
 
-    public Short getWeekCorr() {
+    public String getWeekCorr() {
         return weekCorr;
     }
 
-    public void setWeekCorr(Short weekCorr) {
+    public void setWeekCorr(String weekCorr) {
         this.weekCorr = weekCorr;
     }
 
-    public Short getYear() {
+    public String getYear() {
         return year;
     }
 
-    public void setYear(Short year) {
+    public void setYear(String year) {
         this.year = year;
     }
 
-    public Short getWeek() {
+    public String getWeek() {
         return week;
     }
 
-    public void setWeek(Short week) {
+    public void setWeek(String week) {
         this.week = week;
     }
 
@@ -156,59 +154,59 @@ public class WeeklyData {
         this.typeOfSales = typeOfSales;
     }
 
-    public Integer getTotalStockPcs() {
+    public String getTotalStockPcs() {
         return totalStockPcs;
     }
 
-    public void setTotalStockPcs(Integer totalStockPcs) {
+    public void setTotalStockPcs(String totalStockPcs) {
         this.totalStockPcs = totalStockPcs;
     }
 
-    public Integer getTotalStockDdp() {
+    public String getTotalStockDdp() {
         return totalStockDdp;
     }
 
-    public void setTotalStockDdp(Integer totalStockDdp) {
+    public void setTotalStockDdp(String totalStockDdp) {
         this.totalStockDdp = totalStockDdp;
     }
 
-    public Integer getSalesPcs() {
+    public String getSalesPcs() {
         return salesPcs;
     }
 
-    public void setSalesPcs(Integer salesPcs) {
+    public void setSalesPcs(String salesPcs) {
         this.salesPcs = salesPcs;
     }
 
-    public Integer getSalesRub() {
+    public String getSalesRub() {
         return salesRub;
     }
 
-    public void setSalesRub(Integer salesRub) {
+    public void setSalesRub(String salesRub) {
         this.salesRub = salesRub;
     }
 
-    public Integer getRevenue() {
+    public String getRevenue() {
         return revenue;
     }
 
-    public void setRevenue(Integer revenue) {
+    public void setRevenue(String revenue) {
         this.revenue = revenue;
     }
 
-    public Integer getGp() {
+    public String getGp() {
         return gp;
     }
 
-    public void setGp(Integer gp) {
+    public void setGp(String gp) {
         this.gp = gp;
     }
 
-    public Integer getDiscountTotalRub() {
+    public String getDiscountTotalRub() {
         return discountTotalRub;
     }
 
-    public void setDiscountTotalRub(Integer discountTotalRub) {
+    public void setDiscountTotalRub(String discountTotalRub) {
         this.discountTotalRub = discountTotalRub;
     }
 

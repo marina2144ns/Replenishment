@@ -1,10 +1,10 @@
-package ru.stockmann.replenishment.storeturnover.services;
+package ru.stockmann.replenishment.services;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.stockmann.replenishment.storeturnover.models.StoreTurnover;
-import ru.stockmann.replenishment.storeturnover.repositories.StoreTurnoverRepository;
+import ru.stockmann.replenishment.models.StoreTurnover;
+import ru.stockmann.replenishment.repositories.StoreTurnoverRepository;
 
 @Service
 public class StoreTurnoverService {
