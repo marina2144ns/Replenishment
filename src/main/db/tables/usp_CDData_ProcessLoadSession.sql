@@ -239,8 +239,8 @@ BEGIN
                                       CONCAT(N'RawId=', s.Id, N'. Invalid INT value in [den]: [', s.den, N']')
 
                                   WHEN s.data_clean IS NOT NULL
-                                      AND TRY_CONVERT(DATETIME2, s.data_clean) IS NULL THEN
-                                      CONCAT(N'RawId=', s.Id, N'. Invalid DATETIME2 value in [data]: [', s.data, N']')
+                                      AND TRY_CONVERT(DATE, s.data_clean, 1) IS NULL THEN
+                                      CONCAT(N'RawId=', s.Id, N'. Invalid DATE value in [data]: [', s.data, N']')
 
                                   WHEN s.sku_style_color_clean IS NOT NULL
                                       AND TRY_CONVERT(INT, s.sku_style_color_clean) IS NULL THEN
@@ -271,7 +271,7 @@ BEGIN
                                       CONCAT(N'RawId=', s.Id, N'. Invalid DECIMAL(18,2) value in [gp]: [', s.gp, N']')
 
                                   WHEN s.cogs_clean IS NOT NULL
-                                      AND TRY_CONVERT(DECIMAL(18,2), s.cogs_clean) IS NULL THEN
+                                      AND TRY_CONVERT(FLOAT, s.cogs_clean) IS NULL THEN
                                       CONCAT(N'RawId=', s.Id, N'. Invalid DECIMAL(18,2) value in [cogs]: [', s.cogs, N']')
 
                                   WHEN s.sales_frp_price_clean IS NOT NULL
@@ -602,7 +602,7 @@ BEGIN
              TRY_CONVERT(INT, s.god_clean),
              TRY_CONVERT(INT, s.sezon_clean),
              TRY_CONVERT(INT, s.den_clean),
-             TRY_CONVERT(DATETIME2, s.data_clean),
+             TRY_CONVERT(DATE, s.data_clean,1),
              s.sales_channel_clean,
              s.store_rus_clean,
              s.mfp_division_clean,

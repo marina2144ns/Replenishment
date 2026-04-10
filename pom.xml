@@ -13,7 +13,7 @@
 	<version>1.0</version>
 	<packaging>war</packaging>
 	<name>replenishment</name>
-	<description>Store turnover load from csv</description>
+	<description>Replenishment load from xlsx</description>
 	<url/>
 	<licenses>
 		<license/>
@@ -75,6 +75,7 @@
 	</dependencies>
 
 	<build>
+		<finalName>replenishment</finalName>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>

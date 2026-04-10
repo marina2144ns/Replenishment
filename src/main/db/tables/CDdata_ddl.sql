@@ -32,7 +32,7 @@ CREATE TABLE dbo.CD_data (
                              god                     INT                  NULL,
                              sezon                   INT                  NULL,
                              den                     INT                  NULL,
-                             data                    DATETIME2            NULL,
+                             data                    DATE                 NULL,
 
     -- Организационные признаки
                              sales_channel           NVARCHAR(255)        NULL,
