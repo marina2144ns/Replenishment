@@ -2,6 +2,7 @@ package ru.stockmann.replenishment.services.dwhexcelload.core;
 
 import java.util.List;
 
+
 public interface DWHExcelLoadDefinition {
 
     DWHExcelLoadType loadType();
@@ -15,6 +16,8 @@ public interface DWHExcelLoadDefinition {
     }
 
     String rawTableName();
+
+    String targetTableName();
 
     String processProcedureName();
 

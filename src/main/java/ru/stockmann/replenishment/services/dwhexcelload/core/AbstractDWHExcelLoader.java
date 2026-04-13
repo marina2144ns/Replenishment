@@ -42,6 +42,8 @@ public abstract class AbstractDWHExcelLoader {
         Long loadSessionId = null;
 
         try {
+            validateDefinition();
+
             DWHExcelLoadSessionResult sessionResult = createLoadSession(filePath);
             loadSessionId = sessionResult.loadSessionId();
 
@@ -54,11 +56,47 @@ public abstract class AbstractDWHExcelLoader {
             callProcessProcedure(loadSessionId);
             finishLoadSession(loadSessionId, "SUCCESS", "OK");
 
-            return DWHExcelLoadResult.ok(loadSessionId,
-                    definition.serviceName() + " loaded successfully");
+            return DWHExcelLoadResult.ok(
+                    loadSessionId,
+                    definition.serviceName() + " loaded successfully"
+            );
+
         } catch (Exception e) {
+            if (loadSessionId != null) {
+                logLoadError(
+                        loadSessionId,
+                        DWHExcelErrorLayer.JAVA,
+                        null,
+                        null,
+                        null,
+                        "JAVA_LOAD_ERROR",
+                        "Java load failed",
+                        e.getMessage()
+                );
+            }
+
             safeFinishWithError(loadSessionId, e);
             return DWHExcelLoadResult.error(loadSessionId, "Fatal error: " + e.getMessage());
+        }
+    }
+
+    protected void validateDefinition() {
+        if (definition == null) {
+            throw new IllegalStateException("Load definition is null");
+        }
+
+        if (definition.columns() == null || definition.columns().isEmpty()) {
+            throw new IllegalStateException(
+                    "Load definition columns are empty for load type " + definition.loadCode()
+            );
+        }
+
+        if (definition.expectedColumnCount() != definition.columns().size()) {
+            throw new IllegalStateException(
+                    "Definition column count mismatch for load type " + definition.loadCode()
+                            + ": expectedColumnCount=" + definition.expectedColumnCount()
+                            + ", actualColumns=" + definition.columns().size()
+            );
         }
     }
 
