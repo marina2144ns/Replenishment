@@ -1,0 +1,382 @@
+package ru.stockmann.replenishment.services.dwhexcelload.core;
+
+import org.apache.poi.openxml4j.opc.OPCPackage;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.util.XMLHelper;
+import org.apache.poi.xssf.eventusermodel.ReadOnlySharedStringsTable;
+import org.apache.poi.xssf.eventusermodel.XSSFReader;
+import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler;
+import org.apache.poi.xssf.model.StylesTable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.xml.sax.InputSource;
+import org.xml.sax.XMLReader;
+
+import javax.sql.DataSource;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+public abstract class AbstractDWHExcelLoader {
+
+    private static final Logger log = LoggerFactory.getLogger(AbstractDWHExcelLoader.class);
+
+    protected final DataSource dataSource;
+    protected final DWHExcelLoadDefinition definition;
+
+    protected AbstractDWHExcelLoader(DataSource dataSource, DWHExcelLoadDefinition definition) {
+        this.dataSource = dataSource;
+        this.definition = definition;
+    }
+
+    public DWHExcelLoadResult loadFromExcel(String filePath) {
+        Long loadSessionId = null;
+
+        try {
+            DWHExcelLoadSessionResult sessionResult = createLoadSession(filePath);
+            loadSessionId = sessionResult.loadSessionId();
+
+            if (!sessionResult.success()) {
+                return DWHExcelLoadResult.error(loadSessionId, sessionResult.message());
+            }
+
+            validateFileBasic(filePath);
+            readAndInsertExcel(filePath, loadSessionId);
+            callProcessProcedure(loadSessionId);
+            finishLoadSession(loadSessionId, "SUCCESS", "OK");
+
+            return DWHExcelLoadResult.ok(loadSessionId,
+                    definition.serviceName() + " loaded successfully");
+        } catch (Exception e) {
+            safeFinishWithError(loadSessionId, e);
+            return DWHExcelLoadResult.error(loadSessionId, "Fatal error: " + e.getMessage());
+        }
+    }
+
+    protected void validateFileBasic(String filePath) {
+        if (filePath == null || filePath.isBlank()) {
+            throw new IllegalArgumentException("filePath is empty");
+        }
+
+        Path path = Path.of(filePath);
+
+        if (!Files.exists(path)) {
+            throw new IllegalArgumentException("file does not exist: " + filePath);
+        }
+
+        if (!Files.isReadable(path)) {
+            throw new IllegalArgumentException("file is not readable: " + filePath);
+        }
+
+        String lower = filePath.toLowerCase(Locale.ROOT);
+        if (!lower.endsWith(".xlsx")) {
+            throw new IllegalArgumentException("Only Excel files (.xlsx) are allowed");
+        }
+    }
+
+    protected void readAndInsertExcel(String filePath, Long loadSessionId) throws Exception {
+        final int columnCount = definition.expectedColumnCount();
+        final int batchSize = definition.batchSize();
+
+        String sql = buildRawInsertSql();
+
+        final int[] parsedRows = {0};
+        final int[] emptyRows = {0};
+        final int[] stagedRows = {0};
+        final int[] lastRowNum = {0};
+
+        Connection connection = null;
+
+        try {
+            connection = dataSource.getConnection();
+            connection.setAutoCommit(false);
+
+            try (PreparedStatement ps = connection.prepareStatement(sql);
+                 OPCPackage pkg = OPCPackage.open(Path.of(filePath).toFile())) {
+
+                XSSFReader reader = new XSSFReader(pkg);
+                StylesTable styles = reader.getStylesTable();
+                ReadOnlySharedStringsTable strings = new ReadOnlySharedStringsTable(pkg);
+                DataFormatter formatter = new DataFormatter();
+                XSSFReader.SheetIterator sheets = (XSSFReader.SheetIterator) reader.getSheetsData();
+
+                if (!sheets.hasNext()) {
+                    throw new IllegalArgumentException("Excel file does not contain sheets");
+                }
+
+                final int[] inBatch = {0};
+
+                XSSFSheetXMLHandler.SheetContentsHandler handler = new XSSFSheetXMLHandler.SheetContentsHandler() {
+                    private String[] currentRow;
+                    private int currentRowNum = -1;
+
+                    @Override
+                    public void startRow(int rowNum) {
+                        currentRowNum = rowNum;
+                        lastRowNum[0] = rowNum;
+                        currentRow = new String[columnCount];
+                    }
+
+                    @Override
+                    public void endRow(int rowNum) {
+                        parsedRows[0]++;
+
+                        if (rowNum == 0) {
+                            return; // header
+                        }
+
+                        if (isEmpty(currentRow)) {
+                            emptyRows[0]++;
+                            return;
+                        }
+
+                        ExcelRowData row = normalizeRow(currentRowNum, List.of(currentRow));
+
+                        try {
+                            bindRawRow(ps, loadSessionId, row);
+                            ps.addBatch();
+                            inBatch[0]++;
+
+                            if (inBatch[0] >= batchSize) {
+                                ps.executeBatch();
+                                stagedRows[0] += inBatch[0];
+                                inBatch[0] = 0;
+                            }
+                        } catch (SQLException e) {
+                            throw new RuntimeException(
+                                    "SQL error on Excel row " + (currentRowNum + 1) + ": " + e.getMessage(), e
+                            );
+                        }
+                    }
+
+                    @Override
+                    public void cell(String cellReference, String formattedValue,
+                                     org.apache.poi.xssf.usermodel.XSSFComment comment) {
+                        int col = columnIndex(cellReference);
+                        if (col >= 0 && col < columnCount) {
+                            currentRow[col] = formattedValue;
+                        }
+                    }
+
+                    @Override
+                    public void headerFooter(String text, boolean isHeader, String tagName) {
+                    }
+                };
+
+                XMLReader parser = XMLHelper.newXMLReader();
+                parser.setContentHandler(new XSSFSheetXMLHandler(
+                        styles, null, strings, handler, formatter, false
+                ));
+
+                try (InputStream sheetStream = sheets.next()) {
+                    parser.parse(new InputSource(sheetStream));
+                }
+
+                if (inBatch[0] > 0) {
+                    ps.executeBatch();
+                    stagedRows[0] += inBatch[0];
+                }
+
+                connection.commit();
+            } catch (Exception e) {
+                connection.rollback();
+                throw e;
+            }
+        } finally {
+            if (connection != null) {
+                connection.close();
+            }
+        }
+
+        log.info("Load {} summary: lastRow={}, parsedRows={}, emptyRows={}, stagedRows={}",
+                definition.loadCode(), lastRowNum[0], parsedRows[0], emptyRows[0], stagedRows[0]);
+    }
+
+    protected ExcelRowData normalizeRow(int rowNum, List<String> rowValues) {
+        Map<String, String> values = new LinkedHashMap<>();
+
+        for (DWHExcelColumnSpec col : definition.columns()) {
+            String raw = col.excelIndex() < rowValues.size()
+                    ? rowValues.get(col.excelIndex())
+                    : null;
+
+            String normalized = col.normalizer() != null
+                    ? col.normalizer().normalize(raw)
+                    : raw;
+
+            values.put(col.rawColumnName(), normalized);
+        }
+
+        return new ExcelRowData(rowNum, values);
+    }
+
+    protected void bindRawRow(PreparedStatement ps, Long loadSessionId, ExcelRowData row) throws SQLException {
+        ps.setLong(1, loadSessionId);
+
+        int paramIndex = 2;
+        for (DWHExcelColumnSpec column : definition.columns()) {
+            ps.setString(paramIndex++, row.get(column.rawColumnName()));
+        }
+    }
+
+    protected String buildRawInsertSql() {
+        String columns = definition.columns().stream()
+                .map(DWHExcelColumnSpec::rawColumnName)
+                .collect(Collectors.joining(", "));
+
+        String placeholders = definition.columns().stream()
+                .map(c -> "?")
+                .collect(Collectors.joining(", "));
+
+        return "INSERT INTO " + definition.rawTableName() +
+                " (LoadSessionId, " + columns + ") VALUES (?," + placeholders + ")";
+    }
+
+    protected void callProcessProcedure(Long loadSessionId) throws SQLException {
+        String sql = "EXEC " + definition.processProcedureName() + " @LoadSessionId = ?";
+
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setLong(1, loadSessionId);
+            ps.execute();
+        }
+    }
+
+    protected DWHExcelLoadSessionResult createLoadSession(String filePath) {
+        Long loadSessionId = null;
+        Connection c = null;
+
+        try {
+            c = dataSource.getConnection();
+            c.setAutoCommit(false);
+
+            String fileName = filePath != null ? Path.of(filePath).getFileName().toString() : null;
+
+            String sql = """
+                    INSERT INTO %s (FileName, FilePath, Status)
+                    OUTPUT INSERTED.Id
+                    VALUES (?, ?, 'RUNNING')
+                    """.formatted(definition.loadSessionTableName());
+
+            try (PreparedStatement ps = c.prepareStatement(sql)) {
+                ps.setString(1, fileName);
+                ps.setString(2, filePath);
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        loadSessionId = rs.getLong(1);
+                    } else {
+                        c.rollback();
+                        return DWHExcelLoadSessionResult.error(null, "Failed to create load session");
+                    }
+                }
+            }
+
+            c.commit();
+            return DWHExcelLoadSessionResult.ok(loadSessionId);
+        } catch (Exception ex) {
+            rollbackQuietly(c);
+            return DWHExcelLoadSessionResult.error(loadSessionId, "Fatal error: " + ex.getMessage());
+        } finally {
+            closeQuietly(c);
+        }
+    }
+
+    protected void finishLoadSession(Long loadSessionId, String status, String message) {
+        if (loadSessionId == null) {
+            return;
+        }
+
+        Connection c = null;
+
+        try {
+            c = dataSource.getConnection();
+            c.setAutoCommit(false);
+
+            String sql = """
+                    UPDATE %s
+                    SET Status = ?, FinishedAt = SYSDATETIME(), Message = ?
+                    WHERE Id = ?
+                    """.formatted(definition.loadSessionTableName());
+
+            try (PreparedStatement ps = c.prepareStatement(sql)) {
+                ps.setString(1, status);
+                ps.setString(2, message);
+                ps.setLong(3, loadSessionId);
+                ps.executeUpdate();
+            }
+
+            c.commit();
+        } catch (Exception ex) {
+            rollbackQuietly(c);
+            log.error("finishLoadSession error. loadSessionId={}", loadSessionId, ex);
+        } finally {
+            closeQuietly(c);
+        }
+    }
+
+    protected void safeFinishWithError(Long loadSessionId, Exception e) {
+        try {
+            finishLoadSession(loadSessionId, "ERROR", e.getMessage());
+        } catch (Exception ignored) {
+        }
+    }
+
+    protected static boolean isEmpty(String[] row) {
+        if (row == null) {
+            return true;
+        }
+
+        for (String s : row) {
+            if (s != null && !s.isBlank()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    protected static int columnIndex(String cellReference) {
+        if (cellReference == null || cellReference.isBlank()) {
+            return -1;
+        }
+
+        int col = 0;
+        for (int i = 0; i < cellReference.length(); i++) {
+            char ch = cellReference.charAt(i);
+            if (Character.isDigit(ch)) {
+                break;
+            }
+            col = col * 26 + (Character.toUpperCase(ch) - 'A' + 1);
+        }
+
+        return col - 1;
+    }
+
+    protected static void rollbackQuietly(Connection c) {
+        if (c != null) {
+            try {
+                c.rollback();
+            } catch (SQLException ignored) {
+            }
+        }
+    }
+
+    protected static void closeQuietly(Connection c) {
+        if (c != null) {
+            try {
+                c.close();
+            } catch (SQLException ignored) {
+            }
+        }
+    }
+}
