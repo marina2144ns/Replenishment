@@ -2,6 +2,7 @@ package ru.stockmann.replenishment.services.dwhexcelload.definitions;
 
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelColumnSpec;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadDefinition;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadType;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelValueKind;
 import ru.stockmann.replenishment.services.dwhexcelload.normalizers.DWHExcelNormalizers;
 
@@ -10,13 +11,8 @@ import java.util.List;
 public class CDDataExcelLoadDefinition implements DWHExcelLoadDefinition {
 
     @Override
-    public String loadCode() {
-        return "CD_DATA";
-    }
-
-    @Override
-    public String serviceName() {
-        return "CD data";
+    public DWHExcelLoadType loadType() {
+        return DWHExcelLoadType.CD_DATA;
     }
 
     @Override
@@ -30,16 +26,6 @@ public class CDDataExcelLoadDefinition implements DWHExcelLoadDefinition {
     }
 
     @Override
-    public String loadSessionTableName() {
-        return "dbo.CD_data_Load_session";
-    }
-
-    @Override
-    public String loadErrorTableName() {
-        return "dbo.CD_data_Load_error";
-    }
-
-    @Override
     public String processProcedureName() {
         return "dbo.usp_CDData_ProcessLoadSession";
     }
@@ -48,7 +34,6 @@ public class CDDataExcelLoadDefinition implements DWHExcelLoadDefinition {
     public int expectedColumnCount() {
         return 37;
     }
-
     @Override
     public int batchSize() {
         return 10_000;

@@ -4,17 +4,17 @@ import java.util.List;
 
 public interface DWHExcelLoadDefinition {
 
-    String loadCode();
+    DWHExcelLoadType loadType();
 
-    String serviceName();
+    default String loadCode() {
+        return loadType().code();
+    }
+
+    default String serviceName() {
+        return loadType().displayName();
+    }
 
     String rawTableName();
-
-    String targetTableName();
-
-    String loadSessionTableName();
-
-    String loadErrorTableName();
 
     String processProcedureName();
 

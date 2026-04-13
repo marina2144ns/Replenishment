@@ -262,14 +262,23 @@ public abstract class AbstractDWHExcelLoader {
             String fileName = filePath != null ? Path.of(filePath).getFileName().toString() : null;
 
             String sql = """
-                    INSERT INTO %s (FileName, FilePath, Status)
-                    OUTPUT INSERTED.Id
-                    VALUES (?, ?, 'RUNNING')
-                    """.formatted(definition.loadSessionTableName());
+                INSERT INTO dbo.DWH_Excel_Load_Session
+                (
+                    LoadTypeCode,
+                    ServiceName,
+                    FileName,
+                    FilePath,
+                    Status
+                )
+                OUTPUT INSERTED.Id
+                VALUES (?, ?, ?, ?, 'RUNNING')
+                """;
 
             try (PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setString(1, fileName);
-                ps.setString(2, filePath);
+                ps.setString(1, definition.loadCode());
+                ps.setString(2, definition.serviceName());
+                ps.setString(3, fileName);
+                ps.setString(4, filePath);
 
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
@@ -290,7 +299,6 @@ public abstract class AbstractDWHExcelLoader {
             closeQuietly(c);
         }
     }
-
     protected void finishLoadSession(Long loadSessionId, String status, String message) {
         if (loadSessionId == null) {
             return;
@@ -303,10 +311,12 @@ public abstract class AbstractDWHExcelLoader {
             c.setAutoCommit(false);
 
             String sql = """
-                    UPDATE %s
-                    SET Status = ?, FinishedAt = SYSDATETIME(), Message = ?
-                    WHERE Id = ?
-                    """.formatted(definition.loadSessionTableName());
+                UPDATE dbo.DWH_Excel_Load_Session
+                SET Status = ?,
+                    FinishedAt = SYSDATETIME(),
+                    Message = ?
+                WHERE Id = ?
+                """;
 
             try (PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setString(1, status);
@@ -323,7 +333,6 @@ public abstract class AbstractDWHExcelLoader {
             closeQuietly(c);
         }
     }
-
     protected void safeFinishWithError(Long loadSessionId, Exception e) {
         try {
             finishLoadSession(loadSessionId, "ERROR", e.getMessage());
@@ -377,6 +386,53 @@ public abstract class AbstractDWHExcelLoader {
                 c.close();
             } catch (SQLException ignored) {
             }
+        }
+    }
+
+    protected void logLoadError(
+            Long loadSessionId,
+            DWHExcelErrorLayer errorLayer,
+            Integer excelRowNum,
+            Long rawId,
+            String fieldName,
+            String errorCode,
+            String errorReason,
+            String errorMessage
+    ) {
+        String sql = """
+            INSERT INTO dbo.DWH_Excel_Load_Error
+            (
+                LoadSessionId,
+                LoadTypeCode,
+                ErrorLayer,
+                ExcelRowNum,
+                RawId,
+                FieldName,
+                ErrorCode,
+                ErrorReason,
+                ErrorMessage
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """;
+
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+
+            ps.setLong(1, loadSessionId);
+            ps.setString(2, definition.loadCode());
+            ps.setString(3, errorLayer.name());
+
+            if (excelRowNum != null) ps.setInt(4, excelRowNum); else ps.setNull(4, java.sql.Types.INTEGER);
+            if (rawId != null) ps.setLong(5, rawId); else ps.setNull(5, java.sql.Types.BIGINT);
+
+            ps.setString(6, fieldName);
+            ps.setString(7, errorCode);
+            ps.setString(8, errorReason);
+            ps.setString(9, errorMessage);
+
+            ps.executeUpdate();
+        } catch (Exception ex) {
+            log.error("Failed to log load error. loadSessionId={}", loadSessionId, ex);
         }
     }
 }
