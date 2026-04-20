@@ -1,26 +1,9 @@
 USE ReplenishmentDWH;
 GO
-/* =========================
-   1. CD_data_Load_session
-   ========================= */
 
-CREATE TABLE dbo.CD_data_Load_session (
-                                          Id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-                                          FileName NVARCHAR(500) NOT NULL,
-                                          FilePath NVARCHAR(1000) NULL,
-                                          StartedAt DATETIME2(0) NOT NULL
-                                              CONSTRAINT DF_CD_data_Load_session_StartedAt DEFAULT SYSDATETIME(),
-                                          FinishedAt DATETIME2(0) NULL,
-                                          Status VARCHAR(20) NOT NULL,
-                                          TotalRows BIGINT NULL,
-                                          LoadedRows BIGINT NULL,
-                                          ErrorRows BIGINT NULL,
-                                          Message NVARCHAR(2000) NULL
-);
-GO
 
 /* =========================
-   2. CD_data (target)
+   CD_data (target)
    ========================= */
 
 CREATE TABLE dbo.CD_data (
@@ -86,14 +69,14 @@ CREATE TABLE dbo.CD_data (
                              CreatedAt DATETIME2(0) NOT NULL
                                  CONSTRAINT DF_CD_data_CreatedAt DEFAULT SYSDATETIME(),
 
-                             CONSTRAINT FK_CD_data_Load_session
+                             CONSTRAINT FK_CD_data_DWH_Excel_Load_Session
                                  FOREIGN KEY (LoadSessionId)
-                                     REFERENCES dbo.CD_data_Load_session(Id)
+                                     REFERENCES dbo.DWH_Excel_Load_Session(Id)
 );
 GO
 
 /* =========================
-   3. CD_data_raw (staging)
+   CD_data_raw (staging)
    ========================= */
 
 CREATE TABLE dbo.CD_data_raw (
@@ -165,32 +148,10 @@ CREATE TABLE dbo.CD_data_raw (
 );
 GO
 
-/* =========================
-   4. CD_data_Load_error
-   ========================= */
 
-CREATE TABLE dbo.CD_data_Load_error (
-                                        Id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-
-                                        LoadSessionId BIGINT NOT NULL,
-
-                                        RawId BIGINT NOT NULL,
-
-                                        ErrorAt DATETIME2(0) NOT NULL
-                                            CONSTRAINT DF_CD_data_Load_error_ErrorAt DEFAULT SYSDATETIME(),
-
-                                        Stage VARCHAR(50) NOT NULL,
-
-    -- Основное описание ошибки (включая колонку, значение и т.д.)
-                                        ErrorMessage NVARCHAR(4000) NOT NULL,
-
-                                        CONSTRAINT FK_CD_data_Load_error_Load_session
-                                            FOREIGN KEY (LoadSessionId) REFERENCES dbo.CD_data_Load_session(Id)
-);
-GO
 
 /* =========================
-   5. Индексы
+   Индексы
    ========================= */
 
 CREATE INDEX IX_CD_data_LoadSessionId
@@ -201,10 +162,3 @@ CREATE INDEX IX_CD_data_raw_LoadSessionId
     ON dbo.CD_data_raw(LoadSessionId);
 GO
 
-CREATE INDEX IX_CD_data_Load_error_LoadSessionId
-    ON dbo.CD_data_Load_error(LoadSessionId);
-GO
-
-CREATE INDEX IX_CD_data_god_sezon
-    ON dbo.CD_data(god, sezon);
-GO

@@ -42,8 +42,6 @@ public abstract class AbstractDWHExcelLoader {
         Long loadSessionId = null;
 
         try {
-            validateDefinition();
-
             DWHExcelLoadSessionResult sessionResult = createLoadSession(filePath);
             loadSessionId = sessionResult.loadSessionId();
 
@@ -53,7 +51,7 @@ public abstract class AbstractDWHExcelLoader {
 
             validateFileBasic(filePath);
             readAndInsertExcel(filePath, loadSessionId);
-            callProcessProcedure(loadSessionId);
+            //callProcessProcedure(loadSessionId);
             finishLoadSession(loadSessionId, "SUCCESS", "OK");
 
             return DWHExcelLoadResult.ok(
@@ -62,6 +60,10 @@ public abstract class AbstractDWHExcelLoader {
             );
 
         } catch (Exception e) {
+            String errorText = buildErrorText(e);
+
+            log.error("Load failed. loadSessionId={}, filePath={}", loadSessionId, filePath, e);
+
             if (loadSessionId != null) {
                 logLoadError(
                         loadSessionId,
@@ -71,13 +73,27 @@ public abstract class AbstractDWHExcelLoader {
                         null,
                         "JAVA_LOAD_ERROR",
                         "Java load failed",
-                        e.getMessage()
+                        errorText
                 );
             }
 
-            safeFinishWithError(loadSessionId, e);
-            return DWHExcelLoadResult.error(loadSessionId, "Fatal error: " + e.getMessage());
+            safeFinishWithError(loadSessionId, errorText);
+            return DWHExcelLoadResult.error(loadSessionId, errorText);
         }
+    }
+    protected String buildErrorText(Throwable e) {
+        if (e == null) {
+            return "Fatal error: unknown exception";
+        }
+
+        String className = e.getClass().getSimpleName();
+        String message = e.getMessage();
+
+        if (message == null || message.isBlank()) {
+            return "Fatal error: " + className;
+        }
+
+        return "Fatal error: " + className + ": " + message;
     }
 
     protected void validateDefinition() {
@@ -177,7 +193,7 @@ public abstract class AbstractDWHExcelLoader {
                             return;
                         }
 
-                        ExcelRowData row = normalizeRow(currentRowNum, List.of(currentRow));
+                        ExcelRowData row = normalizeRow(currentRowNum, currentRow);
 
                         try {
                             bindRawRow(ps, loadSessionId, row);
@@ -239,12 +255,12 @@ public abstract class AbstractDWHExcelLoader {
                 definition.loadCode(), lastRowNum[0], parsedRows[0], emptyRows[0], stagedRows[0]);
     }
 
-    protected ExcelRowData normalizeRow(int rowNum, List<String> rowValues) {
+    protected ExcelRowData normalizeRow(int rowNum, String[] rowValues) {
         Map<String, String> values = new LinkedHashMap<>();
 
         for (DWHExcelColumnSpec col : definition.columns()) {
-            String raw = col.excelIndex() < rowValues.size()
-                    ? rowValues.get(col.excelIndex())
+            String raw = col.excelIndex() < rowValues.length
+                    ? rowValues[col.excelIndex()]
                     : null;
 
             String normalized = col.normalizer() != null
@@ -259,8 +275,9 @@ public abstract class AbstractDWHExcelLoader {
 
     protected void bindRawRow(PreparedStatement ps, Long loadSessionId, ExcelRowData row) throws SQLException {
         ps.setLong(1, loadSessionId);
+        ps.setInt(2, row.rowNum());
 
-        int paramIndex = 2;
+        int paramIndex = 3;
         for (DWHExcelColumnSpec column : definition.columns()) {
             ps.setString(paramIndex++, row.get(column.rawColumnName()));
         }
@@ -275,8 +292,8 @@ public abstract class AbstractDWHExcelLoader {
                 .map(c -> "?")
                 .collect(Collectors.joining(", "));
 
-        return "INSERT INTO " + definition.rawTableName() +
-                " (LoadSessionId, " + columns + ") VALUES (?," + placeholders + ")";
+        return "INSERT INTO " + definition.rawTableName()
+                + " (LoadSessionId, ExcelRowNum, " + columns + ") VALUES (?, ?, " + placeholders + ")";
     }
 
     protected void callProcessProcedure(Long loadSessionId) throws SQLException {
@@ -371,9 +388,11 @@ public abstract class AbstractDWHExcelLoader {
             closeQuietly(c);
         }
     }
-    protected void safeFinishWithError(Long loadSessionId, Exception e) {
+
+
+    protected void safeFinishWithError(Long loadSessionId, String errorText) {
         try {
-            finishLoadSession(loadSessionId, "ERROR", e.getMessage());
+            finishLoadSession(loadSessionId, "ERROR", errorText);
         } catch (Exception ignored) {
         }
     }
