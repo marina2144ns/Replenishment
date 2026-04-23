@@ -11,6 +11,7 @@ public record DWHExcelColumnSpec(
         int rawMaxLength,
         boolean required,
         DWHExcelValueNormalizer normalizer,
+        DWHExcelNullHandling nullHandling,
         String javaValidationNote,
         String sqlValidationNote
 ) {

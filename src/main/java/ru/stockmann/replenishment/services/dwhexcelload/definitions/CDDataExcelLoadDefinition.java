@@ -1,9 +1,6 @@
 package ru.stockmann.replenishment.services.dwhexcelload.definitions;
 
-import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelColumnSpec;
-import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadDefinition;
-import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadType;
-import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelValueKind;
+import ru.stockmann.replenishment.services.dwhexcelload.core.*;
 import ru.stockmann.replenishment.services.dwhexcelload.normalizers.DWHExcelNormalizers;
 
 import java.util.List;
@@ -42,128 +39,60 @@ public class CDDataExcelLoadDefinition implements DWHExcelLoadDefinition {
     @Override
     public List<DWHExcelColumnSpec> columns() {
         return List.of(
-                text255(0,  "nazvanie"),
-                int50(1,   "god"),
-                int50(2,   "sezon"),
-                int50(3,   "den"),
-                date50(4,  "data"),
+                DWHExcelColumns.text(0,  "nazvanie", 255),
 
-                text255(5,  "sales_channel"),
-                text255(6,  "store_rus"),
-                text255(7,  "mfp_division"),
-                text255(8,  "mfp_department"),
-                text255(9,  "mfp_sub_department"),
-                text255(10, "sku_brand_type"),
-                text255(11, "sku_tm"),
-                text255(12, "mfp_node"),
-                text255(13, "section"),
-                text255(14, "merchandise_sub_group"),
-                text255(15, "campaign_sales"),
+                DWHExcelColumns.intNumber(1, "god", 50, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.intNumber(2, "sezon", 50, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.intNumber(3, "den", 50, DWHExcelNullHandling.KEEP_NULL),
 
-                int50(16, "sku_style_color"),
-                text255(17, "sku_phase"),
+                DWHExcelColumns.date(4, "data", 50),
 
-                decimal50(18, "stock_start_pcs"),
-                decimal50(19, "stock_start_dd"),
-                decimal50(20, "sales_pcs"),
-                decimal50(21, "sales_rub"),
-                decimal50(22, "revenue"),
-                decimal50(23, "gp"),
-                decimal50FloatValidation50(24, "cogs"),
-                decimal50(25, "sales_frp_price"),
-                decimal50(26, "sales_discount"),
-                decimal50(27, "stock_stores_pcs"),
-                decimal50(28, "stock_stores_dd"),
+                DWHExcelColumns.text(5,  "sales_channel", 255),
+                DWHExcelColumns.text(6,  "store_rus", 255),
+                DWHExcelColumns.text(7,  "mfp_division", 255),
+                DWHExcelColumns.text(8,  "mfp_department", 255),
+                DWHExcelColumns.text(9,  "mfp_sub_department", 255),
+                DWHExcelColumns.text(10, "sku_brand_type", 255),
+                DWHExcelColumns.text(11, "sku_tm", 255),
+                DWHExcelColumns.text(12, "mfp_node", 255),
+                DWHExcelColumns.text(13, "section", 255),
+                DWHExcelColumns.text(14, "merchandise_sub_group", 255),
+                DWHExcelColumns.text(15, "campaign_sales", 255),
 
-                int50(29, "plan_rub"),
+                DWHExcelColumns.intNumber(16, "sku_style_color", 50, DWHExcelNullHandling.KEEP_NULL),
 
-                text255(30, "draivery_cd"),
-                text255(31, "sku_color_rus"),
-                text255(32, "sku_composition"),
-                text255(33, "sku_supplier"),
-                text255(34, "sku_name"),
-                text255(35, "sku_collection"),
-                text255(36, "sku_comment")
+                DWHExcelColumns.text(17, "sku_phase", 255),
+
+                DWHExcelColumns.decimal(18, "stock_start_pcs", 50, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(19, "stock_start_dd", 50, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(20, "sales_pcs", 50, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(21, "sales_rub", 50, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(22, "revenue", 50, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(23, "gp", 50, DWHExcelNullHandling.ZERO),
+
+                DWHExcelColumns.decimalFloatValidation(
+                        24,
+                        "cogs",
+                        50,
+                        DWHExcelNullHandling.ZERO
+                ),
+
+                DWHExcelColumns.decimal(25, "sales_frp_price", 50, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(26, "sales_discount", 50, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(27, "stock_stores_pcs", 50, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(28, "stock_stores_dd", 50, DWHExcelNullHandling.ZERO),
+
+                DWHExcelColumns.intNumber(29, "plan_rub", 50, DWHExcelNullHandling.KEEP_NULL),
+
+                DWHExcelColumns.text(30, "draivery_cd", 255),
+                DWHExcelColumns.text(31, "sku_color_rus", 255),
+                DWHExcelColumns.text(32, "sku_composition", 255),
+                DWHExcelColumns.text(33, "sku_supplier", 255),
+                DWHExcelColumns.text(34, "sku_name", 255),
+                DWHExcelColumns.text(35, "sku_collection", 255),
+                DWHExcelColumns.text(36, "sku_comment", 255)
         );
     }
 
-    private static DWHExcelColumnSpec text255(int index, String name) {
-        return new DWHExcelColumnSpec(
-                index,
-                name,
-                name,
-                name,
-                DWHExcelValueKind.TEXT,
-                255,
-                false,
-                DWHExcelNormalizers.TEXT,
-                "trim + empty->null",
-                "NULLIF(LTRIM(RTRIM(...)), '') + LEN<=255"
-        );
-    }
 
-    private static DWHExcelColumnSpec int50(int index, String name) {
-        return new DWHExcelColumnSpec(
-                index,
-                name,
-                name,
-                name,
-                DWHExcelValueKind.INT,
-                50,
-                false,
-                DWHExcelNormalizers.NUMERIC_TEXT,
-                "trim numeric text + remove NBSP/narrow NBSP",
-                "TRY_CONVERT(INT)"
-        );
-    }
-
-    private static DWHExcelColumnSpec decimal50(int index, String name) {
-        return new DWHExcelColumnSpec(
-                index,
-                name,
-                name,
-                name,
-                DWHExcelValueKind.DECIMAL,
-                50,
-                false,
-                DWHExcelNormalizers.NUMERIC_TEXT,
-                "trim numeric text + remove NBSP/narrow NBSP",
-                "REPLACE(','->'.') + TRY_CONVERT(DECIMAL(18,2))"
-        );
-    }
-
-    /**
-     * В текущей proc поле cogs валидируется через TRY_CONVERT(FLOAT),
-     * хотя в target оно DECIMAL(18,2). Оставляю это в note как есть,
-     * чтобы definition пока отражал текущую реальность.
-     */
-    private static DWHExcelColumnSpec decimal50FloatValidation50(int index, String name) {
-        return new DWHExcelColumnSpec(
-                index,
-                name,
-                name,
-                name,
-                DWHExcelValueKind.DECIMAL,
-                50,
-                false,
-                DWHExcelNormalizers.NUMERIC_TEXT,
-                "trim numeric text + remove NBSP/narrow NBSP",
-                "REPLACE(','->'.') + TRY_CONVERT(FLOAT) in validation; target DECIMAL(18,2)"
-        );
-    }
-
-    private static DWHExcelColumnSpec date50(int index, String name) {
-        return new DWHExcelColumnSpec(
-                index,
-                name,
-                name,
-                name,
-                DWHExcelValueKind.DATE,
-                50,
-                false,
-                DWHExcelNormalizers.DATE_TO_ISO,
-                "trim + normalize to yyyy-MM-dd if possible",
-                "TRY_CONVERT(DATE, current proc uses style 1)"
-        );
-    }
 }

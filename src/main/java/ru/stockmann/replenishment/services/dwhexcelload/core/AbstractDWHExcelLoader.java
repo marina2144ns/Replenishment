@@ -21,7 +21,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -259,6 +258,7 @@ public abstract class AbstractDWHExcelLoader {
         Map<String, String> values = new LinkedHashMap<>();
 
         for (DWHExcelColumnSpec col : definition.columns()) {
+
             String raw = col.excelIndex() < rowValues.length
                     ? rowValues[col.excelIndex()]
                     : null;
@@ -267,10 +267,27 @@ public abstract class AbstractDWHExcelLoader {
                     ? col.normalizer().normalize(raw)
                     : raw;
 
+            normalized = applyNullHandling(col, normalized);
+
             values.put(col.rawColumnName(), normalized);
         }
 
         return new ExcelRowData(rowNum, values);
+    }
+
+    protected String applyNullHandling(DWHExcelColumnSpec col, String value) {
+        if (value != null) {
+            return value;
+        }
+
+        if (col.nullHandling() == null) {
+            return null;
+        }
+
+        return switch (col.nullHandling()) {
+            case KEEP_NULL -> null;
+            case ZERO -> "0";
+        };
     }
 
     protected void bindRawRow(PreparedStatement ps, Long loadSessionId, ExcelRowData row) throws SQLException {
