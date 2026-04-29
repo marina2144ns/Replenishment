@@ -37,6 +37,151 @@ public abstract class AbstractDWHExcelLoader {
         this.definition = definition;
     }
 
+    public DWHExcelLoadResult acceptFile(String filePath) {
+
+        Long loadSessionId = null;
+
+        try {
+            DWHExcelLoadSessionResult sessionResult = createLoadSession(filePath);
+            loadSessionId = sessionResult.loadSessionId();
+
+            if (!sessionResult.success()) {
+                return DWHExcelLoadResult.error(loadSessionId, sessionResult.message());
+            }
+
+            validateFileBasic(filePath);
+
+            updateLoadSessionStatus(
+                    loadSessionId,
+                    "QUEUED",
+                    "File accepted for processing"
+            );
+
+            return DWHExcelLoadResult.ok(
+                    loadSessionId,
+                    definition.serviceName() + " file accepted for processing"
+            );
+
+        } catch (Exception e) {
+            String errorText = buildErrorText(e);
+
+            log.error("AcceptFile failed. loadSessionId={}, filePath={}", loadSessionId, filePath, e);
+
+            if (loadSessionId != null) {
+                logLoadError(
+                        loadSessionId,
+                        DWHExcelErrorLayer.JAVA,
+                        null,
+                        null,
+                        null,
+                        "JAVA_LOAD_ERROR",
+                        "Java load failed",
+                        errorText
+                );
+
+                updateLoadSessionStatus(
+                        loadSessionId,
+                        "ERROR",
+                        errorText
+                );
+            }
+
+            return DWHExcelLoadResult.error(loadSessionId, errorText);
+        }
+    }
+
+    protected void updateLoadSessionStatus(
+            Long loadSessionId,
+            String status,
+            String message
+    ) {
+        String sql = """
+            UPDATE dbo.DWH_Excel_Load_Session
+            SET
+                Status = ?,
+                Message = ?
+            WHERE Id = ?
+            """;
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
+
+            ps.setString(1, status);
+            ps.setString(2, message);
+            ps.setLong(3, loadSessionId);
+
+            ps.executeUpdate();
+
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to update load session status. loadSessionId=" + loadSessionId,
+                    e
+            );
+        }
+    }
+
+    public void processAcceptedFile(Long loadSessionId, String filePath) {
+
+        if (loadSessionId == null) {
+            throw new IllegalArgumentException("loadSessionId is required");
+        }
+
+        try {
+            updateLoadSessionStatus(
+                    loadSessionId,
+                    "RUNNING",
+                    "Processing started"
+            );
+
+            readAndInsertExcel(filePath, loadSessionId);
+
+            // Пока оставляем так, как у тебя сейчас:
+            // если вызов хранимки пока отключен, не включаем его здесь
+            // callProcessProcedure(loadSessionId);
+
+            finishLoadSession(
+                    loadSessionId,
+                    "SUCCESS",
+                    definition.serviceName() + " loaded successfully"
+            );
+
+        } catch (Exception e) {
+            String errorText = buildErrorText(e);
+
+            log.error(
+                    "ProcessAcceptedFile failed. loadSessionId={}, filePath={}",
+                    loadSessionId,
+                    filePath,
+                    e
+            );
+
+            logLoadError(
+                    loadSessionId,
+                    DWHExcelErrorLayer.JAVA,
+                    null,
+                    null,
+                    null,
+                    "JAVA_LOAD_ERROR",
+                    "Java load failed",
+                    errorText
+            );
+
+            finishLoadSession(
+                    loadSessionId,
+                    "ERROR",
+                    errorText
+            );
+
+            throw new RuntimeException(
+                    "Failed to process accepted file. loadSessionId=" + loadSessionId,
+                    e
+            );
+        }
+    }
+
+
+
+
     public DWHExcelLoadResult loadFromExcel(String filePath) {
         Long loadSessionId = null;
 
