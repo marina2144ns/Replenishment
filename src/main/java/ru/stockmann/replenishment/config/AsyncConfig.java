@@ -11,15 +11,15 @@ import java.util.concurrent.Executor;
 @EnableAsync
 public class AsyncConfig {
 
-    @Bean(name = "cdDataLoadExecutor")
-    public Executor cdDataLoadExecutor() {
+    @Bean(name = "dwhExcelLoadExecutor")
+    public Executor dwhExcelLoadExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
 
         executor.setCorePoolSize(1);
         executor.setMaxPoolSize(1);
         executor.setQueueCapacity(10);
 
-        executor.setThreadNamePrefix("cddata-load-");
+        executor.setThreadNamePrefix("dwh-excel-load-");
 
         executor.initialize();
 

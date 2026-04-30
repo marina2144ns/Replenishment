@@ -53,7 +53,7 @@ public abstract class AbstractDWHExcelLoader {
 
             updateLoadSessionStatus(
                     loadSessionId,
-                    "QUEUED",
+                    DWHExcelLoadStatus.QUEUED.name(),
                     "File accepted for processing"
             );
 
@@ -129,19 +129,17 @@ public abstract class AbstractDWHExcelLoader {
         try {
             updateLoadSessionStatus(
                     loadSessionId,
-                    "RUNNING",
+                    DWHExcelLoadStatus.RUNNING.name(),
                     "Processing started"
             );
 
             readAndInsertExcel(filePath, loadSessionId);
 
-            // Пока оставляем так, как у тебя сейчас:
-            // если вызов хранимки пока отключен, не включаем его здесь
-            // callProcessProcedure(loadSessionId);
+            callProcessProcedure(loadSessionId);
 
             finishLoadSession(
                     loadSessionId,
-                    "SUCCESS",
+                    DWHExcelLoadStatus.SUCCESS.name(),
                     definition.serviceName() + " loaded successfully"
             );
 
@@ -168,7 +166,7 @@ public abstract class AbstractDWHExcelLoader {
 
             finishLoadSession(
                     loadSessionId,
-                    "ERROR",
+                    DWHExcelLoadStatus.ERROR.name(),
                     errorText
             );
 
@@ -179,52 +177,6 @@ public abstract class AbstractDWHExcelLoader {
         }
     }
 
-
-
-
-    public DWHExcelLoadResult loadFromExcel(String filePath) {
-        Long loadSessionId = null;
-
-        try {
-            DWHExcelLoadSessionResult sessionResult = createLoadSession(filePath);
-            loadSessionId = sessionResult.loadSessionId();
-
-            if (!sessionResult.success()) {
-                return DWHExcelLoadResult.error(loadSessionId, sessionResult.message());
-            }
-
-            validateFileBasic(filePath);
-            readAndInsertExcel(filePath, loadSessionId);
-            //callProcessProcedure(loadSessionId);
-            finishLoadSession(loadSessionId, "SUCCESS", "OK");
-
-            return DWHExcelLoadResult.ok(
-                    loadSessionId,
-                    definition.serviceName() + " loaded successfully"
-            );
-
-        } catch (Exception e) {
-            String errorText = buildErrorText(e);
-
-            log.error("Load failed. loadSessionId={}, filePath={}", loadSessionId, filePath, e);
-
-            if (loadSessionId != null) {
-                logLoadError(
-                        loadSessionId,
-                        DWHExcelErrorLayer.JAVA,
-                        null,
-                        null,
-                        null,
-                        "JAVA_LOAD_ERROR",
-                        "Java load failed",
-                        errorText
-                );
-            }
-
-            safeFinishWithError(loadSessionId, errorText);
-            return DWHExcelLoadResult.error(loadSessionId, errorText);
-        }
-    }
     protected String buildErrorText(Throwable e) {
         if (e == null) {
             return "Fatal error: unknown exception";
@@ -488,7 +440,7 @@ public abstract class AbstractDWHExcelLoader {
                     Status
                 )
                 OUTPUT INSERTED.Id
-                VALUES (?, ?, ?, ?, 'RUNNING')
+                VALUES (?, ?, ?, ?, ?)
                 """;
 
             try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -496,6 +448,7 @@ public abstract class AbstractDWHExcelLoader {
                 ps.setString(2, definition.serviceName());
                 ps.setString(3, fileName);
                 ps.setString(4, filePath);
+                ps.setString(5, DWHExcelLoadStatus.QUEUED.name());
 
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
@@ -554,7 +507,7 @@ public abstract class AbstractDWHExcelLoader {
 
     protected void safeFinishWithError(Long loadSessionId, String errorText) {
         try {
-            finishLoadSession(loadSessionId, "ERROR", errorText);
+            finishLoadSession(loadSessionId, DWHExcelLoadStatus.ERROR.name(), errorText);
         } catch (Exception ignored) {
         }
     }
@@ -654,4 +607,9 @@ public abstract class AbstractDWHExcelLoader {
             log.error("Failed to log load error. loadSessionId={}", loadSessionId, ex);
         }
     }
+
+    public DWHExcelLoadDefinition getDefinition() {
+        return definition;
+    }
+
 }

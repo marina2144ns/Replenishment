@@ -60,6 +60,8 @@ public class DWHExcelLoadStatusService {
                 );
             }
 
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException("Failed to get load session status: " + loadSessionId, e);
         }

@@ -5,8 +5,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import ru.stockmann.replenishment.models.CDDataLoadRequest;
-import ru.stockmann.replenishment.services.CDDataAsyncLoadService;
 import ru.stockmann.replenishment.services.CDDataBulkLoader;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelAsyncLoadService;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadResult;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadStatusService;
 
@@ -15,35 +15,18 @@ import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadStatusS
 public class CDDataController {
 
     private final CDDataBulkLoader bulkLoader;
-    private final CDDataAsyncLoadService asyncLoadService;
+    private final DWHExcelAsyncLoadService asyncLoadService;
     private final DWHExcelLoadStatusService statusService;
 
     public CDDataController(
             CDDataBulkLoader bulkLoader,
-            CDDataAsyncLoadService asyncLoadService,
+            DWHExcelAsyncLoadService  asyncLoadService,
             DWHExcelLoadStatusService statusService
     ) {
         this.bulkLoader = bulkLoader;
         this.asyncLoadService = asyncLoadService;
         this.statusService = statusService;
     }
-    /*
-    @PostMapping("/bulk")
-    public ResponseEntity<DWHExcelLoadResult> bulk(@RequestBody CDDataLoadRequest req) {
-        if (req == null || req.getFilePath() == null || req.getFilePath().isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body(DWHExcelLoadResult.error(null, "filePath is empty"));
-        }
-
-        DWHExcelLoadResult result = bulkLoader.loadFromExcel(req.getFilePath());
-
-        HttpStatus status = "OK".equals(result.status())
-                ? HttpStatus.OK
-                : HttpStatus.INTERNAL_SERVER_ERROR;
-
-        return new ResponseEntity<>(result, status);
-    }
-     */
 
     @PostMapping("/bulk")
     public ResponseEntity<?> bulk(@RequestBody CDDataLoadRequest req) {
@@ -60,6 +43,7 @@ public class CDDataController {
         }
 
         asyncLoadService.startAsync(
+                bulkLoader,
                 result.loadSessionId(),
                 req.getFilePath()
         );
