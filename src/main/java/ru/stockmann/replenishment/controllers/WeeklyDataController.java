@@ -5,7 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.stockmann.replenishment.models.WeeklyDataLoadRequest;
 import ru.stockmann.replenishment.services.WeeklyDataBulkLoader;
-import ru.stockmann.replenishment.models.WeeklyDataLoadResult;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadResult;
 
 @RestController
 @RequestMapping("/weeklydata/v1.0")
@@ -18,12 +18,15 @@ public class WeeklyDataController {
     }
 
     @PostMapping("/bulk")
-    public ResponseEntity<WeeklyDataLoadResult> bulk(@RequestBody WeeklyDataLoadRequest req) {
+    public ResponseEntity<DWHExcelLoadResult> bulk(@RequestBody WeeklyDataLoadRequest req) {
+
         if (req == null || req.getFilePath() == null || req.getFilePath().isBlank()) {
-            return ResponseEntity.badRequest().body(WeeklyDataLoadResult.error(null,"filePath is empty"));
+            return ResponseEntity
+                    .badRequest()
+                    .body(DWHExcelLoadResult.error(null, "filePath is empty"));
         }
-        WeeklyDataLoadResult result =
-                bulkLoader.bulkLoad(req.getFilePath());
+
+        DWHExcelLoadResult result = bulkLoader.acceptFile(req.getFilePath());
 
         HttpStatus status = "OK".equals(result.status())
                 ? HttpStatus.OK
