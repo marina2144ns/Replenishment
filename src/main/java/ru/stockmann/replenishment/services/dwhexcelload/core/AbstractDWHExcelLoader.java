@@ -16,10 +16,7 @@ import javax.sql.DataSource;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -135,13 +132,49 @@ public abstract class AbstractDWHExcelLoader {
 
             readAndInsertExcel(filePath, loadSessionId);
 
-            callProcessProcedure(loadSessionId);
+            try (Connection conn = dataSource.getConnection();
+                 CallableStatement stmt = conn.prepareCall("{call " + definition.processProcedureName() + "(?)}")) {
 
-            finishLoadSession(
-                    loadSessionId,
-                    DWHExcelLoadStatus.SUCCESS.name(),
-                    definition.serviceName() + " loaded successfully"
-            );
+                stmt.setLong(1, loadSessionId);
+
+                boolean hasResult = stmt.execute();
+
+                if (!hasResult) {
+                    throw new RuntimeException("Procedure returned no result");
+                }
+
+                try (ResultSet rs = stmt.getResultSet()) {
+
+                    if (!rs.next()) {
+                        throw new RuntimeException("Procedure returned empty result");
+                    }
+
+                    boolean success = rs.getBoolean("Success");
+                    String message = rs.getString("Message");
+
+                    if (success) {
+                        finishLoadSession(
+                                loadSessionId,
+                                DWHExcelLoadStatus.SUCCESS.name(),
+                                message
+                        );
+                    } else {
+                        finishLoadSession(
+                                loadSessionId,
+                                DWHExcelLoadStatus.ERROR.name(),
+                                message
+                        );
+                    }
+                }
+
+            } catch (Exception ex) {
+                finishLoadSession(
+                        loadSessionId,
+                        DWHExcelLoadStatus.ERROR.name(),
+                        "Fatal error: " + ex.getMessage()
+                );
+                throw new RuntimeException(ex);
+            }
 
         } catch (Exception e) {
             String errorText = buildErrorText(e);

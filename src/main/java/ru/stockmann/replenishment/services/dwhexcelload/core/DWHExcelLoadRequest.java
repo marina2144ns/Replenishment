@@ -1,8 +1,7 @@
-package ru.stockmann.replenishment.models;
+package ru.stockmann.replenishment.services.dwhexcelload.core;
 
-public class WeeklyDataLoadRequest {
+public class DWHExcelLoadRequest {
 
-    // Полный путь к Excel; пример: C:\\data\\weekly_data.xslx
     private String filePath;
 
     public String getFilePath() {

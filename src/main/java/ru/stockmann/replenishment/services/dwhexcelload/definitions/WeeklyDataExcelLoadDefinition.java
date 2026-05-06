@@ -23,7 +23,7 @@ public class WeeklyDataExcelLoadDefinition implements DWHExcelLoadDefinition {
 
     @Override
     public String processProcedureName() {
-        return "dbo.usp_Weekly_data_ProcessLoadSession";
+        return "dbo.usp_WeeklyData_ProcessLoadSession";
     }
 
     @Override
@@ -51,22 +51,22 @@ public class WeeklyDataExcelLoadDefinition implements DWHExcelLoadDefinition {
                 DWHExcelColumns.text(8, "StoreRus", 255),
                 DWHExcelColumns.text(9, "MfpDivisionNew", 255),
                 DWHExcelColumns.text(10, "MfpDepartment", 255),
-                DWHExcelColumns.text(11, "SkuSeasonBudget", 100),
-                DWHExcelColumns.text(12, "TypeOfSales", 100),
+                DWHExcelColumns.text(11, "SkuSeasonBudget", 255),
+                DWHExcelColumns.text(12, "TypeOfSales", 255),
 
-                DWHExcelColumns.decimal(13, "TotalStockPcs", 50, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(14, "TotalStockDdp", 50, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(15, "SalesPcs", 50, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(16, "SalesRub", 50, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(17, "Revenue", 50, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(18, "Gp", 50, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(19, "DiscountTotalRub", 50, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(13, "TotalStockPcs", 255, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(14, "TotalStockDdp", 255, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(15, "SalesPcs", 255, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(16, "SalesRub", 255, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(17, "Revenue", 255, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(18, "Gp", 255, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(19, "DiscountTotalRub", 255, DWHExcelNullHandling.ZERO),
 
                 DWHExcelColumns.text(20, "MfpDivision", 255),
-                DWHExcelColumns.text(21, "Season", 100),
-                DWHExcelColumns.text(22, "Month", 100),
-                DWHExcelColumns.text(23, "Bundle", 100),
-                DWHExcelColumns.text(24, "Seasonality", 100)
+                DWHExcelColumns.text(21, "Season", 255),
+                DWHExcelColumns.text(22, "Month", 255),
+                DWHExcelColumns.text(23, "Bundle", 255),
+                DWHExcelColumns.text(24, "Seasonality", 255)
         );
     }
 }

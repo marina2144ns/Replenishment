@@ -1,7 +1,3 @@
-USE ReplenishmentDWH;
-GO
-
-
 /* =========================
    CD_data (target)
    ========================= */
@@ -82,7 +78,7 @@ GO
 CREATE TABLE dbo.CD_data_raw (
                                  Id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
                                  LoadSessionId BIGINT NOT NULL,
-                                 ExcelRowNum INT NULL,
+                                 ExcelRowNum BIGINT NULL,
 
     -- Основные данные
                                  nazvanie                NVARCHAR(255) NULL,
