@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.stockmann.replenishment.services.DWHExcelStatusService;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadResult;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadStatusResult;
 
 @RestController
 @RequestMapping("/dwhexcel/v1.0")
@@ -20,9 +21,9 @@ public class DWHExcelStatusController {
     }
 
     @GetMapping("/status/{id}")
-    public ResponseEntity<DWHExcelLoadResult> getStatus(@PathVariable Long id) {
+    public ResponseEntity<DWHExcelLoadStatusResult> getStatus(@PathVariable Long id) {
 
-        DWHExcelLoadResult result = statusService.getStatus(id);
+        DWHExcelLoadStatusResult result = statusService.getStatus(id);
 
         HttpStatus status = "ERROR".equals(result.status())
                 ? HttpStatus.NOT_FOUND

@@ -1,6 +1,7 @@
 package ru.stockmann.replenishment.services.dwhexcelload.core;
 
 import org.apache.poi.openxml4j.opc.OPCPackage;
+import org.apache.poi.openxml4j.opc.PackageAccess;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.util.XMLHelper;
 import org.apache.poi.xssf.eventusermodel.ReadOnlySharedStringsTable;
@@ -284,8 +285,7 @@ public abstract class AbstractDWHExcelLoader {
             connection.setAutoCommit(false);
 
             try (PreparedStatement ps = connection.prepareStatement(sql);
-                 OPCPackage pkg = OPCPackage.open(Path.of(filePath).toFile())) {
-
+                 OPCPackage pkg = OPCPackage.open(Path.of(filePath).toFile(), PackageAccess.READ)) {
                 XSSFReader reader = new XSSFReader(pkg);
                 StylesTable styles = reader.getStylesTable();
                 ReadOnlySharedStringsTable strings = new ReadOnlySharedStringsTable(pkg);
@@ -322,7 +322,7 @@ public abstract class AbstractDWHExcelLoader {
                             return;
                         }
 
-                        ExcelRowData row = normalizeRow(currentRowNum, currentRow);
+                        ExcelRowData row = normalizeRow(currentRowNum+1, currentRow);
 
                         try {
                             bindRawRow(ps, loadSessionId, row);

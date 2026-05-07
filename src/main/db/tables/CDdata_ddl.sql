@@ -1,7 +1,3 @@
-/* =========================
-   CD_data (target)
-   ========================= */
-
 CREATE TABLE dbo.CD_data (
                              Id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
                              LoadSessionId BIGINT NOT NULL,
@@ -71,10 +67,6 @@ CREATE TABLE dbo.CD_data (
 );
 GO
 
-/* =========================
-   CD_data_raw (staging)
-   ========================= */
-
 CREATE TABLE dbo.CD_data_raw (
                                  Id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
                                  LoadSessionId BIGINT NOT NULL,
@@ -140,15 +132,11 @@ CREATE TABLE dbo.CD_data_raw (
                                      CONSTRAINT DF_CD_data_raw_CreatedAt DEFAULT SYSDATETIME(),
 
                                  CONSTRAINT FK_CD_data_raw_Load_session
-                                     FOREIGN KEY (LoadSessionId) REFERENCES dbo.CD_data_Load_session(Id)
+                                     FOREIGN KEY (LoadSessionId) REFERENCES dbo.DWH_Excel_Load_Session(Id)
 );
 GO
 
 
-
-/* =========================
-   Индексы
-   ========================= */
 
 CREATE INDEX IX_CD_data_LoadSessionId
     ON dbo.CD_data(LoadSessionId);
