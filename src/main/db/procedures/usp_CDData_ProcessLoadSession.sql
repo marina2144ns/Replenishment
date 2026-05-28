@@ -160,7 +160,9 @@ BEGIN
                 god_float = TRY_CONVERT(FLOAT, s.god_clean),
                 sezon_float = TRY_CONVERT(FLOAT, s.sezon_clean),
                 den_float = TRY_CONVERT(FLOAT, s.den_clean),
+                //sku_style_color_float = TRY_CONVERT(FLOAT, s.sku_style_color_clean),
                 sku_style_color_float = TRY_CONVERT(FLOAT, s.sku_style_color_clean),
+                sku_style_color_bigint = TRY_CONVERT(BIGINT, s.sku_style_color_clean),
                 plan_rub_float = TRY_CONVERT(FLOAT, s.plan_rub_clean),
 
                 stock_start_pcs_float = TRY_CONVERT(FLOAT, s.stock_start_pcs_clean),
@@ -227,7 +229,8 @@ BEGIN
                              AND (
                                     t.sku_style_color_float IS NULL
                                     OR t.sku_style_color_float <> FLOOR(t.sku_style_color_float)
-                                    OR ABS(t.sku_style_color_float) > 2147483647
+                                    //OR ABS(t.sku_style_color_float) > 2147483647
+                                     OR ABS(t.sku_style_color_float) > 9223372036854775807
                                  ) THEN N'sku_style_color'
 
                         WHEN t.plan_rub_clean IS NOT NULL
@@ -328,9 +331,10 @@ BEGIN
                              AND (
                                     t.sku_style_color_float IS NULL
                                     OR t.sku_style_color_float <> FLOOR(t.sku_style_color_float)
-                                    OR ABS(t.sku_style_color_float) > 2147483647
+                                    //OR ABS(t.sku_style_color_float) > 2147483647
+                                    OR ABS(t.sku_style_color_float) > 9223372036854775807
                                  )
-                            THEN CONCAT(N'RawId=', t.Id, N'. Invalid INT value in [sku_style_color]: [', t.sku_style_color, N']')
+                            THEN CONCAT(N'RawId=', t.Id, N'. Invalid BIGINT value in [sku_style_color]: [', t.sku_style_color, N']')
 
                         WHEN t.plan_rub_clean IS NOT NULL
                              AND (
@@ -573,7 +577,9 @@ BEGIN
                 god_float = TRY_CONVERT(FLOAT, s.god_clean),
                 sezon_float = TRY_CONVERT(FLOAT, s.sezon_clean),
                 den_float = TRY_CONVERT(FLOAT, s.den_clean),
+                //sku_style_color_float = TRY_CONVERT(FLOAT, s.sku_style_color_clean),
                 sku_style_color_float = TRY_CONVERT(FLOAT, s.sku_style_color_clean),
+                sku_style_color_bigint = TRY_CONVERT(BIGINT, s.sku_style_color_clean),
                 plan_rub_float = TRY_CONVERT(FLOAT, s.plan_rub_clean),
 
                 stock_start_pcs_float = TRY_CONVERT(FLOAT, s.stock_start_pcs_clean),
@@ -663,7 +669,7 @@ BEGIN
              t.section_clean,
              t.merchandise_sub_group_clean,
              t.campaign_sales_clean,
-             CONVERT(INT, ABS(t.sku_style_color_float)),
+             ABS(t.sku_style_color_bigint),
              t.sku_phase_clean,
              CONVERT(DECIMAL(18,2), ABS(ROUND(t.stock_start_pcs_float, 2))),
              CONVERT(DECIMAL(18,2), ABS(ROUND(t.stock_start_dd_float, 2))),

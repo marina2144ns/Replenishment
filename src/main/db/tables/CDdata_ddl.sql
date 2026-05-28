@@ -23,7 +23,7 @@ CREATE TABLE dbo.CD_data (
                              campaign_sales          NVARCHAR(255)        NULL,
 
     -- SKU
-                             sku_style_color         INT                  NULL,
+                             sku_style_color         BIGINT               NULL,
                              sku_phase               NVARCHAR(255)        NULL,
 
     -- Остатки
