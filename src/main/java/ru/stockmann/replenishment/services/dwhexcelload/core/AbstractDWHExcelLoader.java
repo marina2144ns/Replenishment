@@ -133,39 +133,21 @@ public abstract class AbstractDWHExcelLoader {
 
             readAndInsertExcel(filePath, loadSessionId);
 
-            try (Connection conn = dataSource.getConnection();
-                 CallableStatement stmt = conn.prepareCall("{call " + definition.processProcedureName() + "(?)}")) {
+            try {
+                DWHExcelLoadSessionResult processResult = processLoadSession(loadSessionId);
 
-                stmt.setLong(1, loadSessionId);
-
-                boolean hasResult = stmt.execute();
-
-                if (!hasResult) {
-                    throw new RuntimeException("Procedure returned no result");
-                }
-
-                try (ResultSet rs = stmt.getResultSet()) {
-
-                    if (!rs.next()) {
-                        throw new RuntimeException("Procedure returned empty result");
-                    }
-
-                    boolean success = rs.getBoolean("Success");
-                    String message = rs.getString("Message");
-
-                    if (success) {
-                        finishLoadSession(
-                                loadSessionId,
-                                DWHExcelLoadStatus.SUCCESS.name(),
-                                message
-                        );
-                    } else {
-                        finishLoadSession(
-                                loadSessionId,
-                                DWHExcelLoadStatus.ERROR.name(),
-                                message
-                        );
-                    }
+                if (processResult.success()) {
+                    finishLoadSession(
+                            loadSessionId,
+                            DWHExcelLoadStatus.SUCCESS.name(),
+                            processResult.message()
+                    );
+                } else {
+                    finishLoadSession(
+                            loadSessionId,
+                            DWHExcelLoadStatus.ERROR.name(),
+                            processResult.message()
+                    );
                 }
 
             } catch (Exception ex) {
@@ -208,6 +190,32 @@ public abstract class AbstractDWHExcelLoader {
                     "Failed to process accepted file. loadSessionId=" + loadSessionId,
                     e
             );
+        }
+    }
+
+    protected DWHExcelLoadSessionResult processLoadSession(Long loadSessionId) throws Exception {
+        try (Connection conn = dataSource.getConnection();
+             CallableStatement stmt = conn.prepareCall("{call " + definition.processProcedureName() + "(?)}")) {
+
+            stmt.setLong(1, loadSessionId);
+
+            boolean hasResult = stmt.execute();
+
+            if (!hasResult) {
+                throw new RuntimeException("Procedure returned no result");
+            }
+
+            try (ResultSet rs = stmt.getResultSet()) {
+
+                if (!rs.next()) {
+                    throw new RuntimeException("Procedure returned empty result");
+                }
+
+                boolean success = rs.getBoolean("Success");
+                String message = rs.getString("Message");
+
+                return new DWHExcelLoadSessionResult(loadSessionId, success, message);
+            }
         }
     }
 
