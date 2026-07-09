@@ -605,7 +605,7 @@ public abstract class AbstractDWHExcelLoader {
     protected void logLoadError(
             Long loadSessionId,
             DWHExcelErrorLayer errorLayer,
-            Integer excelRowNum,
+            Long excelRowNum,
             Long rawId,
             String fieldName,
             String errorCode,
@@ -635,7 +635,7 @@ public abstract class AbstractDWHExcelLoader {
             ps.setString(2, definition.loadCode());
             ps.setString(3, errorLayer.name());
 
-            if (excelRowNum != null) ps.setInt(4, excelRowNum); else ps.setNull(4, java.sql.Types.INTEGER);
+            if (excelRowNum != null) ps.setLong(4, excelRowNum); else ps.setNull(4, java.sql.Types.BIGINT);
             if (rawId != null) ps.setLong(5, rawId); else ps.setNull(5, java.sql.Types.BIGINT);
 
             ps.setString(6, fieldName);
