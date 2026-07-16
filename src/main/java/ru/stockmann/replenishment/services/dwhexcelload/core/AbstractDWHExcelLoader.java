@@ -133,39 +133,21 @@ public abstract class AbstractDWHExcelLoader {
 
             readAndInsertExcel(filePath, loadSessionId);
 
-            try (Connection conn = dataSource.getConnection();
-                 CallableStatement stmt = conn.prepareCall("{call " + definition.processProcedureName() + "(?)}")) {
+            try {
+                DWHExcelLoadSessionResult processResult = processLoadSession(loadSessionId);
 
-                stmt.setLong(1, loadSessionId);
-
-                boolean hasResult = stmt.execute();
-
-                if (!hasResult) {
-                    throw new RuntimeException("Procedure returned no result");
-                }
-
-                try (ResultSet rs = stmt.getResultSet()) {
-
-                    if (!rs.next()) {
-                        throw new RuntimeException("Procedure returned empty result");
-                    }
-
-                    boolean success = rs.getBoolean("Success");
-                    String message = rs.getString("Message");
-
-                    if (success) {
-                        finishLoadSession(
-                                loadSessionId,
-                                DWHExcelLoadStatus.SUCCESS.name(),
-                                message
-                        );
-                    } else {
-                        finishLoadSession(
-                                loadSessionId,
-                                DWHExcelLoadStatus.ERROR.name(),
-                                message
-                        );
-                    }
+                if (processResult.success()) {
+                    finishLoadSession(
+                            loadSessionId,
+                            DWHExcelLoadStatus.SUCCESS.name(),
+                            processResult.message()
+                    );
+                } else {
+                    finishLoadSession(
+                            loadSessionId,
+                            DWHExcelLoadStatus.ERROR.name(),
+                            processResult.message()
+                    );
                 }
 
             } catch (Exception ex) {
@@ -208,6 +190,32 @@ public abstract class AbstractDWHExcelLoader {
                     "Failed to process accepted file. loadSessionId=" + loadSessionId,
                     e
             );
+        }
+    }
+
+    protected DWHExcelLoadSessionResult processLoadSession(Long loadSessionId) throws Exception {
+        try (Connection conn = dataSource.getConnection();
+             CallableStatement stmt = conn.prepareCall("{call " + definition.processProcedureName() + "(?)}")) {
+
+            stmt.setLong(1, loadSessionId);
+
+            boolean hasResult = stmt.execute();
+
+            if (!hasResult) {
+                throw new RuntimeException("Procedure returned no result");
+            }
+
+            try (ResultSet rs = stmt.getResultSet()) {
+
+                if (!rs.next()) {
+                    throw new RuntimeException("Procedure returned empty result");
+                }
+
+                boolean success = rs.getBoolean("Success");
+                String message = rs.getString("Message");
+
+                return new DWHExcelLoadSessionResult(loadSessionId, success, message);
+            }
         }
     }
 
@@ -597,7 +605,7 @@ public abstract class AbstractDWHExcelLoader {
     protected void logLoadError(
             Long loadSessionId,
             DWHExcelErrorLayer errorLayer,
-            Integer excelRowNum,
+            Long excelRowNum,
             Long rawId,
             String fieldName,
             String errorCode,
@@ -627,7 +635,7 @@ public abstract class AbstractDWHExcelLoader {
             ps.setString(2, definition.loadCode());
             ps.setString(3, errorLayer.name());
 
-            if (excelRowNum != null) ps.setInt(4, excelRowNum); else ps.setNull(4, java.sql.Types.INTEGER);
+            if (excelRowNum != null) ps.setLong(4, excelRowNum); else ps.setNull(4, java.sql.Types.BIGINT);
             if (rawId != null) ps.setLong(5, rawId); else ps.setNull(5, java.sql.Types.BIGINT);
 
             ps.setString(6, fieldName);

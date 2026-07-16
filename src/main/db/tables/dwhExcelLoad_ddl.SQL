@@ -44,7 +44,7 @@ CREATE TABLE dbo.DWH_Excel_Load_Error
 
     ErrorLayer      NVARCHAR(20) NOT NULL,     -- JAVA / SQL
 
-    ExcelRowNum     INT NULL,                 -- строка в Excel
+    ExcelRowNum     BIGINT NULL,              -- строка в Excel
     RawId           BIGINT NULL,             -- строка raw таблицы
 
     FieldName       NVARCHAR(255) NULL,
