@@ -13,7 +13,8 @@ public class DWHFieldValidator {
     }
 
     public boolean isRequiredPresent(String value) {
-        return parser.cleanText(value) != null;
+        String cleaned = parser.cleanText(value);
+        return cleaned != null && !parser.isSpecialNull(cleaned);
     }
 
     public boolean isTextLengthValid(String value, int maxLength) {
