@@ -1,6 +1,7 @@
 package ru.stockmann.replenishment.services;
 
 import org.springframework.stereotype.Service;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadSessionNotFoundException;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadStatusResult;
 
 import javax.sql.DataSource;
@@ -45,7 +46,7 @@ public class DWHExcelStatusService {
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
-                    throw new IllegalArgumentException("Load session not found: " + loadSessionId);
+                    throw new DWHExcelLoadSessionNotFoundException(loadSessionId);
                 }
 
                 return new DWHExcelLoadStatusResult(
@@ -61,7 +62,7 @@ public class DWHExcelStatusService {
                 );
             }
 
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | DWHExcelLoadSessionNotFoundException e) {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Failed to get load session status: " + loadSessionId, e);

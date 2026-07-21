@@ -430,7 +430,7 @@ public abstract class AbstractDWHExcelLoader {
 
     protected void bindRawRow(PreparedStatement ps, Long loadSessionId, ExcelRowData row) throws SQLException {
         ps.setLong(1, loadSessionId);
-        ps.setInt(2, row.rowNum());
+        ps.setLong(2, row.rowNum());
 
         int paramIndex = 3;
         for (DWHExcelColumnSpec column : definition.columns()) {

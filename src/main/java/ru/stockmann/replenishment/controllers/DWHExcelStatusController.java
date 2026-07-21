@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.stockmann.replenishment.services.DWHExcelStatusService;
-import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadResult;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadSessionNotFoundException;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadStatusResult;
 
 @RestController
@@ -23,12 +23,11 @@ public class DWHExcelStatusController {
     @GetMapping("/status/{id}")
     public ResponseEntity<DWHExcelLoadStatusResult> getStatus(@PathVariable Long id) {
 
-        DWHExcelLoadStatusResult result = statusService.getStatus(id);
-
-        HttpStatus status = "ERROR".equals(result.status())
-                ? HttpStatus.NOT_FOUND
-                : HttpStatus.OK;
-
-        return new ResponseEntity<>(result, status);
+        try {
+            DWHExcelLoadStatusResult result = statusService.getStatus(id);
+            return new ResponseEntity<>(result, HttpStatus.OK);
+        } catch (DWHExcelLoadSessionNotFoundException e) {
+            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
+        }
     }
 }
