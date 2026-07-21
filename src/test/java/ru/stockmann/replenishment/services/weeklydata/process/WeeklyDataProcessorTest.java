@@ -146,6 +146,77 @@ class WeeklyDataProcessorTest {
         assertEquals(1, fixture.errorRepository.processingErrors.size());
         assertEquals("PROCESSING", fixture.errorRepository.processingErrors.get(0).errorLayer());
         assertEquals("UNEXPECTED_PROCESSING_ERROR", fixture.errorRepository.processingErrors.get(0).errorCode());
+        assertEquals(List.of(
+                "setAutoCommit:false",
+                "rollback",
+                "setAutoCommit:true",
+                "close",
+                "insertProcessingError"
+        ), fixture.dataSource.events.stream()
+                .filter(event -> event.startsWith("setAutoCommit") || event.equals("rollback") || event.equals("close") || event.equals("insertProcessingError"))
+                .toList());
+    }
+
+    @Test
+    void rollbackFailureDoesNotReplaceOriginalProcessingException() {
+        TestFixture fixture = new TestFixture();
+        fixture.loadSessionRepository.exists = true;
+        fixture.rawRepository.throwOnFind = true;
+        fixture.dataSource.rollbackFailure = new SQLException("rollback failed");
+
+        WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
+
+        assertFalse(result.success());
+        assertEquals("raw read failed", result.message());
+        assertEquals(1, fixture.errorRepository.processingErrors.size());
+        assertEquals("raw read failed", fixture.errorRepository.processingErrors.get(0).errorReason());
+        assertEquals(List.of(
+                "setAutoCommit:false",
+                "rollback",
+                "setAutoCommit:true",
+                "close",
+                "insertProcessingError"
+        ), fixture.dataSource.events.stream()
+                .filter(event -> event.startsWith("setAutoCommit") || event.equals("rollback") || event.equals("close") || event.equals("insertProcessingError"))
+                .toList());
+    }
+
+    @Test
+    void processingErrorInsertFailureDoesNotReplaceOriginalProcessingException() {
+        TestFixture fixture = new TestFixture();
+        fixture.loadSessionRepository.exists = true;
+        fixture.rawRepository.throwOnFind = true;
+        fixture.errorRepository.throwOnProcessingInsert = true;
+
+        WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
+
+        assertFalse(result.success());
+        assertEquals("raw read failed", result.message());
+        assertEquals(0, fixture.errorRepository.processingErrors.size());
+        assertEquals(1, fixture.dataSource.rollbackCount);
+    }
+
+    @Test
+    void autoCommitRestoreFailureDoesNotReplaceOriginalProcessingException() {
+        TestFixture fixture = new TestFixture();
+        fixture.loadSessionRepository.exists = true;
+        fixture.rawRepository.throwOnFind = true;
+        fixture.dataSource.restoreAutoCommitFailure = new SQLException("restore failed");
+
+        WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
+
+        assertFalse(result.success());
+        assertEquals("raw read failed", result.message());
+        assertEquals(1, fixture.errorRepository.processingErrors.size());
+        assertEquals(List.of(
+                "setAutoCommit:false",
+                "rollback",
+                "setAutoCommit:true",
+                "close",
+                "insertProcessingError"
+        ), fixture.dataSource.events.stream()
+                .filter(event -> event.startsWith("setAutoCommit") || event.equals("rollback") || event.equals("close") || event.equals("insertProcessingError"))
+                .toList());
     }
 
     private static RowBuilder row() {
@@ -156,7 +227,7 @@ class WeeklyDataProcessorTest {
         private final RecordingDataSource dataSource = new RecordingDataSource();
         private final FakeLoadSessionRepository loadSessionRepository = new FakeLoadSessionRepository();
         private final FakeRawRepository rawRepository = new FakeRawRepository();
-        private final FakeErrorRepository errorRepository = new FakeErrorRepository();
+        private final FakeErrorRepository errorRepository = new FakeErrorRepository(dataSource.events);
         private final FakeTargetRepository targetRepository = new FakeTargetRepository();
         private final WeeklyDataProcessor processor = new WeeklyDataProcessor(
                 dataSource,
@@ -185,6 +256,7 @@ class WeeklyDataProcessorTest {
     private static class FakeRawRepository extends WeeklyDataRawRepository {
         private List<WeeklyDataRawRow> rows = List.of();
         private int findCalls;
+        private boolean throwOnFind;
 
         FakeRawRepository() {
             super(null);
@@ -193,17 +265,23 @@ class WeeklyDataProcessorTest {
         @Override
         public List<WeeklyDataRawRow> findByLoadSessionId(Connection connection, long loadSessionId) {
             findCalls++;
+            if (throwOnFind) {
+                throw new RuntimeException("raw read failed");
+            }
             return rows;
         }
     }
 
     private static class FakeErrorRepository extends WeeklyDataErrorRepository {
         private int deleteCalls;
+        private boolean throwOnProcessingInsert;
+        private final List<String> events;
         private final List<WeeklyDataValidationError> validationErrors = new ArrayList<>();
         private final List<WeeklyDataValidationError> processingErrors = new ArrayList<>();
 
-        FakeErrorRepository() {
+        FakeErrorRepository(List<String> events) {
             super(null);
+            this.events = events;
         }
 
         @Override
@@ -218,6 +296,10 @@ class WeeklyDataProcessorTest {
 
         @Override
         public void insertAll(List<WeeklyDataValidationError> errors) {
+            events.add("insertProcessingError");
+            if (throwOnProcessingInsert) {
+                throw new RuntimeException("processing insert failed");
+            }
             processingErrors.addAll(errors);
         }
     }
@@ -248,6 +330,9 @@ class WeeklyDataProcessorTest {
     private static class RecordingDataSource implements DataSource {
         private int commitCount;
         private int rollbackCount;
+        private final List<String> events = new ArrayList<>();
+        private SQLException rollbackFailure;
+        private SQLException restoreAutoCommitFailure;
 
         @Override
         public Connection getConnection() {
@@ -256,13 +341,29 @@ class WeeklyDataProcessorTest {
                     new Class<?>[]{Connection.class},
                     (proxy, method, args) -> switch (method.getName()) {
                         case "getAutoCommit" -> true;
-                        case "setAutoCommit", "close" -> null;
+                        case "setAutoCommit" -> {
+                            boolean value = (Boolean) args[0];
+                            events.add("setAutoCommit:" + value);
+                            if (value && restoreAutoCommitFailure != null) {
+                                throw restoreAutoCommitFailure;
+                            }
+                            yield null;
+                        }
+                        case "close" -> {
+                            events.add("close");
+                            yield null;
+                        }
                         case "commit" -> {
                             commitCount++;
+                            events.add("commit");
                             yield null;
                         }
                         case "rollback" -> {
                             rollbackCount++;
+                            events.add("rollback");
+                            if (rollbackFailure != null) {
+                                throw rollbackFailure;
+                            }
                             yield null;
                         }
                         case "isClosed" -> false;

@@ -51,66 +51,62 @@ public class CDEcomProcessor {
             }
 
             try (Connection connection = dataSource.getConnection()) {
-            boolean oldAutoCommit = connection.getAutoCommit();
+                boolean oldAutoCommit = connection.getAutoCommit();
 
-            try {
-                connection.setAutoCommit(false);
+                try {
+                    connection.setAutoCommit(false);
 
-                rawRows = rawRepository.findByLoadSessionId(connection, loadSessionId);
-                errorRepository.deleteByLoadSessionId(connection, loadSessionId);
-                targetRepository.deleteByLoadSessionId(connection, loadSessionId);
-                List<CDEcomValidationError> errors = new ArrayList<>();
-                for (CDEcomRawRow row : rawRows) {
-                    CDEcomValidationResult result = validator.validate(row);
-                    if (!result.valid()) {
-                        errors.addAll(result.errors());
+                    rawRows = rawRepository.findByLoadSessionId(connection, loadSessionId);
+                    errorRepository.deleteByLoadSessionId(connection, loadSessionId);
+                    targetRepository.deleteByLoadSessionId(connection, loadSessionId);
+                    List<CDEcomValidationError> errors = new ArrayList<>();
+                    for (CDEcomRawRow row : rawRows) {
+                        CDEcomValidationResult result = validator.validate(row);
+                        if (!result.valid()) {
+                            errors.addAll(result.errors());
+                        }
                     }
-                }
 
-                if (!errors.isEmpty()) {
-                    errorRepository.insertAll(connection, errors);
+                    if (!errors.isEmpty()) {
+                        errorRepository.insertAll(connection, errors);
+                        connection.commit();
+                        return new CDEcomProcessResult(
+                                loadSessionId,
+                                false,
+                                rawRows.size(),
+                                0,
+                                errors.size(),
+                                "Validation failed"
+                        );
+                    }
+
+                    List<CDEcomTargetRow> targetRows = new ArrayList<>();
+                    for (CDEcomRawRow row : rawRows) {
+                        targetRows.add(mapper.toTargetRow(row));
+                    }
+
+                    if (!targetRows.isEmpty()) {
+                        targetRepository.insertAll(connection, targetRows);
+                    }
+
                     connection.commit();
                     return new CDEcomProcessResult(
                             loadSessionId,
-                            false,
+                            true,
                             rawRows.size(),
+                            targetRows.size(),
                             0,
-                            errors.size(),
-                            "Validation failed"
+                            "CDEcom load session processed successfully"
                     );
+                } catch (RuntimeException e) {
+                    rollbackQuietly(connection);
+                    throw e;
+                } catch (SQLException e) {
+                    rollbackQuietly(connection);
+                    throw new RuntimeException("Failed to process CDEcom load session. loadSessionId=" + loadSessionId, e);
+                } finally {
+                    restoreAutoCommitQuietly(connection, oldAutoCommit);
                 }
-
-                List<CDEcomTargetRow> targetRows = new ArrayList<>();
-                for (CDEcomRawRow row : rawRows) {
-                    targetRows.add(mapper.toTargetRow(row));
-                }
-
-                if (!targetRows.isEmpty()) {
-                    targetRepository.insertAll(connection, targetRows);
-                }
-
-                connection.commit();
-                return new CDEcomProcessResult(
-                        loadSessionId,
-                        true,
-                        rawRows.size(),
-                        targetRows.size(),
-                        0,
-                        "CDEcom load session processed successfully"
-                );
-            } catch (RuntimeException e) {
-                rollbackQuietly(connection);
-                return handleUnexpectedProcessingError(loadSessionId, rawRows, e);
-            } catch (SQLException e) {
-                rollbackQuietly(connection);
-                return handleUnexpectedProcessingError(
-                        loadSessionId,
-                        rawRows,
-                        new RuntimeException("Failed to process CDEcom load session. loadSessionId=" + loadSessionId, e)
-                );
-            } finally {
-                restoreAutoCommitQuietly(connection, oldAutoCommit);
-            }
             } catch (SQLException e) {
                 throw new RuntimeException("Failed to open CDEcom transaction. loadSessionId=" + loadSessionId, e);
             }

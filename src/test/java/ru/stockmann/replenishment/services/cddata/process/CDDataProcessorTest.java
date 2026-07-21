@@ -100,7 +100,8 @@ class CDDataProcessorTest {
                 "map:2",
                 "insertTarget",
                 "commit",
-                "setAutoCommit:true"
+                "setAutoCommit:true",
+                "close"
         ), context.events);
     }
 
@@ -243,7 +244,8 @@ class CDDataProcessorTest {
                 "deleteErrors",
                 "deleteTarget",
                 "commit",
-                "setAutoCommit:true"
+                "setAutoCommit:true",
+                "close"
         ), context.events);
     }
 
@@ -309,6 +311,20 @@ class CDDataProcessorTest {
         assertTrue(context.connection.rollbackCalled);
         assertFalse(context.connection.commitCalled);
         assertProcessingError(context, "target insert failed");
+        assertEquals(List.of(
+                "exists",
+                "setAutoCommit:false",
+                "readRaw",
+                "deleteErrors",
+                "deleteTarget",
+                "validate:1",
+                "map:1",
+                "insertTarget",
+                "rollback",
+                "setAutoCommit:true",
+                "close",
+                "insertProcessingError"
+        ), context.events);
     }
 
     @Test
@@ -331,6 +347,50 @@ class CDDataProcessorTest {
         assertFalse(result.success());
         assertEquals("raw failed", result.message());
         assertTrue(context.connection.rollbackCalled);
+    }
+
+    @Test
+    void rollbackFailureDoesNotReplaceOriginalProcessingException() {
+        TestContext context = TestContext.withRows(row(1));
+        context.rawRepository.failure = new RuntimeException("raw failed");
+        context.connection.rollbackFailure = new SQLException("rollback failed");
+
+        CDDataProcessResult result = context.processor().process(100L);
+
+        assertFalse(result.success());
+        assertEquals("raw failed", result.message());
+        assertProcessingError(context, "raw failed");
+        assertEquals(List.of(
+                "exists",
+                "setAutoCommit:false",
+                "readRaw",
+                "rollback",
+                "setAutoCommit:true",
+                "close",
+                "insertProcessingError"
+        ), context.events);
+    }
+
+    @Test
+    void autoCommitRestoreFailureDoesNotReplaceOriginalProcessingException() {
+        TestContext context = TestContext.withRows(row(1));
+        context.rawRepository.failure = new RuntimeException("raw failed");
+        context.connection.restoreAutoCommitFailure = new SQLException("restore failed");
+
+        CDDataProcessResult result = context.processor().process(100L);
+
+        assertFalse(result.success());
+        assertEquals("raw failed", result.message());
+        assertProcessingError(context, "raw failed");
+        assertEquals(List.of(
+                "exists",
+                "setAutoCommit:false",
+                "readRaw",
+                "rollback",
+                "setAutoCommit:true",
+                "close",
+                "insertProcessingError"
+        ), context.events);
     }
 
     private static void assertProcessingError(TestContext context, String message) {
@@ -519,6 +579,8 @@ class CDDataProcessorTest {
         private boolean autoCommit = true;
         private boolean commitCalled;
         private boolean rollbackCalled;
+        private SQLException rollbackFailure;
+        private SQLException restoreAutoCommitFailure;
         private Connection proxy;
 
         private RecordingConnection(List<String> events) {
@@ -536,6 +598,9 @@ class CDDataProcessorTest {
                         autoCommit = (Boolean) args[0];
                         setAutoCommitValues.add(autoCommit);
                         events.add("setAutoCommit:" + autoCommit);
+                        if (autoCommit && restoreAutoCommitFailure != null) {
+                            throw restoreAutoCommitFailure;
+                        }
                         return null;
                     }
                     if ("commit".equals(name)) {
@@ -546,6 +611,13 @@ class CDDataProcessorTest {
                     if ("rollback".equals(name)) {
                         rollbackCalled = true;
                         events.add("rollback");
+                        if (rollbackFailure != null) {
+                            throw rollbackFailure;
+                        }
+                        return null;
+                    }
+                    if ("close".equals(name)) {
+                        events.add("close");
                         return null;
                     }
                     return defaultValue(method.getReturnType());

@@ -100,7 +100,8 @@ class CDEcomProcessorTest {
                 "map:2",
                 "insertTarget",
                 "commit",
-                "setAutoCommit:true"
+                "setAutoCommit:true",
+                "close"
         ), context.events);
     }
 
@@ -170,7 +171,8 @@ class CDEcomProcessorTest {
                 "deleteErrors",
                 "deleteTarget",
                 "commit",
-                "setAutoCommit:true"
+                "setAutoCommit:true",
+                "close"
         ), context.events);
     }
 
@@ -236,6 +238,20 @@ class CDEcomProcessorTest {
         assertTrue(context.connection.rollbackCalled);
         assertFalse(context.connection.commitCalled);
         assertProcessingError(context, "target insert failed");
+        assertEquals(List.of(
+                "exists",
+                "setAutoCommit:false",
+                "readRaw",
+                "deleteErrors",
+                "deleteTarget",
+                "validate:1",
+                "map:1",
+                "insertTarget",
+                "rollback",
+                "setAutoCommit:true",
+                "close",
+                "insertProcessingError"
+        ), context.events);
     }
 
     @Test
@@ -258,6 +274,50 @@ class CDEcomProcessorTest {
         assertFalse(result.success());
         assertEquals("raw failed", result.message());
         assertTrue(context.connection.rollbackCalled);
+    }
+
+    @Test
+    void rollbackFailureDoesNotReplaceOriginalProcessingException() {
+        TestContext context = TestContext.withRows(row(1));
+        context.rawRepository.failure = new RuntimeException("raw failed");
+        context.connection.rollbackFailure = new SQLException("rollback failed");
+
+        CDEcomProcessResult result = context.processor().process(100L);
+
+        assertFalse(result.success());
+        assertEquals("raw failed", result.message());
+        assertProcessingError(context, "raw failed");
+        assertEquals(List.of(
+                "exists",
+                "setAutoCommit:false",
+                "readRaw",
+                "rollback",
+                "setAutoCommit:true",
+                "close",
+                "insertProcessingError"
+        ), context.events);
+    }
+
+    @Test
+    void autoCommitRestoreFailureDoesNotReplaceOriginalProcessingException() {
+        TestContext context = TestContext.withRows(row(1));
+        context.rawRepository.failure = new RuntimeException("raw failed");
+        context.connection.restoreAutoCommitFailure = new SQLException("restore failed");
+
+        CDEcomProcessResult result = context.processor().process(100L);
+
+        assertFalse(result.success());
+        assertEquals("raw failed", result.message());
+        assertProcessingError(context, "raw failed");
+        assertEquals(List.of(
+                "exists",
+                "setAutoCommit:false",
+                "readRaw",
+                "rollback",
+                "setAutoCommit:true",
+                "close",
+                "insertProcessingError"
+        ), context.events);
     }
 
     private static void assertProcessingError(TestContext context, String message) {
@@ -448,6 +508,8 @@ class CDEcomProcessorTest {
         private boolean autoCommit = true;
         private boolean commitCalled;
         private boolean rollbackCalled;
+        private SQLException rollbackFailure;
+        private SQLException restoreAutoCommitFailure;
         private Connection proxy;
 
         private RecordingConnection(List<String> events) {
@@ -465,6 +527,9 @@ class CDEcomProcessorTest {
                         autoCommit = (Boolean) args[0];
                         setAutoCommitValues.add(autoCommit);
                         events.add("setAutoCommit:" + autoCommit);
+                        if (autoCommit && restoreAutoCommitFailure != null) {
+                            throw restoreAutoCommitFailure;
+                        }
                         return null;
                     }
                     if ("commit".equals(name)) {
@@ -475,6 +540,13 @@ class CDEcomProcessorTest {
                     if ("rollback".equals(name)) {
                         rollbackCalled = true;
                         events.add("rollback");
+                        if (rollbackFailure != null) {
+                            throw rollbackFailure;
+                        }
+                        return null;
+                    }
+                    if ("close".equals(name)) {
+                        events.add("close");
                         return null;
                     }
                     return defaultValue(method.getReturnType());
