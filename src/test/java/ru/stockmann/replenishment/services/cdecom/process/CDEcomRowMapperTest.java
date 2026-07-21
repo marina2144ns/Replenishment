@@ -1,6 +1,7 @@
 package ru.stockmann.replenishment.services.cdecom.process;
 
 import org.junit.jupiter.api.Test;
+import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDEcomExcelLoadDefinition;
 
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -30,6 +31,20 @@ class CDEcomRowMapperTest {
         assertEquals(456L, row.stockStoresPcs());
         assertEquals(789L, row.stockStoresDdp());
         assertEquals("Collection", row.skuCollection());
+    }
+
+    @Test
+    void mapsNumericExcelDateNormalizedByDefinition() {
+        String rawDate = new CDEcomExcelLoadDefinition()
+                .columns()
+                .get(4)
+                .normalizer()
+                .normalize("45658.75");
+
+        CDEcomTargetRow row = mapper.toTargetRow(validRowWithData(rawDate));
+
+        assertEquals("01.01.2025", rawDate);
+        assertEquals(Date.valueOf("2025-01-01"), row.data());
     }
 
     @Test
@@ -109,6 +124,10 @@ class CDEcomRowMapperTest {
         return validRow(year, "12.5", "1 234,565", "123", "456", "789");
     }
 
+    private static CDEcomRawRow validRowWithData(String data) {
+        return validRow("2026", data, "12.5", "1 234,565", "123", "456", "789");
+    }
+
     private static CDEcomRawRow validRow(
             String year,
             String skuStyleColor,
@@ -117,8 +136,20 @@ class CDEcomRowMapperTest {
             String stockStoresPcs,
             String stockStoresDdp
     ) {
+        return validRow(year, "31.01.2026", skuStyleColor, orderPcs, planRub, stockStoresPcs, stockStoresDdp);
+    }
+
+    private static CDEcomRawRow validRow(
+            String year,
+            String data,
+            String skuStyleColor,
+            String orderPcs,
+            String planRub,
+            String stockStoresPcs,
+            String stockStoresDdp
+    ) {
         return new CDEcomRawRow(
-                10L, 20L, 51L, " Name ", year, "1", "31", "31.01.2026",
+                10L, 20L, 51L, " Name ", year, "1", "31", data,
                 "Online", "Store", "Division", "Department", "SubDepartment", "Brand", "TM",
                 "Node", "Section", "Group", "Campaign", skuStyleColor, "Phase",
                 orderPcs, "1", "2", "3", "4", "5", "6", "7", "8",

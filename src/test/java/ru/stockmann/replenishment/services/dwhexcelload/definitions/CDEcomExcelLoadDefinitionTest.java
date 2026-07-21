@@ -6,6 +6,7 @@ import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadType;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelNullHandling;
 
 import java.util.List;
+import java.util.TimeZone;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -93,5 +94,28 @@ class CDEcomExcelLoadDefinitionTest {
         definition.columns().forEach(column ->
                 assertEquals(DWHExcelNullHandling.KEEP_NULL, column.nullHandling())
         );
+    }
+
+    @Test
+    void numericExcelDateSerialIsTimezoneIndependentForProjectZones() {
+        CDEcomExcelLoadDefinition definition = new CDEcomExcelLoadDefinition();
+        DWHExcelColumnSpec dataColumn = definition.columns().get(4);
+        TimeZone originalTimeZone = TimeZone.getDefault();
+
+        try {
+            assertEquals("01.01.2025", normalizeInTimeZone(dataColumn, "45658", "Europe/Belgrade"));
+            assertEquals("01.01.2025", normalizeInTimeZone(dataColumn, "45658", "Europe/Moscow"));
+            assertEquals("01.01.2025", normalizeInTimeZone(dataColumn, "45658", "UTC"));
+            assertEquals("01.01.2025", normalizeInTimeZone(dataColumn, "45658.75", "Europe/Belgrade"));
+        } finally {
+            TimeZone.setDefault(originalTimeZone);
+        }
+
+        assertEquals(originalTimeZone, TimeZone.getDefault());
+    }
+
+    private static String normalizeInTimeZone(DWHExcelColumnSpec column, String value, String timeZoneId) {
+        TimeZone.setDefault(TimeZone.getTimeZone(timeZoneId));
+        return column.normalizer().normalize(value);
     }
 }

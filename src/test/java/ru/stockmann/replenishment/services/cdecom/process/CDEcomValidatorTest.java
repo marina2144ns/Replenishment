@@ -1,6 +1,7 @@
 package ru.stockmann.replenishment.services.cdecom.process;
 
 import org.junit.jupiter.api.Test;
+import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDEcomExcelLoadDefinition;
 
 import java.util.List;
 
@@ -41,6 +42,18 @@ class CDEcomValidatorTest {
 
         assertEquals("data", result.errors().get(0).fieldName());
         assertEquals("INVALID_DATE", result.errors().get(0).errorCode());
+    }
+
+    @Test
+    void acceptsNumericExcelDateNormalizedByDefinition() {
+        String rawDate = new CDEcomExcelLoadDefinition()
+                .columns()
+                .get(4)
+                .normalizer()
+                .normalize("45658");
+
+        assertEquals("01.01.2025", rawDate);
+        assertTrue(validator.validate(row().withData(rawDate).build()).valid());
     }
 
     @Test

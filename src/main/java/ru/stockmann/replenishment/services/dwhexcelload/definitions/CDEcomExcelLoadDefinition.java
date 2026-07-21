@@ -11,7 +11,6 @@ import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelValueKind;
 import ru.stockmann.replenishment.services.dwhexcelload.normalizers.DWHExcelNormalizers;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
@@ -128,9 +127,7 @@ public class CDEcomExcelLoadDefinition implements DWHExcelLoadDefinition {
             try {
                 double serial = Double.parseDouble(v.replace(',', '.'));
                 if (DateUtil.isValidExcelDate(serial)) {
-                    java.util.Date javaDate = DateUtil.getJavaDate(serial);
-                    return javaDate.toInstant()
-                            .atZone(ZoneId.systemDefault())
+                    return DateUtil.getLocalDateTime(serial)
                             .toLocalDate()
                             .format(RAW_DATE_FORMAT);
                 }
