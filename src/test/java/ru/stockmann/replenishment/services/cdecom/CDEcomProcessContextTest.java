@@ -8,6 +8,14 @@ import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.support.DependencyInjectionTestExecutionListener;
 import ru.stockmann.replenishment.services.CDEcomBulkLoader;
+import ru.stockmann.replenishment.services.cdecom.process.CDEcomErrorRepository;
+import ru.stockmann.replenishment.services.cdecom.process.CDEcomLoadSessionRepository;
+import ru.stockmann.replenishment.services.cdecom.process.CDEcomProcessConfiguration;
+import ru.stockmann.replenishment.services.cdecom.process.CDEcomProcessor;
+import ru.stockmann.replenishment.services.cdecom.process.CDEcomRawRepository;
+import ru.stockmann.replenishment.services.cdecom.process.CDEcomRowMapper;
+import ru.stockmann.replenishment.services.cdecom.process.CDEcomTargetRepository;
+import ru.stockmann.replenishment.services.cdecom.process.CDEcomValidator;
 import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDEcomExcelLoadDefinition;
 
 import javax.sql.DataSource;
@@ -19,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 @SpringJUnitConfig(classes = {
         CDEcomProcessContextTest.TestConfig.class,
+        CDEcomProcessConfiguration.class,
         CDEcomExcelLoadDefinition.class,
         CDEcomBulkLoader.class
 })
@@ -31,10 +40,38 @@ class CDEcomProcessContextTest {
     @Autowired
     private CDEcomExcelLoadDefinition cdecomExcelLoadDefinition;
 
+    @Autowired
+    private CDEcomProcessor cdecomProcessor;
+
+    @Autowired
+    private CDEcomLoadSessionRepository cdecomLoadSessionRepository;
+
+    @Autowired
+    private CDEcomRawRepository cdecomRawRepository;
+
+    @Autowired
+    private CDEcomTargetRepository cdecomTargetRepository;
+
+    @Autowired
+    private CDEcomErrorRepository cdecomErrorRepository;
+
+    @Autowired
+    private CDEcomValidator cdecomValidator;
+
+    @Autowired
+    private CDEcomRowMapper cdecomRowMapper;
+
     @Test
     void cdecomCommonLoadBeansAreCreated() {
         assertNotNull(cdecomBulkLoader);
         assertNotNull(cdecomExcelLoadDefinition);
+        assertNotNull(cdecomProcessor);
+        assertNotNull(cdecomLoadSessionRepository);
+        assertNotNull(cdecomRawRepository);
+        assertNotNull(cdecomTargetRepository);
+        assertNotNull(cdecomErrorRepository);
+        assertNotNull(cdecomValidator);
+        assertNotNull(cdecomRowMapper);
     }
 
     @Test

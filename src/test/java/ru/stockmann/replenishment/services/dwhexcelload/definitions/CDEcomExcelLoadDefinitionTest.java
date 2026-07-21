@@ -8,6 +8,7 @@ import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelNullHandlin
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CDEcomExcelLoadDefinitionTest {
 
@@ -18,9 +19,15 @@ class CDEcomExcelLoadDefinitionTest {
         assertEquals(DWHExcelLoadType.CD_ECOM, definition.loadType());
         assertEquals("dbo.CD_ecom_raw", definition.rawTableName());
         assertEquals("dbo.CD_ecom", definition.targetTableName());
-        assertEquals("dbo.usp_CDEcom_ProcessLoadSession", definition.processProcedureName());
         assertEquals(38, definition.expectedColumnCount());
         assertEquals(10_000, definition.batchSize());
+    }
+
+    @Test
+    void javaProcessedCdecomDoesNotDeclareRuntimeProcedure() {
+        CDEcomExcelLoadDefinition definition = new CDEcomExcelLoadDefinition();
+
+        assertThrows(UnsupportedOperationException.class, definition::processProcedureName);
     }
 
     @Test
@@ -77,12 +84,12 @@ class CDEcomExcelLoadDefinitionTest {
     void columnLengthsAndNullHandlingMatchRawSchema() {
         CDEcomExcelLoadDefinition definition = new CDEcomExcelLoadDefinition();
 
-        assertEquals(255, definition.columns().get(0).rawMaxLength());
+        assertEquals(4000, definition.columns().get(0).rawMaxLength());
         assertEquals(50, definition.columns().get(1).rawMaxLength());
         assertEquals(50, definition.columns().get(4).rawMaxLength());
         assertEquals(100, definition.columns().get(16).rawMaxLength());
         assertEquals(100, definition.columns().get(30).rawMaxLength());
-        assertEquals(255, definition.columns().get(37).rawMaxLength());
+        assertEquals(4000, definition.columns().get(37).rawMaxLength());
         definition.columns().forEach(column ->
                 assertEquals(DWHExcelNullHandling.KEEP_NULL, column.nullHandling())
         );

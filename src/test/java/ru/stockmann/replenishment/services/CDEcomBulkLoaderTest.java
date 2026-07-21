@@ -1,27 +1,28 @@
 package ru.stockmann.replenishment.services;
 
 import org.junit.jupiter.api.Test;
+import ru.stockmann.replenishment.services.cdecom.process.CDEcomProcessResult;
+import ru.stockmann.replenishment.services.cdecom.process.CDEcomProcessor;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadSessionResult;
 import ru.stockmann.replenishment.services.dwhexcelload.core.ExcelRowData;
 import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDEcomExcelLoadDefinition;
 
 import javax.sql.DataSource;
 import java.lang.reflect.Proxy;
-import java.sql.CallableStatement;
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CDEcomBulkLoaderTest {
 
     @Test
     void cdecomBulkLoaderExtendsAbstractDwhLoaderAndUsesDefinition() {
-        TestCDEcomBulkLoader loader = new TestCDEcomBulkLoader(null, new CDEcomExcelLoadDefinition());
+        TestCDEcomBulkLoader loader = new TestCDEcomBulkLoader(null, new CDEcomExcelLoadDefinition(), fakeProcessor(true));
 
         assertInstanceOf(CDEcomBulkLoader.class, loader);
         assertEquals("CD_ECOM", loader.getDefinition().loadCode());
@@ -30,7 +31,7 @@ class CDEcomBulkLoaderTest {
 
     @Test
     void rawInsertSqlUsesCommonLoadSessionAndExcelRowNum() {
-        TestCDEcomBulkLoader loader = new TestCDEcomBulkLoader(null, new CDEcomExcelLoadDefinition());
+        TestCDEcomBulkLoader loader = new TestCDEcomBulkLoader(null, new CDEcomExcelLoadDefinition(), fakeProcessor(true));
 
         String sql = loader.rawInsertSql();
 
@@ -43,7 +44,7 @@ class CDEcomBulkLoaderTest {
 
     @Test
     void normalizeRowPreservesCdecomSpecificDateAndNumericRawRules() {
-        TestCDEcomBulkLoader loader = new TestCDEcomBulkLoader(null, new CDEcomExcelLoadDefinition());
+        TestCDEcomBulkLoader loader = new TestCDEcomBulkLoader(null, new CDEcomExcelLoadDefinition(), fakeProcessor(true));
         String[] row = new String[38];
         row[0] = " name ";
         row[4] = "1/2/2026";
@@ -57,25 +58,51 @@ class CDEcomBulkLoaderTest {
     }
 
     @Test
-    void processLoadSessionCallsCdecomProcedureWithLoadSessionId() throws Exception {
+    void normalizeRowDoesNotTruncateTextBeforeValidation() {
+        TestCDEcomBulkLoader loader = new TestCDEcomBulkLoader(null, new CDEcomExcelLoadDefinition(), fakeProcessor(true));
+        String longText = "x".repeat(256);
+        String[] row = new String[38];
+        row[0] = " " + longText + " ";
+
+        ExcelRowData normalized = loader.normalize(2, row);
+
+        assertEquals(longText, normalized.get("name"));
+        assertEquals(256, normalized.get("name").length());
+    }
+
+    @Test
+    void processLoadSessionCallsProcessorWithLoadSessionIdAndDoesNotUseProcedure() throws Exception {
         RecordingDataSource dataSource = new RecordingDataSource();
-        TestCDEcomBulkLoader loader = new TestCDEcomBulkLoader(dataSource, new CDEcomExcelLoadDefinition());
+        FakeCDEcomProcessor processor = fakeProcessor(true);
+        TestCDEcomBulkLoader loader = new TestCDEcomBulkLoader(dataSource, new CDEcomExcelLoadDefinition(), processor);
 
         DWHExcelLoadSessionResult result = loader.callProcessLoadSession(77L);
 
         assertTrue(result.success());
         assertEquals(77L, result.loadSessionId());
         assertEquals("OK", result.message());
-        assertEquals("{call dbo.usp_CDEcom_ProcessLoadSession(?)}", dataSource.sql);
-        assertEquals(77L, dataSource.loadSessionId);
-        assertFalse(dataSource.sql.contains("CD_ecom_load_session"));
-        assertFalse(dataSource.sql.contains("CD_ecom_load_error"));
+        assertEquals(1, processor.calls);
+        assertEquals(77L, processor.loadSessionId);
+        assertEquals(0, dataSource.connections);
+    }
+
+    @Test
+    void defaultProcedureFallbackIsNotAvailableForCdecom() {
+        RecordingDataSource dataSource = new RecordingDataSource();
+        TestCDEcomBulkLoader loader = new TestCDEcomBulkLoader(dataSource, new CDEcomExcelLoadDefinition(), fakeProcessor(true));
+
+        assertThrows(UnsupportedOperationException.class, () -> loader.callDefaultProcedure(77L));
+        assertEquals(0, dataSource.connections);
     }
 
     private static final class TestCDEcomBulkLoader extends CDEcomBulkLoader {
 
-        private TestCDEcomBulkLoader(DataSource dataSource, CDEcomExcelLoadDefinition definition) {
-            super(dataSource, definition);
+        private TestCDEcomBulkLoader(
+                DataSource dataSource,
+                CDEcomExcelLoadDefinition definition,
+                CDEcomProcessor processor
+        ) {
+            super(dataSource, definition, processor);
         }
 
         private String rawInsertSql() {
@@ -89,68 +116,23 @@ class CDEcomBulkLoaderTest {
         private DWHExcelLoadSessionResult callProcessLoadSession(Long loadSessionId) throws Exception {
             return processLoadSession(loadSessionId);
         }
+
+        private void callDefaultProcedure(Long loadSessionId) throws Exception {
+            callProcessProcedure(loadSessionId);
+        }
     }
 
     private static final class RecordingDataSource implements DataSource {
 
-        private String sql;
-        private long loadSessionId;
+        private int connections;
 
         @Override
         public Connection getConnection() {
+            connections++;
             return (Connection) Proxy.newProxyInstance(
                     getClass().getClassLoader(),
                     new Class<?>[]{Connection.class},
                     (proxy, method, args) -> {
-                        if ("prepareCall".equals(method.getName())) {
-                            sql = (String) args[0];
-                            return callableStatement();
-                        }
-                        if ("close".equals(method.getName())) {
-                            return null;
-                        }
-                        return defaultValue(method.getReturnType());
-                    }
-            );
-        }
-
-        private CallableStatement callableStatement() {
-            return (CallableStatement) Proxy.newProxyInstance(
-                    getClass().getClassLoader(),
-                    new Class<?>[]{CallableStatement.class},
-                    (proxy, method, args) -> {
-                        if ("setLong".equals(method.getName())) {
-                            loadSessionId = (Long) args[1];
-                            return null;
-                        }
-                        if ("execute".equals(method.getName())) {
-                            return true;
-                        }
-                        if ("getResultSet".equals(method.getName())) {
-                            return resultSet();
-                        }
-                        if ("close".equals(method.getName())) {
-                            return null;
-                        }
-                        return defaultValue(method.getReturnType());
-                    }
-            );
-        }
-
-        private ResultSet resultSet() {
-            return (ResultSet) Proxy.newProxyInstance(
-                    getClass().getClassLoader(),
-                    new Class<?>[]{ResultSet.class},
-                    (proxy, method, args) -> {
-                        if ("next".equals(method.getName())) {
-                            return true;
-                        }
-                        if ("getBoolean".equals(method.getName())) {
-                            return true;
-                        }
-                        if ("getString".equals(method.getName())) {
-                            return "OK";
-                        }
                         if ("close".equals(method.getName())) {
                             return null;
                         }
@@ -195,6 +177,29 @@ class CDEcomBulkLoaderTest {
         @Override
         public java.util.logging.Logger getParentLogger() {
             return null;
+        }
+    }
+
+    private static FakeCDEcomProcessor fakeProcessor(boolean success) {
+        return new FakeCDEcomProcessor(new CDEcomProcessResult(77L, success, 0, 0, 0, "OK"));
+    }
+
+    private static final class FakeCDEcomProcessor extends CDEcomProcessor {
+
+        private final CDEcomProcessResult result;
+        private int calls;
+        private long loadSessionId;
+
+        private FakeCDEcomProcessor(CDEcomProcessResult result) {
+            super(null, null, null, null, null, null, null);
+            this.result = result;
+        }
+
+        @Override
+        public CDEcomProcessResult process(long loadSessionId) {
+            this.calls++;
+            this.loadSessionId = loadSessionId;
+            return result;
         }
     }
 

@@ -1,6 +1,9 @@
 USE ReplenishmentDWH;
 GO
 
+/* Legacy procedure retained temporarily for rollback/reference.
+   Java runtime CDEcom processing is handled by CDEcomProcessor. */
+
 CREATE PROCEDURE dbo.usp_CDEcom_ProcessLoadSession
 @LoadSessionId BIGINT
 AS

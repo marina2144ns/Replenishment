@@ -27,8 +27,18 @@ class CDEcomSqlMigrationTest {
         String sql = Files.readString(Path.of("src/main/db/tables/CDecom_ddl.sql"));
 
         assertTrue(sql.contains("ExcelRowNum                 BIGINT                NULL"));
+        assertTrue(sql.contains("name                        NVARCHAR(4000)        NULL"));
+        assertTrue(sql.contains("skuCollection               NVARCHAR(4000)        NULL"));
         assertTrue(sql.contains("FOREIGN KEY (LoadSessionId) REFERENCES dbo.DWH_Excel_Load_Session(Id)"));
         assertTrue(sql.contains("dbo.CD_ecom_load_session"));
         assertTrue(sql.contains("dbo.CD_ecom_load_error"));
+    }
+
+    @Test
+    void cdecomMigrationExpandsRawTextColumnsForValidation() throws Exception {
+        String sql = Files.readString(Path.of("src/main/db/tables/CDecom_dwh_excel_migration.sql"));
+
+        assertTrue(sql.contains("ALTER TABLE dbo.CD_ecom_raw ALTER COLUMN name NVARCHAR(4000) NULL"));
+        assertTrue(sql.contains("ALTER TABLE dbo.CD_ecom_raw ALTER COLUMN skuCollection NVARCHAR(4000) NULL"));
     }
 }

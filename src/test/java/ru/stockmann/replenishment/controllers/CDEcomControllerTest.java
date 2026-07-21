@@ -2,6 +2,7 @@ package ru.stockmann.replenishment.controllers;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
+import ru.stockmann.replenishment.services.cdecom.process.CDEcomProcessor;
 import ru.stockmann.replenishment.services.CDEcomBulkLoader;
 import ru.stockmann.replenishment.services.dwhexcelload.core.AbstractDWHExcelLoader;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelAsyncLoadService;
@@ -55,7 +56,7 @@ class CDEcomControllerTest {
         private String filePath;
 
         private FakeCDEcomBulkLoader(DWHExcelLoadResult result) {
-            super(null, new CDEcomExcelLoadDefinition());
+            super(null, new CDEcomExcelLoadDefinition(), new FakeCDEcomProcessor());
             this.result = result;
         }
 
@@ -64,6 +65,13 @@ class CDEcomControllerTest {
             this.calls++;
             this.filePath = filePath;
             return result;
+        }
+    }
+
+    private static final class FakeCDEcomProcessor extends CDEcomProcessor {
+
+        private FakeCDEcomProcessor() {
+            super(null, null, null, null, null, null, null);
         }
     }
 

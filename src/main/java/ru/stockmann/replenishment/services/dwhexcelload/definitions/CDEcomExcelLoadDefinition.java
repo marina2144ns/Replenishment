@@ -21,6 +21,7 @@ public class CDEcomExcelLoadDefinition implements DWHExcelLoadDefinition {
 
     private static final DateTimeFormatter RAW_DATE_FORMAT =
             DateTimeFormatter.ofPattern("dd.MM.yyyy");
+    private static final int RAW_TEXT_LENGTH = 4000;
 
     @Override
     public DWHExcelLoadType loadType() {
@@ -39,7 +40,7 @@ public class CDEcomExcelLoadDefinition implements DWHExcelLoadDefinition {
 
     @Override
     public String processProcedureName() {
-        return "dbo.usp_CDEcom_ProcessLoadSession";
+        throw new UnsupportedOperationException("CDEcom processing is implemented in Java");
     }
 
     @Override
@@ -55,24 +56,24 @@ public class CDEcomExcelLoadDefinition implements DWHExcelLoadDefinition {
     @Override
     public List<DWHExcelColumnSpec> columns() {
         return List.of(
-                DWHExcelColumns.text(0, "name", 255),
+                DWHExcelColumns.text(0, "name", RAW_TEXT_LENGTH),
                 DWHExcelColumns.intNumber(1, "year", 50, DWHExcelNullHandling.KEEP_NULL),
                 DWHExcelColumns.intNumber(2, "season", 50, DWHExcelNullHandling.KEEP_NULL),
                 DWHExcelColumns.intNumber(3, "day", 50, DWHExcelNullHandling.KEEP_NULL),
                 date(4, "data", 50),
-                DWHExcelColumns.text(5, "salesChannelBpo", 255),
-                DWHExcelColumns.text(6, "storeRus", 255),
-                DWHExcelColumns.text(7, "mfpDivision", 255),
-                DWHExcelColumns.text(8, "mfpDepartment", 255),
-                DWHExcelColumns.text(9, "mfpSubDepartment", 255),
-                DWHExcelColumns.text(10, "skuBrandType", 255),
-                DWHExcelColumns.text(11, "skuTm", 255),
-                DWHExcelColumns.text(12, "mfpNode", 255),
-                DWHExcelColumns.text(13, "section", 255),
-                DWHExcelColumns.text(14, "merchandiseSubGroup", 255),
-                DWHExcelColumns.text(15, "campaignSalesType", 255),
+                DWHExcelColumns.text(5, "salesChannelBpo", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(6, "storeRus", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(7, "mfpDivision", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(8, "mfpDepartment", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(9, "mfpSubDepartment", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(10, "skuBrandType", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(11, "skuTm", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(12, "mfpNode", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(13, "section", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(14, "merchandiseSubGroup", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(15, "campaignSalesType", RAW_TEXT_LENGTH),
                 DWHExcelColumns.decimal(16, "skuStyleColor", 100, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.text(17, "skuPhase", 255),
+                DWHExcelColumns.text(17, "skuPhase", RAW_TEXT_LENGTH),
                 DWHExcelColumns.decimal(18, "orderPcs", 100, DWHExcelNullHandling.KEEP_NULL),
                 DWHExcelColumns.decimal(19, "orderRub", 100, DWHExcelNullHandling.KEEP_NULL),
                 DWHExcelColumns.decimal(20, "foundPcs", 100, DWHExcelNullHandling.KEEP_NULL),
@@ -86,13 +87,13 @@ public class CDEcomExcelLoadDefinition implements DWHExcelLoadDefinition {
                 DWHExcelColumns.intNumber(28, "planRub", 100, DWHExcelNullHandling.KEEP_NULL),
                 DWHExcelColumns.intNumber(29, "stockStoresPcs", 100, DWHExcelNullHandling.KEEP_NULL),
                 DWHExcelColumns.intNumber(30, "stockStoresDdp", 100, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.text(31, "cdDrivers", 255),
-                DWHExcelColumns.text(32, "skuSupplierModel", 255),
-                DWHExcelColumns.text(33, "skuComposition", 255),
-                DWHExcelColumns.text(34, "skuColorRussian", 255),
-                DWHExcelColumns.text(35, "skuName", 255),
-                DWHExcelColumns.text(36, "skuCommentBuyer", 255),
-                DWHExcelColumns.text(37, "skuCollection", 255)
+                DWHExcelColumns.text(31, "cdDrivers", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(32, "skuSupplierModel", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(33, "skuComposition", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(34, "skuColorRussian", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(35, "skuName", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(36, "skuCommentBuyer", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(37, "skuCollection", RAW_TEXT_LENGTH)
         );
     }
 
