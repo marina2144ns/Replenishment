@@ -4,6 +4,7 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.List;
 
 public class WeeklyDataTargetRepository {
@@ -104,12 +105,12 @@ public class WeeklyDataTargetRepository {
 
     private void bindRow(PreparedStatement ps, WeeklyDataTargetRow row) throws SQLException {
         ps.setLong(1, row.loadSessionId());
-        ps.setObject(2, row.year21());
-        ps.setObject(3, row.week21());
-        ps.setObject(4, row.yearCorr());
-        ps.setObject(5, row.weekCorr());
-        ps.setObject(6, row.year());
-        ps.setObject(7, row.week());
+        setNullableSmallint(ps, 2, row.year21());
+        setNullableSmallint(ps, 3, row.week21());
+        setNullableSmallint(ps, 4, row.yearCorr());
+        setNullableSmallint(ps, 5, row.weekCorr());
+        setNullableSmallint(ps, 6, row.year());
+        setNullableSmallint(ps, 7, row.week());
         ps.setString(8, row.salesChannelBpo());
         ps.setString(9, row.storeRusBpo());
         ps.setString(10, row.storeRus());
@@ -129,5 +130,13 @@ public class WeeklyDataTargetRepository {
         ps.setString(24, row.month());
         ps.setString(25, row.bundle());
         ps.setString(26, row.seasonality());
+    }
+
+    private void setNullableSmallint(PreparedStatement ps, int parameterIndex, Short value) throws SQLException {
+        if (value == null) {
+            ps.setNull(parameterIndex, Types.SMALLINT);
+        } else {
+            ps.setShort(parameterIndex, value);
+        }
     }
 }
