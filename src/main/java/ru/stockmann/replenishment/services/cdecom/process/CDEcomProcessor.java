@@ -45,7 +45,8 @@ public class CDEcomProcessor {
                         0,
                         0,
                         1,
-                        "Load session not found: " + loadSessionId
+                        "Load session not found or has unexpected LoadTypeCode. loadSessionId="
+                                + loadSessionId + ", expected LoadTypeCode=CD_ECOM"
                 );
             }
 

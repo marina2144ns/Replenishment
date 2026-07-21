@@ -24,6 +24,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CDEcomRepositoryTest {
 
     @Test
+    void loadSessionRepositoryChecksLoadSessionIdAndCdecomLoadTypeCode() {
+        RecordingPreparedStatement statement = new RecordingPreparedStatement();
+        RecordingConnection connection = new RecordingConnection(statement);
+        statement.resultSet = resultSet(Map.of());
+
+        boolean exists = new CDEcomLoadSessionRepository(new RecordingDataSource(connection).proxy())
+                .existsById(20L);
+
+        assertTrue(exists);
+        assertTrue(connection.sql.contains("FROM dbo.DWH_Excel_Load_Session"));
+        assertTrue(connection.sql.contains("WHERE Id = ?"));
+        assertTrue(connection.sql.contains("AND LoadTypeCode = ?"));
+        assertEquals(20L, statement.values.get(1));
+        assertEquals("CD_ECOM", statement.values.get(2));
+    }
+
+    @Test
     void rawRepositoryReadsRowsByLoadSessionIdOrderedById() {
         RecordingPreparedStatement statement = new RecordingPreparedStatement();
         RecordingConnection connection = new RecordingConnection(statement);

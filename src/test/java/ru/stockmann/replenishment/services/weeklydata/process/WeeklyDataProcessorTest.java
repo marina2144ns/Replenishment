@@ -31,11 +31,33 @@ class WeeklyDataProcessorTest {
         assertEquals(0, result.totalRows());
         assertEquals(0, result.loadedRows());
         assertEquals(1, result.errorRows());
-        assertTrue(result.message().contains("Load session not found"));
+        assertTrue(result.message().contains("loadSessionId=" + LOAD_SESSION_ID));
+        assertTrue(result.message().contains("expected LoadTypeCode=WEEKLY_DATA"));
 
         assertEquals(0, fixture.rawRepository.findCalls);
         assertEquals(0, fixture.errorRepository.deleteCalls);
         assertEquals(0, fixture.targetRepository.deleteCalls);
+    }
+
+    @Test
+    void wrongLoadTypeReturnsErrorWithoutReadingRawOrCleaningTables() {
+        TestFixture fixture = new TestFixture();
+        fixture.loadSessionRepository.exists = false;
+
+        WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
+
+        assertFalse(result.success());
+        assertEquals(0, result.totalRows());
+        assertEquals(0, result.loadedRows());
+        assertEquals(1, result.errorRows());
+        assertTrue(result.message().contains("expected LoadTypeCode=WEEKLY_DATA"));
+        assertEquals(0, fixture.rawRepository.findCalls);
+        assertEquals(0, fixture.errorRepository.deleteCalls);
+        assertEquals(0, fixture.errorRepository.validationErrors.size());
+        assertEquals(0, fixture.targetRepository.deleteCalls);
+        assertEquals(0, fixture.targetRepository.insertedRows.size());
+        assertEquals(0, fixture.dataSource.commitCount);
+        assertEquals(0, fixture.dataSource.rollbackCount);
     }
 
     @Test

@@ -45,7 +45,8 @@ public class WeeklyDataProcessor {
                         0,
                         0,
                         1,
-                        "Load session not found: " + loadSessionId
+                        "Load session not found or has unexpected LoadTypeCode. loadSessionId="
+                                + loadSessionId + ", expected LoadTypeCode=WEEKLY_DATA"
                 );
             }
 

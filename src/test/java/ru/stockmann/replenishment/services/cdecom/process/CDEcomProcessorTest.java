@@ -30,7 +30,7 @@ class CDEcomProcessorTest {
                 0,
                 0,
                 1,
-                "Load session not found: 100"
+                "Load session not found or has unexpected LoadTypeCode. loadSessionId=100, expected LoadTypeCode=CD_ECOM"
         ), result);
         assertEquals(1, context.loadSessionRepository.existsCalls);
         assertFalse(context.connection.commitCalled);
@@ -39,6 +39,32 @@ class CDEcomProcessorTest {
         assertTrue(context.validator.validatedRows.isEmpty());
         assertTrue(context.mapper.mappedRows.isEmpty());
         assertEquals(0, context.errorRepository.insertAllInTransactionCalls);
+    }
+
+    @Test
+    void wrongLoadTypeReturnsFailureWithoutOpeningProcessingTransaction() {
+        TestContext context = TestContext.withRows(row(1));
+        context.loadSessionRepository.exists = false;
+
+        CDEcomProcessResult result = context.processor().process(100L);
+
+        assertEquals(new CDEcomProcessResult(
+                100L,
+                false,
+                0,
+                0,
+                1,
+                "Load session not found or has unexpected LoadTypeCode. loadSessionId=100, expected LoadTypeCode=CD_ECOM"
+        ), result);
+        assertEquals(1, context.loadSessionRepository.existsCalls);
+        assertFalse(context.connection.commitCalled);
+        assertFalse(context.connection.rollbackCalled);
+        assertTrue(context.connection.setAutoCommitValues.isEmpty());
+        assertTrue(context.validator.validatedRows.isEmpty());
+        assertTrue(context.mapper.mappedRows.isEmpty());
+        assertEquals(0, context.errorRepository.insertAllInTransactionCalls);
+        assertTrue(context.errorRepository.processingErrors.isEmpty());
+        assertEquals(List.of("exists"), context.events);
     }
 
     @Test
