@@ -73,28 +73,28 @@ CREATE TABLE dbo.CD_data_raw (
                                  ExcelRowNum BIGINT NULL,
 
     -- Основные данные
-                                 nazvanie                NVARCHAR(255) NULL,
+                                 nazvanie                NVARCHAR(4000) NULL,
                                  god                     NVARCHAR(50)  NULL,
                                  sezon                   NVARCHAR(50)  NULL,
                                  den                     NVARCHAR(50)  NULL,
                                  data                    NVARCHAR(50)  NULL,
 
     -- Организационные признаки
-                                 sales_channel           NVARCHAR(255) NULL,
-                                 store_rus               NVARCHAR(255) NULL,
-                                 mfp_division            NVARCHAR(255) NULL,
-                                 mfp_department          NVARCHAR(255) NULL,
-                                 mfp_sub_department      NVARCHAR(255) NULL,
-                                 sku_brand_type          NVARCHAR(255) NULL,
-                                 sku_tm                  NVARCHAR(255) NULL,
-                                 mfp_node                NVARCHAR(255) NULL,
-                                 section                 NVARCHAR(255) NULL,
-                                 merchandise_sub_group   NVARCHAR(255) NULL,
-                                 campaign_sales          NVARCHAR(255) NULL,
+                                 sales_channel           NVARCHAR(4000) NULL,
+                                 store_rus               NVARCHAR(4000) NULL,
+                                 mfp_division            NVARCHAR(4000) NULL,
+                                 mfp_department          NVARCHAR(4000) NULL,
+                                 mfp_sub_department      NVARCHAR(4000) NULL,
+                                 sku_brand_type          NVARCHAR(4000) NULL,
+                                 sku_tm                  NVARCHAR(4000) NULL,
+                                 mfp_node                NVARCHAR(4000) NULL,
+                                 section                 NVARCHAR(4000) NULL,
+                                 merchandise_sub_group   NVARCHAR(4000) NULL,
+                                 campaign_sales          NVARCHAR(4000) NULL,
 
     -- SKU
                                  sku_style_color         NVARCHAR(50)  NULL,
-                                 sku_phase               NVARCHAR(255) NULL,
+                                 sku_phase               NVARCHAR(4000) NULL,
 
     -- Остатки
                                  stock_start_pcs         NVARCHAR(50)  NULL,
@@ -119,13 +119,13 @@ CREATE TABLE dbo.CD_data_raw (
                                  plan_rub                NVARCHAR(50)  NULL,
 
     -- Доп. аналитика
-                                 draivery_cd             NVARCHAR(255) NULL,
-                                 sku_color_rus           NVARCHAR(255) NULL,
-                                 sku_composition         NVARCHAR(255) NULL,
-                                 sku_supplier            NVARCHAR(255) NULL,
-                                 sku_name                NVARCHAR(255) NULL,
-                                 sku_collection          NVARCHAR(255) NULL,
-                                 sku_comment             NVARCHAR(255) NULL,
+                                 draivery_cd             NVARCHAR(4000) NULL,
+                                 sku_color_rus           NVARCHAR(4000) NULL,
+                                 sku_composition         NVARCHAR(4000) NULL,
+                                 sku_supplier            NVARCHAR(4000) NULL,
+                                 sku_name                NVARCHAR(4000) NULL,
+                                 sku_collection          NVARCHAR(4000) NULL,
+                                 sku_comment             NVARCHAR(4000) NULL,
 
     -- Технические поля
                                  CreatedAt DATETIME2(0) NOT NULL
@@ -145,4 +145,3 @@ GO
 CREATE INDEX IX_CD_data_raw_LoadSessionId
     ON dbo.CD_data_raw(LoadSessionId);
 GO
-

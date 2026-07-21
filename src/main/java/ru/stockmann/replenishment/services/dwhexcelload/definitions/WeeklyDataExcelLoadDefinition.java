@@ -6,6 +6,8 @@ import java.util.List;
 
 public class WeeklyDataExcelLoadDefinition implements DWHExcelLoadDefinition {
 
+    private static final int RAW_TEXT_LENGTH = 4000;
+
     @Override
     public DWHExcelLoadType loadType() {
         return DWHExcelLoadType.WEEKLY_DATA;
@@ -46,13 +48,13 @@ public class WeeklyDataExcelLoadDefinition implements DWHExcelLoadDefinition {
                 DWHExcelColumns.intNumber(4, "Year", 50, DWHExcelNullHandling.KEEP_NULL),
                 DWHExcelColumns.intNumber(5, "Week", 50, DWHExcelNullHandling.KEEP_NULL),
 
-                DWHExcelColumns.text(6, "SalesChannelBpo", 255),
-                DWHExcelColumns.text(7, "StoreRusBpo", 255),
-                DWHExcelColumns.text(8, "StoreRus", 255),
-                DWHExcelColumns.text(9, "MfpDivisionNew", 255),
-                DWHExcelColumns.text(10, "MfpDepartment", 255),
-                DWHExcelColumns.text(11, "SkuSeasonBudget", 255),
-                DWHExcelColumns.text(12, "TypeOfSales", 255),
+                DWHExcelColumns.text(6, "SalesChannelBpo", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(7, "StoreRusBpo", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(8, "StoreRus", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(9, "MfpDivisionNew", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(10, "MfpDepartment", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(11, "SkuSeasonBudget", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(12, "TypeOfSales", RAW_TEXT_LENGTH),
 
                 DWHExcelColumns.decimal(13, "TotalStockPcs", 255, DWHExcelNullHandling.ZERO),
                 DWHExcelColumns.decimal(14, "TotalStockDdp", 255, DWHExcelNullHandling.ZERO),
@@ -62,11 +64,11 @@ public class WeeklyDataExcelLoadDefinition implements DWHExcelLoadDefinition {
                 DWHExcelColumns.decimal(18, "Gp", 255, DWHExcelNullHandling.ZERO),
                 DWHExcelColumns.decimal(19, "DiscountTotalRub", 255, DWHExcelNullHandling.ZERO),
 
-                DWHExcelColumns.text(20, "MfpDivision", 255),
-                DWHExcelColumns.text(21, "Season", 255),
-                DWHExcelColumns.text(22, "Month", 255),
-                DWHExcelColumns.text(23, "Bundle", 255),
-                DWHExcelColumns.text(24, "Seasonality", 255)
+                DWHExcelColumns.text(20, "MfpDivision", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(21, "Season", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(22, "Month", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(23, "Bundle", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(24, "Seasonality", RAW_TEXT_LENGTH)
         );
     }
 }

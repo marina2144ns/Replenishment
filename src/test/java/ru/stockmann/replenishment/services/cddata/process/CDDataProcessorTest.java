@@ -130,6 +130,79 @@ class CDDataProcessorTest {
     }
 
     @Test
+    void actualValidatorTextLengthFailureWritesErrorAndBlocksTargetInsert() {
+        CDDataRawRow row = new CDDataRawRow(
+                1L,
+                100L,
+                30L,
+                "a".repeat(4000),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+        TestContext context = TestContext.withRows(row);
+        CDDataProcessor processor = new CDDataProcessor(
+                dataSource(context.connection),
+                context.loadSessionRepository,
+                context.rawRepository,
+                context.targetRepository,
+                context.errorRepository,
+                new CDDataValidator(),
+                context.mapper
+        );
+
+        CDDataProcessResult result = processor.process(100L);
+
+        assertFalse(result.success());
+        assertEquals(1, result.totalRows());
+        assertEquals(0, result.loadedRows());
+        assertEquals(1, result.errorRows());
+        assertEquals(1, context.errorRepository.transactionErrors.size());
+        assertEquals("nazvanie", context.errorRepository.transactionErrors.get(0).fieldName());
+        assertEquals("TEXT_TOO_LONG", context.errorRepository.transactionErrors.get(0).errorCode());
+        assertEquals(30L, context.errorRepository.transactionErrors.get(0).excelRowNum());
+        assertTrue(context.errorRepository.transactionErrors.get(0).errorReason().length() <= 500);
+        assertTrue(context.errorRepository.transactionErrors.get(0).errorMessage().length() <= 4000);
+        assertTrue(context.mapper.mappedRows.isEmpty());
+        assertEquals(0, context.targetRepository.insertAllCalls);
+        assertTrue(context.connection.commitCalled);
+        assertFalse(context.connection.rollbackCalled);
+    }
+
+    @Test
     void multipleErrorsInOneRawRowInsertAllErrorRecordsAndCountAllErrors() {
         CDDataRawRow row = row(1);
         TestContext context = TestContext.withRows(row);

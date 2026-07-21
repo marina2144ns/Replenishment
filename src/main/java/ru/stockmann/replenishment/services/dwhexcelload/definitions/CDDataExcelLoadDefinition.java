@@ -7,6 +7,8 @@ import java.util.List;
 
 public class CDDataExcelLoadDefinition implements DWHExcelLoadDefinition {
 
+    private static final int RAW_TEXT_LENGTH = 4000;
+
     @Override
     public DWHExcelLoadType loadType() {
         return DWHExcelLoadType.CD_DATA;
@@ -39,7 +41,7 @@ public class CDDataExcelLoadDefinition implements DWHExcelLoadDefinition {
     @Override
     public List<DWHExcelColumnSpec> columns() {
         return List.of(
-                DWHExcelColumns.text(0,  "nazvanie", 255),
+                DWHExcelColumns.text(0,  "nazvanie", RAW_TEXT_LENGTH),
 
                 DWHExcelColumns.intNumber(1, "god", 50, DWHExcelNullHandling.KEEP_NULL),
                 DWHExcelColumns.intNumber(2, "sezon", 50, DWHExcelNullHandling.KEEP_NULL),
@@ -47,21 +49,21 @@ public class CDDataExcelLoadDefinition implements DWHExcelLoadDefinition {
 
                 DWHExcelColumns.date(4, "data", 50),
 
-                DWHExcelColumns.text(5,  "sales_channel", 255),
-                DWHExcelColumns.text(6,  "store_rus", 255),
-                DWHExcelColumns.text(7,  "mfp_division", 255),
-                DWHExcelColumns.text(8,  "mfp_department", 255),
-                DWHExcelColumns.text(9,  "mfp_sub_department", 255),
-                DWHExcelColumns.text(10, "sku_brand_type", 255),
-                DWHExcelColumns.text(11, "sku_tm", 255),
-                DWHExcelColumns.text(12, "mfp_node", 255),
-                DWHExcelColumns.text(13, "section", 255),
-                DWHExcelColumns.text(14, "merchandise_sub_group", 255),
-                DWHExcelColumns.text(15, "campaign_sales", 255),
+                DWHExcelColumns.text(5,  "sales_channel", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(6,  "store_rus", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(7,  "mfp_division", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(8,  "mfp_department", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(9,  "mfp_sub_department", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(10, "sku_brand_type", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(11, "sku_tm", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(12, "mfp_node", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(13, "section", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(14, "merchandise_sub_group", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(15, "campaign_sales", RAW_TEXT_LENGTH),
 
                 DWHExcelColumns.intNumber(16, "sku_style_color", 50, DWHExcelNullHandling.KEEP_NULL),
 
-                DWHExcelColumns.text(17, "sku_phase", 255),
+                DWHExcelColumns.text(17, "sku_phase", RAW_TEXT_LENGTH),
 
                 DWHExcelColumns.decimal(18, "stock_start_pcs", 50, DWHExcelNullHandling.ZERO),
                 DWHExcelColumns.decimal(19, "stock_start_dd", 50, DWHExcelNullHandling.ZERO),
@@ -84,13 +86,13 @@ public class CDDataExcelLoadDefinition implements DWHExcelLoadDefinition {
 
                 DWHExcelColumns.intNumber(29, "plan_rub", 50, DWHExcelNullHandling.KEEP_NULL),
 
-                DWHExcelColumns.text(30, "draivery_cd", 255),
-                DWHExcelColumns.text(31, "sku_color_rus", 255),
-                DWHExcelColumns.text(32, "sku_composition", 255),
-                DWHExcelColumns.text(33, "sku_supplier", 255),
-                DWHExcelColumns.text(34, "sku_name", 255),
-                DWHExcelColumns.text(35, "sku_collection", 255),
-                DWHExcelColumns.text(36, "sku_comment", 255)
+                DWHExcelColumns.text(30, "draivery_cd", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(31, "sku_color_rus", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(32, "sku_composition", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(33, "sku_supplier", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(34, "sku_name", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(35, "sku_collection", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(36, "sku_comment", RAW_TEXT_LENGTH)
         );
     }
 

@@ -95,6 +95,32 @@ class WeeklyDataValidatorTest {
     }
 
     @Test
+    void textLength255IsValidForAllTextFields() {
+        for (String fieldName : textFields()) {
+            List<WeeklyDataValidationError> errors = validator.validate(rowWithTextField(fieldName, "a".repeat(255)));
+
+            assertTrue(
+                    errors.stream().noneMatch(error -> fieldName.equals(error.fieldName())),
+                    "Expected no text length error for " + fieldName + ", actual errors: " + errors
+            );
+        }
+    }
+
+    @Test
+    void textLength256ReturnsTextTooLongForAllTextFieldsAndKeepsExcelRowNum() {
+        for (String fieldName : textFields()) {
+            List<WeeklyDataValidationError> errors = validator.validate(rowWithTextField(fieldName, "a".repeat(256)));
+
+            WeeklyDataValidationError error = errors.stream()
+                    .filter(e -> fieldName.equals(e.fieldName()))
+                    .findFirst()
+                    .orElseThrow();
+            assertEquals("TEXT_TOO_LONG", error.errorCode(), fieldName);
+            assertEquals(3L, error.excelRowNum(), fieldName);
+        }
+    }
+
+    @Test
     void multipleErrorsInOneRowAreAllReturned() {
         List<WeeklyDataValidationError> errors = validator.validate(row()
                 .year("")
@@ -120,6 +146,56 @@ class WeeklyDataValidatorTest {
 
     private RowBuilder row() {
         return new RowBuilder();
+    }
+
+    private static List<String> textFields() {
+        return List.of(
+                "SalesChannelBpo",
+                "StoreRusBpo",
+                "StoreRus",
+                "MfpDivisionNew",
+                "MfpDepartment",
+                "SkuSeasonBudget",
+                "TypeOfSales",
+                "MfpDivision",
+                "Season",
+                "Month",
+                "Bundle",
+                "Seasonality"
+        );
+    }
+
+    private static WeeklyDataRawRow rowWithTextField(String fieldName, String value) {
+        return new WeeklyDataRawRow(
+                1,
+                2,
+                3L,
+                null,
+                null,
+                null,
+                null,
+                "2025",
+                "10",
+                "SalesChannelBpo".equals(fieldName) ? value : null,
+                "StoreRusBpo".equals(fieldName) ? value : null,
+                "StoreRus".equals(fieldName) ? value : null,
+                "MfpDivisionNew".equals(fieldName) ? value : null,
+                "MfpDepartment".equals(fieldName) ? value : null,
+                "SkuSeasonBudget".equals(fieldName) ? value : null,
+                "TypeOfSales".equals(fieldName) ? value : null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "MfpDivision".equals(fieldName) ? value : null,
+                "Season".equals(fieldName) ? value : null,
+                "Month".equals(fieldName) ? value : null,
+                "Bundle".equals(fieldName) ? value : null,
+                "Seasonality".equals(fieldName) ? value : null
+        );
     }
 
     private static class RowBuilder {

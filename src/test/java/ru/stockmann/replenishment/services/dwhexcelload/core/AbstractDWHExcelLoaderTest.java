@@ -1,6 +1,8 @@
 package ru.stockmann.replenishment.services.dwhexcelload.core;
 
 import org.junit.jupiter.api.Test;
+import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDDataExcelLoadDefinition;
+import ru.stockmann.replenishment.services.dwhexcelload.definitions.WeeklyDataExcelLoadDefinition;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
@@ -12,6 +14,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class AbstractDWHExcelLoaderTest {
 
@@ -31,14 +34,110 @@ class AbstractDWHExcelLoaderTest {
         assertFalse(statement.methods.containsValue("setInt"));
     }
 
+    @Test
+    void weeklyDataTextValueLongerThanTargetIsNotTruncatedBeforeRawBinding() throws SQLException {
+        TestLoader loader = new TestLoader(new WeeklyDataExcelLoadDefinition());
+        String longText = "x".repeat(256);
+        String[] row = new String[25];
+        row[8] = " " + longText + " ";
+
+        ExcelRowData normalized = loader.normalize(2, row);
+        RecordingStatement statement = new RecordingStatement();
+
+        loader.bind(statement.proxy(), 10L, normalized);
+
+        assertEquals(longText, normalized.get("StoreRus"));
+        assertEquals(256, ((String) statement.values.get(10)).length());
+        assertEquals("setString", statement.methods.get(10));
+    }
+
+    @Test
+    void cdDataTextValueLongerThanTargetIsNotTruncatedBeforeRawBinding() throws SQLException {
+        TestLoader loader = new TestLoader(new CDDataExcelLoadDefinition());
+        String longText = "x".repeat(256);
+        String[] row = new String[37];
+        row[0] = " " + longText + " ";
+
+        ExcelRowData normalized = loader.normalize(2, row);
+        RecordingStatement statement = new RecordingStatement();
+
+        loader.bind(statement.proxy(), 20L, normalized);
+
+        assertEquals(longText, normalized.get("nazvanie"));
+        assertEquals(256, ((String) statement.values.get(2)).length());
+        assertEquals("setString", statement.methods.get(2));
+    }
+
+    @Test
+    void weeklyDataTextValueLongerThanRawStagingLimitIsNotTruncatedByJava() throws SQLException {
+        TestLoader loader = new TestLoader(new WeeklyDataExcelLoadDefinition());
+        String longText = "x".repeat(4001);
+        String[] row = new String[25];
+        row[8] = longText;
+
+        ExcelRowData normalized = loader.normalize(2, row);
+        RecordingStatement statement = new RecordingStatement();
+
+        loader.bind(statement.proxy(), 10L, normalized);
+
+        assertEquals(4001, normalized.get("StoreRus").length());
+        assertEquals(4001, ((String) statement.values.get(10)).length());
+    }
+
+    @Test
+    void cdDataTextValueLongerThanRawStagingLimitIsNotTruncatedByJava() throws SQLException {
+        TestLoader loader = new TestLoader(new CDDataExcelLoadDefinition());
+        String longText = "x".repeat(4001);
+        String[] row = new String[37];
+        row[0] = longText;
+
+        ExcelRowData normalized = loader.normalize(2, row);
+        RecordingStatement statement = new RecordingStatement();
+
+        loader.bind(statement.proxy(), 20L, normalized);
+
+        assertEquals(4001, normalized.get("nazvanie").length());
+        assertEquals(4001, ((String) statement.values.get(2)).length());
+    }
+
+    @Test
+    void weeklyDataBlankTextStillNormalizesToNull() {
+        TestLoader loader = new TestLoader(new WeeklyDataExcelLoadDefinition());
+        String[] row = new String[25];
+        row[8] = "   ";
+
+        ExcelRowData normalized = loader.normalize(2, row);
+
+        assertNull(normalized.get("StoreRus"));
+    }
+
+    @Test
+    void cdDataBlankTextStillNormalizesToNull() {
+        TestLoader loader = new TestLoader(new CDDataExcelLoadDefinition());
+        String[] row = new String[37];
+        row[0] = "   ";
+
+        ExcelRowData normalized = loader.normalize(2, row);
+
+        assertNull(normalized.get("nazvanie"));
+    }
+
     private static final class TestLoader extends AbstractDWHExcelLoader {
 
         private TestLoader() {
             super(null, new TestDefinition());
         }
 
+        private TestLoader(DWHExcelLoadDefinition definition) {
+            super(null, definition);
+        }
+
         private void bind(PreparedStatement ps, Long loadSessionId, ExcelRowData row) throws SQLException {
             bindRawRow(ps, loadSessionId, row);
+        }
+
+        private ExcelRowData normalize(int rowNum, String[] row) {
+            return normalizeRow(rowNum, row);
         }
     }
 

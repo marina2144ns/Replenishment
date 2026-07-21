@@ -192,12 +192,53 @@ class CDDataValidatorTest {
     }
 
     @Test
+    void textLength255IsValidForAllTextFields() {
+        for (String fieldName : textFields()) {
+            CDDataValidationResult result = validator.validate(rowWithTextField(fieldName, "a".repeat(255)));
+
+            assertTrue(
+                    result.errors().stream().noneMatch(error -> fieldName.equals(error.fieldName())),
+                    "Expected no text length error for " + fieldName + ", actual errors: " + result.errors()
+            );
+        }
+    }
+
+    @Test
     void textLength256ReturnsTextTooLong() {
         CDDataValidationResult result = validator.validate(rowBuilder()
                 .nazvanie("a".repeat(256))
                 .build());
 
         assertSingleError(result, "nazvanie", "TEXT_TOO_LONG");
+    }
+
+    @Test
+    void textLength4000ReturnsSafeTextTooLongMessage() {
+        CDDataValidationResult result = validator.validate(rowBuilder()
+                .nazvanie("a".repeat(4000))
+                .build());
+
+        CDDataValidationError error = singleError(result);
+        assertError(error, "nazvanie", "TEXT_TOO_LONG");
+        assertTrue(error.errorReason().length() <= 500);
+        assertTrue(error.errorMessage().length() <= 4000);
+        assertTrue(error.errorMessage().contains("RawId=10"));
+        assertTrue(error.errorMessage().contains("nazvanie"));
+        assertTrue(error.errorMessage().contains("max length 255"));
+    }
+
+    @Test
+    void textLength256ReturnsTextTooLongForAllTextFieldsAndKeepsExcelRowNum() {
+        for (String fieldName : textFields()) {
+            CDDataValidationResult result = validator.validate(rowWithTextField(fieldName, "a".repeat(256)));
+
+            CDDataValidationError error = result.errors().stream()
+                    .filter(e -> fieldName.equals(e.fieldName()))
+                    .findFirst()
+                    .orElseThrow();
+            assertEquals("TEXT_TOO_LONG", error.errorCode(), fieldName);
+            assertEquals(30L, error.excelRowNum(), fieldName);
+        }
     }
 
     @Test
@@ -216,6 +257,76 @@ class CDDataValidatorTest {
 
     private static CDDataRawRowBuilder rowBuilder() {
         return new CDDataRawRowBuilder();
+    }
+
+    private static List<String> textFields() {
+        return List.of(
+                "nazvanie",
+                "salesChannel",
+                "storeRus",
+                "mfpDivision",
+                "mfpDepartment",
+                "mfpSubDepartment",
+                "skuBrandType",
+                "skuTm",
+                "mfpNode",
+                "section",
+                "merchandiseSubGroup",
+                "campaignSales",
+                "skuPhase",
+                "draiveryCd",
+                "skuColorRus",
+                "skuComposition",
+                "skuSupplier",
+                "skuName",
+                "skuCollection",
+                "skuComment"
+        );
+    }
+
+    private static CDDataRawRow rowWithTextField(String fieldName, String value) {
+        return new CDDataRawRow(
+                10L,
+                20L,
+                30L,
+                "nazvanie".equals(fieldName) ? value : null,
+                null,
+                null,
+                null,
+                null,
+                "salesChannel".equals(fieldName) ? value : null,
+                "storeRus".equals(fieldName) ? value : null,
+                "mfpDivision".equals(fieldName) ? value : null,
+                "mfpDepartment".equals(fieldName) ? value : null,
+                "mfpSubDepartment".equals(fieldName) ? value : null,
+                "skuBrandType".equals(fieldName) ? value : null,
+                "skuTm".equals(fieldName) ? value : null,
+                "mfpNode".equals(fieldName) ? value : null,
+                "section".equals(fieldName) ? value : null,
+                "merchandiseSubGroup".equals(fieldName) ? value : null,
+                "campaignSales".equals(fieldName) ? value : null,
+                null,
+                "skuPhase".equals(fieldName) ? value : null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "draiveryCd".equals(fieldName) ? value : null,
+                "skuColorRus".equals(fieldName) ? value : null,
+                "skuComposition".equals(fieldName) ? value : null,
+                "skuSupplier".equals(fieldName) ? value : null,
+                "skuName".equals(fieldName) ? value : null,
+                "skuCollection".equals(fieldName) ? value : null,
+                "skuComment".equals(fieldName) ? value : null
+        );
     }
 
     private static void assertSingleError(

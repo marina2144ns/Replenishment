@@ -63,13 +63,13 @@ CREATE TABLE dbo.Weekly_data_raw (
                                      Week NVARCHAR(50) NULL,
 
     -- Организационные признаки
-                                     SalesChannelBpo NVARCHAR(255) NULL,
-                                     StoreRusBpo NVARCHAR(255) NULL,
-                                     StoreRus NVARCHAR(255) NULL,
-                                     MfpDivisionNew NVARCHAR(255) NULL,
-                                     MfpDepartment NVARCHAR(255) NULL,
-                                     SkuSeasonBudget NVARCHAR(255) NULL,
-                                     TypeOfSales NVARCHAR(255) NULL,
+                                     SalesChannelBpo NVARCHAR(4000) NULL,
+                                     StoreRusBpo NVARCHAR(4000) NULL,
+                                     StoreRus NVARCHAR(4000) NULL,
+                                     MfpDivisionNew NVARCHAR(4000) NULL,
+                                     MfpDepartment NVARCHAR(4000) NULL,
+                                     SkuSeasonBudget NVARCHAR(4000) NULL,
+                                     TypeOfSales NVARCHAR(4000) NULL,
 
     -- Остатки
                                      TotalStockPcs NVARCHAR(255) NULL,
@@ -85,11 +85,11 @@ CREATE TABLE dbo.Weekly_data_raw (
                                      DiscountTotalRub NVARCHAR(255) NULL,
 
     -- Доп. аналитика
-                                     MfpDivision NVARCHAR(255) NULL,
-                                     Season NVARCHAR(255) NULL,
-                                     Month NVARCHAR(255) NULL,
-                                     Bundle NVARCHAR(255) NULL,
-                                     Seasonality NVARCHAR(255) NULL,
+                                     MfpDivision NVARCHAR(4000) NULL,
+                                     Season NVARCHAR(4000) NULL,
+                                     Month NVARCHAR(4000) NULL,
+                                     Bundle NVARCHAR(4000) NULL,
+                                     Seasonality NVARCHAR(4000) NULL,
 
     -- Технические поля
                                      CreatedAt DATETIME2(0) NOT NULL

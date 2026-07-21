@@ -82,6 +82,31 @@ class WeeklyDataProcessorTest {
     }
 
     @Test
+    void textLengthValidationFailureWritesErrorAndBlocksTargetInsert() {
+        TestFixture fixture = new TestFixture();
+        fixture.loadSessionRepository.exists = true;
+        fixture.rawRepository.rows = List.of(row()
+                .year("2025")
+                .week("10")
+                .storeRus("a".repeat(256))
+                .build());
+
+        WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
+
+        assertFalse(result.success());
+        assertEquals(1, result.totalRows());
+        assertEquals(0, result.loadedRows());
+        assertEquals(1, result.errorRows());
+        assertEquals(1, fixture.errorRepository.validationErrors.size());
+        assertEquals("StoreRus", fixture.errorRepository.validationErrors.get(0).fieldName());
+        assertEquals("TEXT_TOO_LONG", fixture.errorRepository.validationErrors.get(0).errorCode());
+        assertEquals(3L, fixture.errorRepository.validationErrors.get(0).excelRowNum());
+        assertEquals(0, fixture.targetRepository.insertedRows.size());
+        assertEquals(1, fixture.dataSource.commitCount);
+        assertEquals(0, fixture.dataSource.rollbackCount);
+    }
+
+    @Test
     void successWritesTargetRowsAndDoesNotWriteValidationErrors() {
         TestFixture fixture = new TestFixture();
         fixture.loadSessionRepository.exists = true;
@@ -303,6 +328,7 @@ class WeeklyDataProcessorTest {
     private static class RowBuilder {
         private String year;
         private String week;
+        private String storeRus;
 
         RowBuilder year(String year) {
             this.year = year;
@@ -311,6 +337,11 @@ class WeeklyDataProcessorTest {
 
         RowBuilder week(String week) {
             this.week = week;
+            return this;
+        }
+
+        RowBuilder storeRus(String storeRus) {
+            this.storeRus = storeRus;
             return this;
         }
 
@@ -327,7 +358,7 @@ class WeeklyDataProcessorTest {
                     week,
                     null,
                     null,
-                    null,
+                    storeRus,
                     null,
                     null,
                     null,

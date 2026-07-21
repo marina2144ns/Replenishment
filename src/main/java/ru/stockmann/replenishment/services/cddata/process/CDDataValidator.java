@@ -138,7 +138,7 @@ public class CDDataValidator {
                     fieldName,
                     "TEXT_TOO_LONG",
                     "Value exceeds max length 255",
-                    "Value in field [" + fieldName + "] exceeds max length 255: [" + value + "]"
+                    "Value exceeds max length 255 in field [" + fieldName + "]."
             ));
         }
     }
