@@ -5,10 +5,6 @@ GO
 /* 1. Raw-таблица                                               */
 /*    Сюда грузим как есть, почти всё строками                  */
 /*==============================================================*/
-IF OBJECT_ID('dbo.CD_ecom_raw', 'U') IS NOT NULL
-    DROP TABLE dbo.CD_ecom_raw;
-GO
-
 CREATE TABLE dbo.CD_ecom_raw
 (
     Id                          BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
@@ -68,10 +64,6 @@ GO
 /*==============================================================*/
 /* 2. Основная таблица                                          */
 /*==============================================================*/
-IF OBJECT_ID('dbo.CD_ecom', 'U') IS NOT NULL
-    DROP TABLE dbo.CD_ecom;
-GO
-
 CREATE TABLE dbo.CD_ecom
 (
     Id                          BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,

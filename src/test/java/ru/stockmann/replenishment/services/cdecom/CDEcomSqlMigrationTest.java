@@ -26,11 +26,17 @@ class CDEcomSqlMigrationTest {
     void cdecomRawDdlContainsNullableExcelRowNumAndCommonForeignKeys() throws Exception {
         String sql = Files.readString(Path.of("src/main/db/tables/CDecom_ddl.sql"));
 
+        assertTrue(sql.contains("CREATE TABLE dbo.CD_ecom_raw"));
+        assertTrue(sql.contains("CREATE TABLE dbo.CD_ecom"));
         assertTrue(sql.contains("ExcelRowNum                 BIGINT                NULL"));
         assertTrue(sql.contains("LoadSessionId               BIGINT                NOT NULL"));
         assertTrue(sql.contains("name                        NVARCHAR(4000)        NULL"));
         assertTrue(sql.contains("skuCollection               NVARCHAR(4000)        NULL"));
         assertTrue(sql.contains("FOREIGN KEY (LoadSessionId) REFERENCES dbo.DWH_Excel_Load_Session(Id)"));
+        assertFalse(sql.contains("DROP TABLE"));
+        assertFalse(sql.contains("DELETE"));
+        assertFalse(sql.contains("TRUNCATE"));
+        assertFalse(sql.contains("ALTER TABLE"));
         assertFalse(sql.contains("dbo.CD_ecom_load_session"));
         assertFalse(sql.contains("dbo.CD_ecom_load_error"));
         assertFalse(sql.contains("usp_CDEcom_ProcessLoadSession"));

@@ -37,6 +37,10 @@ class DWHLegacySqlCleanupTest {
             assertFalse(ddl.contains("create procedure dbo." + object), object);
         }
 
+        assertFalse(ddl.contains("drop table"));
+        assertFalse(ddl.contains("delete"));
+        assertFalse(ddl.contains("truncate"));
+        assertFalse(ddl.contains("alter table"));
         assertTrue(ddl.contains("create table dbo.cd_ecom_raw"));
         assertTrue(ddl.contains("create table dbo.cd_ecom"));
         assertTrue(ddl.contains("references dbo.dwh_excel_load_session(id)"));
