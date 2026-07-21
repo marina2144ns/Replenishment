@@ -9,6 +9,7 @@ BEGIN
     SET XACT_ABORT ON;
 
     DECLARE
+        @LoadTypeCode NVARCHAR(100) = N'CD_ECOM',
         @TotalRows  BIGINT = 0,
         @LoadedRows BIGINT = 0,
         @ErrorRows  BIGINT = 0,
@@ -19,8 +20,9 @@ BEGIN
         IF NOT EXISTS
             (
                 SELECT 1
-                FROM dbo.CD_ecom_load_session
+                FROM dbo.DWH_Excel_Load_Session
                 WHERE Id = @LoadSessionId
+                  AND LoadTypeCode = @LoadTypeCode
             )
             BEGIN
                 SET @Message = CONCAT(N'LoadSessionId ', @LoadSessionId, N' not found.');
@@ -35,8 +37,9 @@ BEGIN
                 RETURN;
             END;
 
-        DELETE FROM dbo.CD_ecom_load_error
-        WHERE LoadSessionId = @LoadSessionId;
+        DELETE FROM dbo.DWH_Excel_Load_Error
+        WHERE LoadSessionId = @LoadSessionId
+          AND LoadTypeCode = @LoadTypeCode;
 
         DELETE FROM dbo.CD_ecom
         WHERE LoadSessionId = @LoadSessionId;
@@ -51,6 +54,7 @@ BEGIN
                       SELECT
                           r.Id,
                           r.LoadSessionId,
+                          r.ExcelRowNum,
 
                           r.name,
                           r.[year],
@@ -219,6 +223,125 @@ BEGIN
                   (
                       SELECT
                           p.Id,
+                          p.ExcelRowNum,
+                          FieldName =
+                              CASE
+                                  WHEN p.year_clean IS NOT NULL
+                                      AND TRY_CONVERT(INT, p.year_clean) IS NULL THEN N'year'
+
+                                  WHEN p.season_clean IS NOT NULL
+                                      AND TRY_CONVERT(INT, p.season_clean) IS NULL THEN N'season'
+
+                                  WHEN p.day_clean IS NOT NULL
+                                      AND TRY_CONVERT(INT, p.day_clean) IS NULL THEN N'day'
+
+                                  WHEN p.data_clean IS NOT NULL
+                                      AND p.data_parsed IS NULL THEN N'data'
+
+                                  WHEN p.skuStyleColor_clean IS NOT NULL
+                                      AND p.skuStyleColor_num IS NULL THEN N'skuStyleColor'
+
+                                  WHEN p.orderPcs_clean IS NOT NULL
+                                      AND p.orderPcs_num IS NULL THEN N'orderPcs'
+
+                                  WHEN p.orderRub_clean IS NOT NULL
+                                      AND p.orderRub_num IS NULL THEN N'orderRub'
+
+                                  WHEN p.foundPcs_clean IS NOT NULL
+                                      AND p.foundPcs_num IS NULL THEN N'foundPcs'
+
+                                  WHEN p.foundRub_clean IS NOT NULL
+                                      AND p.foundRub_num IS NULL THEN N'foundRub'
+
+                                  WHEN p.salesPcs_clean IS NOT NULL
+                                      AND p.salesPcs_num IS NULL THEN N'salesPcs'
+
+                                  WHEN p.salesRub_clean IS NOT NULL
+                                      AND p.salesRub_num IS NULL THEN N'salesRub'
+
+                                  WHEN p.revenue_clean IS NOT NULL
+                                      AND p.revenue_num IS NULL THEN N'revenue'
+
+                                  WHEN p.gp_clean IS NOT NULL
+                                      AND p.gp_num IS NULL THEN N'gp'
+
+                                  WHEN p.cogs_clean IS NOT NULL
+                                      AND p.cogs_num IS NULL THEN N'cogs'
+
+                                  WHEN p.salesDiscount_clean IS NOT NULL
+                                      AND p.salesDiscount_num IS NULL THEN N'salesDiscount'
+
+                                  WHEN p.planRub_clean IS NOT NULL
+                                      AND TRY_CONVERT(BIGINT, p.planRub_clean) IS NULL THEN N'planRub'
+
+                                  WHEN p.stockStoresPcs_clean IS NOT NULL
+                                      AND TRY_CONVERT(BIGINT, p.stockStoresPcs_clean) IS NULL THEN N'stockStoresPcs'
+
+                                  WHEN p.stockStoresDdp_clean IS NOT NULL
+                                      AND TRY_CONVERT(BIGINT, p.stockStoresDdp_clean) IS NULL THEN N'stockStoresDdp'
+
+                                  WHEN p.name_clean IS NOT NULL
+                                      AND LEN(p.name_clean) > 255 THEN N'name'
+
+                                  WHEN p.salesChannelBpo_clean IS NOT NULL
+                                      AND LEN(p.salesChannelBpo_clean) > 255 THEN N'salesChannelBpo'
+
+                                  WHEN p.storeRus_clean IS NOT NULL
+                                      AND LEN(p.storeRus_clean) > 255 THEN N'storeRus'
+
+                                  WHEN p.mfpDivision_clean IS NOT NULL
+                                      AND LEN(p.mfpDivision_clean) > 255 THEN N'mfpDivision'
+
+                                  WHEN p.mfpDepartment_clean IS NOT NULL
+                                      AND LEN(p.mfpDepartment_clean) > 255 THEN N'mfpDepartment'
+
+                                  WHEN p.mfpSubDepartment_clean IS NOT NULL
+                                      AND LEN(p.mfpSubDepartment_clean) > 255 THEN N'mfpSubDepartment'
+
+                                  WHEN p.skuBrandType_clean IS NOT NULL
+                                      AND LEN(p.skuBrandType_clean) > 255 THEN N'skuBrandType'
+
+                                  WHEN p.skuTm_clean IS NOT NULL
+                                      AND LEN(p.skuTm_clean) > 255 THEN N'skuTm'
+
+                                  WHEN p.mfpNode_clean IS NOT NULL
+                                      AND LEN(p.mfpNode_clean) > 255 THEN N'mfpNode'
+
+                                  WHEN p.section_clean IS NOT NULL
+                                      AND LEN(p.section_clean) > 255 THEN N'section'
+
+                                  WHEN p.merchandiseSubGroup_clean IS NOT NULL
+                                      AND LEN(p.merchandiseSubGroup_clean) > 255 THEN N'merchandiseSubGroup'
+
+                                  WHEN p.campaignSalesType_clean IS NOT NULL
+                                      AND LEN(p.campaignSalesType_clean) > 255 THEN N'campaignSalesType'
+
+                                  WHEN p.skuPhase_clean IS NOT NULL
+                                      AND LEN(p.skuPhase_clean) > 255 THEN N'skuPhase'
+
+                                  WHEN p.cdDrivers_clean IS NOT NULL
+                                      AND LEN(p.cdDrivers_clean) > 255 THEN N'cdDrivers'
+
+                                  WHEN p.skuSupplierModel_clean IS NOT NULL
+                                      AND LEN(p.skuSupplierModel_clean) > 255 THEN N'skuSupplierModel'
+
+                                  WHEN p.skuComposition_clean IS NOT NULL
+                                      AND LEN(p.skuComposition_clean) > 255 THEN N'skuComposition'
+
+                                  WHEN p.skuColorRussian_clean IS NOT NULL
+                                      AND LEN(p.skuColorRussian_clean) > 255 THEN N'skuColorRussian'
+
+                                  WHEN p.skuName_clean IS NOT NULL
+                                      AND LEN(p.skuName_clean) > 255 THEN N'skuName'
+
+                                  WHEN p.skuCommentBuyer_clean IS NOT NULL
+                                      AND LEN(p.skuCommentBuyer_clean) > 255 THEN N'skuCommentBuyer'
+
+                                  WHEN p.skuCollection_clean IS NOT NULL
+                                      AND LEN(p.skuCollection_clean) > 255 THEN N'skuCollection'
+
+                                  ELSE NULL
+                                  END,
                           ErrorMessage =
                               CASE
                                   WHEN p.year_clean IS NOT NULL
@@ -377,25 +500,36 @@ BEGIN
                                   END
                       FROM Parsed p
                   )
-         INSERT INTO dbo.CD_ecom_load_error
+         INSERT INTO dbo.DWH_Excel_Load_Error
          (
              LoadSessionId,
+             LoadTypeCode,
+             ErrorLayer,
+             ExcelRowNum,
              RawId,
-             Stage,
+             FieldName,
+             ErrorCode,
+             ErrorReason,
              ErrorMessage
          )
          SELECT
              @LoadSessionId,
+             @LoadTypeCode,
+             N'VALIDATION',
+             v.ExcelRowNum,
              v.Id,
-             'VALIDATION',
+             v.FieldName,
+             N'INVALID_VALUE',
+             LEFT(v.ErrorMessage, 500),
              v.ErrorMessage
          FROM Validation v
          WHERE v.ErrorMessage IS NOT NULL;
 
         SELECT
                 @ErrorRows = COUNT_BIG(*)
-        FROM dbo.CD_ecom_load_error
-        WHERE LoadSessionId = @LoadSessionId;
+        FROM dbo.DWH_Excel_Load_Error
+        WHERE LoadSessionId = @LoadSessionId
+          AND LoadTypeCode = @LoadTypeCode;
 
         IF @ErrorRows > 0
             BEGIN
@@ -685,18 +819,28 @@ BEGIN
         DECLARE @CatchMessage NVARCHAR(4000) = ERROR_MESSAGE();
 
         BEGIN TRY
-            INSERT INTO dbo.CD_ecom_load_error
+            INSERT INTO dbo.DWH_Excel_Load_Error
             (
                 LoadSessionId,
+                LoadTypeCode,
+                ErrorLayer,
+                ExcelRowNum,
                 RawId,
-                Stage,
+                FieldName,
+                ErrorCode,
+                ErrorReason,
                 ErrorMessage
             )
             VALUES
                 (
                     @LoadSessionId,
+                    @LoadTypeCode,
+                    N'PROCESSING',
+                    NULL,
                     0,
-                    'PROCESSING',
+                    NULL,
+                    N'UNEXPECTED_PROCESSING_ERROR',
+                    LEFT(CONCAT(N'Unexpected processing error: ', @CatchMessage), 500),
                     LEFT(CONCAT(N'Unexpected processing error: ', @CatchMessage), 4000)
                 );
         END TRY
@@ -705,8 +849,9 @@ BEGIN
 
         SELECT
                 @ErrorRows = COUNT_BIG(*)
-        FROM dbo.CD_ecom_load_error
-        WHERE LoadSessionId = @LoadSessionId;
+        FROM dbo.DWH_Excel_Load_Error
+        WHERE LoadSessionId = @LoadSessionId
+          AND LoadTypeCode = @LoadTypeCode;
 
         SET @Message = LEFT(CONCAT(N'Processing failed: ', @CatchMessage), 2000);
 

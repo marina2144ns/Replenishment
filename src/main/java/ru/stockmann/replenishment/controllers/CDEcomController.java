@@ -4,29 +4,44 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import ru.stockmann.replenishment.models.CDEcomLoadRequest;
 import ru.stockmann.replenishment.services.CDEcomBulkLoader;
-import ru.stockmann.replenishment.models.CDEcomLoadResult;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelAsyncLoadService;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadRequest;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadResult;
 
 @RestController
 @RequestMapping("/cdecom/v1.0")
 public class CDEcomController {
 
     private final CDEcomBulkLoader bulkLoader;
+    private final DWHExcelAsyncLoadService asyncLoadService;
 
-    public CDEcomController(CDEcomBulkLoader bulkLoader) {
+    public CDEcomController(
+            CDEcomBulkLoader bulkLoader,
+            DWHExcelAsyncLoadService asyncLoadService
+    ) {
         this.bulkLoader = bulkLoader;
+        this.asyncLoadService = asyncLoadService;
     }
 
     @PostMapping("/bulk")
-    public ResponseEntity<CDEcomLoadResult> bulk(@RequestBody CDEcomLoadRequest req) {
+    public ResponseEntity<?> bulk(@RequestBody DWHExcelLoadRequest req) {
 
         if (req == null || req.getFilePath() == null || req.getFilePath().isBlank()) {
-            return ResponseEntity.badRequest().body(CDEcomLoadResult.error(null, "filePath is empty"));
+            return ResponseEntity
+                    .badRequest()
+                    .body(DWHExcelLoadResult.error(null, "filePath is empty"));
         }
 
-        CDEcomLoadResult result =
-                bulkLoader.bulkLoad(req.getFilePath());
+        DWHExcelLoadResult result = bulkLoader.acceptFile(req.getFilePath());
+
+        if ("OK".equals(result.status()) && result.loadSessionId() != null) {
+            asyncLoadService.startAsync(
+                    bulkLoader,
+                    result.loadSessionId(),
+                    req.getFilePath()
+            );
+        }
 
         HttpStatus status = "OK".equals(result.status())
                 ? HttpStatus.OK

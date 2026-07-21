@@ -3,6 +3,8 @@ GO
 
 /*==============================================================*/
 /* 1. Таблица сессий загрузки                                   */
+/* TODO: legacy CDEcom session table. Remove after production    */
+/* verification of DWH_Excel_Load_Session migration.             */
 /*==============================================================*/
 IF OBJECT_ID('dbo.CD_ecom_load_session', 'U') IS NOT NULL
     DROP TABLE dbo.CD_ecom_load_session;
@@ -25,6 +27,8 @@ GO
 
 /*==============================================================*/
 /* 2. Таблица ошибок загрузки                                   */
+/* TODO: legacy CDEcom error table. Remove after production      */
+/* verification of DWH_Excel_Load_Error migration.               */
 /*==============================================================*/
 IF OBJECT_ID('dbo.CD_ecom_load_error', 'U') IS NOT NULL
     DROP TABLE dbo.CD_ecom_load_error;
@@ -60,6 +64,7 @@ CREATE TABLE dbo.CD_ecom_raw
 (
     Id                          BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
     LoadSessionId               BIGINT                NOT NULL,
+    ExcelRowNum                 BIGINT                NULL,
 
     name                        NVARCHAR(255)         NULL,
     [year]                      NVARCHAR(50)          NULL,
@@ -103,7 +108,7 @@ CREATE TABLE dbo.CD_ecom_raw
     CreatedAt                   DATETIME2             NOT NULL CONSTRAINT DF_CD_ecom_raw_CreatedAt DEFAULT SYSUTCDATETIME(),
 
     CONSTRAINT FK_CD_ecom_raw_LoadSession
-        FOREIGN KEY (LoadSessionId) REFERENCES dbo.CD_ecom_load_session(Id)
+        FOREIGN KEY (LoadSessionId) REFERENCES dbo.DWH_Excel_Load_Session(Id)
 );
 GO
 
@@ -165,7 +170,7 @@ CREATE TABLE dbo.CD_ecom
     CreatedAt                   DATETIME2             NOT NULL CONSTRAINT DF_CD_ecom_CreatedAt DEFAULT SYSUTCDATETIME(),
 
     CONSTRAINT FK_CD_ecom_LoadSession
-        FOREIGN KEY (LoadSessionId) REFERENCES dbo.CD_ecom_load_session(Id)
+        FOREIGN KEY (LoadSessionId) REFERENCES dbo.DWH_Excel_Load_Session(Id)
 );
 GO
 
@@ -188,4 +193,3 @@ GO
 CREATE INDEX IX_CD_ecom_section
     ON dbo.CD_ecom(section);
 GO
-
