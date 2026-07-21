@@ -6,6 +6,8 @@ import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelValueKind;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WeeklyDataExcelLoadDefinitionTest {
 
@@ -34,5 +36,16 @@ class WeeklyDataExcelLoadDefinitionTest {
                 assertEquals(DWHExcelValueKind.TEXT, column.valueKind(), column.rawColumnName());
             }
         });
+    }
+
+    @Test
+    void javaProcessedWeeklyDataDoesNotDeclareRuntimeProcedure() {
+        WeeklyDataExcelLoadDefinition definition = new WeeklyDataExcelLoadDefinition();
+
+        UnsupportedOperationException exception = assertThrows(
+                UnsupportedOperationException.class,
+                definition::processProcedureName
+        );
+        assertTrue(exception.getMessage().contains("WeeklyData processing is implemented in Java"));
     }
 }

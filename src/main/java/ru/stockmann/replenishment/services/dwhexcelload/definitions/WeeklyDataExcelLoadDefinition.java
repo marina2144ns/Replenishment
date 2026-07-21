@@ -25,7 +25,7 @@ public class WeeklyDataExcelLoadDefinition implements DWHExcelLoadDefinition {
 
     @Override
     public String processProcedureName() {
-        return "dbo.usp_WeeklyData_ProcessLoadSession";
+        throw new UnsupportedOperationException("WeeklyData processing is implemented in Java");
     }
 
     @Override

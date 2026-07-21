@@ -6,6 +6,7 @@ import ru.stockmann.replenishment.services.cddata.process.CDDataProcessResult;
 import ru.stockmann.replenishment.services.cddata.process.CDDataProcessor;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadSessionResult;
 
+import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 
@@ -34,6 +35,28 @@ class CDDataBulkLoaderTest {
         assertEquals(100L, processor.loadSessionId);
         assertTrue(result.success());
         assertEquals("CDData load session processed successfully", result.message());
+        assertEquals(0, dataSource.connections);
+    }
+
+    @Test
+    void defaultProcedureFallbackIsNotAvailableForCdData() {
+        RecordingDataSource dataSource = new RecordingDataSource();
+        FakeCDDataProcessor processor = new FakeCDDataProcessor(new CDDataProcessResult(
+                100L,
+                true,
+                0,
+                0,
+                0,
+                "OK"
+        ));
+        TestCDDataBulkLoader loader = new TestCDDataBulkLoader(dataSource, processor);
+
+        UnsupportedOperationException exception = org.junit.jupiter.api.Assertions.assertThrows(
+                UnsupportedOperationException.class,
+                () -> loader.callDefaultProcedure(100L)
+        );
+
+        assertTrue(exception.getMessage().contains("CDData processing is implemented in Java"));
         assertEquals(0, dataSource.connections);
     }
 
@@ -110,6 +133,17 @@ class CDDataBulkLoaderTest {
         public Connection getConnection(String username, String password) throws SQLException {
             connections++;
             throw new SQLException("CDDataBulkLoader processLoadSession must not use DataSource");
+        }
+    }
+
+    private static final class TestCDDataBulkLoader extends CDDataBulkLoader {
+
+        private TestCDDataBulkLoader(DataSource dataSource, CDDataProcessor processor) {
+            super(dataSource, processor);
+        }
+
+        private void callDefaultProcedure(Long loadSessionId) throws Exception {
+            callProcessProcedure(loadSessionId);
         }
     }
 }

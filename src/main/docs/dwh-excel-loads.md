@@ -7,9 +7,15 @@ Runtime state is stored in:
 - `dbo.DWH_Excel_Load_Session`
 - `dbo.DWH_Excel_Load_Error`
 
-CDEcom runtime processing is implemented in Java by `CDEcomProcessor`; it no longer calls `dbo.usp_CDEcom_ProcessLoadSession` at runtime.
+Runtime processing is implemented in Java:
 
-The procedure `dbo.usp_CDEcom_ProcessLoadSession` is retained temporarily as rollback/reference material until production verification is complete.
+- WeeklyData: `WeeklyDataProcessor`
+- CDData: `CDDataProcessor`
+- CDEcom: `CDEcomProcessor`
+
+Their load definitions do not expose active runtime stored procedure names and throw `UnsupportedOperationException` from `processProcedureName()` to prevent accidental fallback to the default procedure hook.
+
+The procedures `dbo.usp_WeeklyData_ProcessLoadSession`, `dbo.usp_CDData_ProcessLoadSession`, and `dbo.usp_CDEcom_ProcessLoadSession` are retained temporarily as rollback/reference material until production verification is complete.
 
 Legacy CDEcom tables `dbo.CD_ecom_load_session` and `dbo.CD_ecom_load_error` are kept for production verification and can be removed in a later cleanup migration after the common DWH flow is verified.
 

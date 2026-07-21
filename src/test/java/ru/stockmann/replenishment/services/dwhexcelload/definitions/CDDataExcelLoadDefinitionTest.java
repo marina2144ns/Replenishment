@@ -6,6 +6,8 @@ import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelValueKind;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CDDataExcelLoadDefinitionTest {
 
@@ -42,5 +44,16 @@ class CDDataExcelLoadDefinitionTest {
                 assertEquals(DWHExcelValueKind.TEXT, column.valueKind(), column.rawColumnName());
             }
         });
+    }
+
+    @Test
+    void javaProcessedCdDataDoesNotDeclareRuntimeProcedure() {
+        CDDataExcelLoadDefinition definition = new CDDataExcelLoadDefinition();
+
+        UnsupportedOperationException exception = assertThrows(
+                UnsupportedOperationException.class,
+                definition::processProcedureName
+        );
+        assertTrue(exception.getMessage().contains("CDData processing is implemented in Java"));
     }
 }

@@ -26,7 +26,7 @@ public class CDDataExcelLoadDefinition implements DWHExcelLoadDefinition {
 
     @Override
     public String processProcedureName() {
-        return "dbo.usp_CDData_ProcessLoadSession";
+        throw new UnsupportedOperationException("CDData processing is implemented in Java");
     }
 
     @Override
