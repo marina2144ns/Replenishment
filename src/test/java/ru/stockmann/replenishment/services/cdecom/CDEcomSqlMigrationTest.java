@@ -27,6 +27,7 @@ class CDEcomSqlMigrationTest {
         String sql = Files.readString(Path.of("src/main/db/tables/CDecom_ddl.sql"));
 
         assertTrue(sql.contains("ExcelRowNum                 BIGINT                NULL"));
+        assertTrue(sql.contains("LoadSessionId               BIGINT                NOT NULL"));
         assertTrue(sql.contains("name                        NVARCHAR(4000)        NULL"));
         assertTrue(sql.contains("skuCollection               NVARCHAR(4000)        NULL"));
         assertTrue(sql.contains("FOREIGN KEY (LoadSessionId) REFERENCES dbo.DWH_Excel_Load_Session(Id)"));
@@ -40,5 +41,17 @@ class CDEcomSqlMigrationTest {
 
         assertTrue(sql.contains("ALTER TABLE dbo.CD_ecom_raw ALTER COLUMN name NVARCHAR(4000) NULL"));
         assertTrue(sql.contains("ALTER TABLE dbo.CD_ecom_raw ALTER COLUMN skuCollection NVARCHAR(4000) NULL"));
+    }
+
+    @Test
+    void cdecomTargetLoadSessionMigrationFailsOnExistingNullsAndAltersToNotNull() throws Exception {
+        String sql = Files.readString(Path.of("src/main/db/tables/CDecom_target_load_session_not_null_migration.sql"));
+
+        assertTrue(sql.contains("WHERE LoadSessionId IS NULL"));
+        assertTrue(sql.contains("THROW 51000"));
+        assertTrue(sql.contains("ALTER TABLE dbo.CD_ecom"));
+        assertTrue(sql.contains("ALTER COLUMN LoadSessionId BIGINT NOT NULL"));
+        assertFalse(sql.contains("UPDATE dbo.CD_ecom"));
+        assertFalse(sql.contains("DELETE FROM dbo.CD_ecom"));
     }
 }

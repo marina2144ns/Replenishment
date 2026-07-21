@@ -8,6 +8,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
+import java.util.Objects;
 
 public class CDEcomTargetRepository {
 
@@ -95,7 +96,8 @@ public class CDEcomTargetRepository {
     }
 
     private void bindRow(PreparedStatement ps, CDEcomTargetRow row) throws SQLException {
-        ps.setLong(1, row.loadSessionId());
+        Long loadSessionId = Objects.requireNonNull(row.loadSessionId(), "CDEcom target LoadSessionId is required");
+        ps.setLong(1, loadSessionId);
         setNullableString(ps, 2, row.name());
         setNullableInteger(ps, 3, row.year());
         setNullableInteger(ps, 4, row.season());

@@ -126,7 +126,7 @@ GO
 CREATE TABLE dbo.CD_ecom
 (
     Id                          BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    LoadSessionId               BIGINT                NULL,
+    LoadSessionId               BIGINT                NOT NULL,
 
     name                        NVARCHAR(255)         NULL,
     [year]                      INT                   NULL,

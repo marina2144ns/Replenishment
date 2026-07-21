@@ -19,6 +19,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CDEcomRepositoryTest {
@@ -113,6 +114,20 @@ class CDEcomRepositoryTest {
         assertEquals("Collection", statement.values.get(39));
         assertEquals(1, statement.addBatchCalls);
         assertTrue(statement.executeBatchCalled);
+    }
+
+    @Test
+    void targetRepositoryRejectsNullLoadSessionId() {
+        RecordingPreparedStatement statement = new RecordingPreparedStatement();
+        RecordingConnection connection = new RecordingConnection(statement);
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> new CDEcomTargetRepository(null).insertAll(connection.proxy(), List.of(targetRowWithLoadSessionId(null)))
+        );
+
+        assertEquals("CDEcom target LoadSessionId is required", exception.getMessage());
+        assertFalse(statement.executeBatchCalled);
     }
 
     @Test
@@ -289,8 +304,12 @@ class CDEcomRepositoryTest {
     }
 
     private static CDEcomTargetRow targetRow() {
+        return targetRowWithLoadSessionId(20L);
+    }
+
+    private static CDEcomTargetRow targetRowWithLoadSessionId(Long loadSessionId) {
         return new CDEcomTargetRow(
-                20L,
+                loadSessionId,
                 "Name",
                 2025,
                 1,
