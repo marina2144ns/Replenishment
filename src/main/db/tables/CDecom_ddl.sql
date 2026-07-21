@@ -2,58 +2,7 @@ USE ReplenishmentDWH;
 GO
 
 /*==============================================================*/
-/* 1. Таблица сессий загрузки                                   */
-/* TODO: legacy CDEcom session table. Remove after production    */
-/* verification of DWH_Excel_Load_Session migration.             */
-/*==============================================================*/
-IF OBJECT_ID('dbo.CD_ecom_load_session', 'U') IS NOT NULL
-    DROP TABLE dbo.CD_ecom_load_session;
-GO
-
-CREATE TABLE dbo.CD_ecom_load_session
-(
-    Id              BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    FileName        NVARCHAR(500)         NULL,
-    FilePath        NVARCHAR(1000)        NULL,
-    Status          NVARCHAR(50)          NOT NULL,
-    Message         NVARCHAR(2000)        NULL,
-    StartedAt       DATETIME2             NOT NULL CONSTRAINT DF_CD_ecom_load_session_StartedAt DEFAULT SYSUTCDATETIME(),
-    FinishedAt      DATETIME2             NULL,
-    RowsTotal       INT                   NULL,
-    RowsLoaded      INT                   NULL,
-    RowsWithError   INT                   NULL
-);
-GO
-
-/*==============================================================*/
-/* 2. Таблица ошибок загрузки                                   */
-/* TODO: legacy CDEcom error table. Remove after production      */
-/* verification of DWH_Excel_Load_Error migration.               */
-/*==============================================================*/
-IF OBJECT_ID('dbo.CD_ecom_load_error', 'U') IS NOT NULL
-    DROP TABLE dbo.CD_ecom_load_error;
-GO
-
-CREATE TABLE dbo.CD_ecom_load_error
-(
-    Id              BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    LoadSessionId   BIGINT                NOT NULL,
-    RawId           BIGINT                NULL,
-    ErrorAt         DATETIME2             NOT NULL CONSTRAINT DF_CD_ecom_load_error_ErrorAt DEFAULT SYSUTCDATETIME(),
-    Stage           NVARCHAR(100)         NULL,
-    ErrorMessage    NVARCHAR(4000)        NOT NULL,
-
-    CONSTRAINT FK_CD_ecom_load_error_LoadSession
-        FOREIGN KEY (LoadSessionId) REFERENCES dbo.CD_ecom_load_session(Id)
-);
-GO
-
-CREATE INDEX IX_CD_ecom_load_error_LoadSessionId
-    ON dbo.CD_ecom_load_error(LoadSessionId);
-GO
-
-/*==============================================================*/
-/* 3. Raw-таблица                                               */
+/* 1. Raw-таблица                                               */
 /*    Сюда грузим как есть, почти всё строками                  */
 /*==============================================================*/
 IF OBJECT_ID('dbo.CD_ecom_raw', 'U') IS NOT NULL
@@ -117,7 +66,7 @@ CREATE INDEX IX_CD_ecom_raw_LoadSessionId
 GO
 
 /*==============================================================*/
-/* 4. Основная таблица                                          */
+/* 2. Основная таблица                                          */
 /*==============================================================*/
 IF OBJECT_ID('dbo.CD_ecom', 'U') IS NOT NULL
     DROP TABLE dbo.CD_ecom;

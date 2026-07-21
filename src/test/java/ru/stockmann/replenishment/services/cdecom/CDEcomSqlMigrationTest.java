@@ -31,8 +31,9 @@ class CDEcomSqlMigrationTest {
         assertTrue(sql.contains("name                        NVARCHAR(4000)        NULL"));
         assertTrue(sql.contains("skuCollection               NVARCHAR(4000)        NULL"));
         assertTrue(sql.contains("FOREIGN KEY (LoadSessionId) REFERENCES dbo.DWH_Excel_Load_Session(Id)"));
-        assertTrue(sql.contains("dbo.CD_ecom_load_session"));
-        assertTrue(sql.contains("dbo.CD_ecom_load_error"));
+        assertFalse(sql.contains("dbo.CD_ecom_load_session"));
+        assertFalse(sql.contains("dbo.CD_ecom_load_error"));
+        assertFalse(sql.contains("usp_CDEcom_ProcessLoadSession"));
     }
 
     @Test
@@ -41,6 +42,8 @@ class CDEcomSqlMigrationTest {
 
         assertTrue(sql.contains("ALTER TABLE dbo.CD_ecom_raw ALTER COLUMN name NVARCHAR(4000) NULL"));
         assertTrue(sql.contains("ALTER TABLE dbo.CD_ecom_raw ALTER COLUMN skuCollection NVARCHAR(4000) NULL"));
+        assertFalse(sql.contains("CD_ecom_load_session"));
+        assertFalse(sql.contains("CD_ecom_load_error"));
     }
 
     @Test

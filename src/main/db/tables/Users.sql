@@ -135,10 +135,6 @@ IF OBJECT_ID(N'dbo.CD_ecom_raw', N'U') IS NOT NULL
     GRANT SELECT, INSERT, UPDATE, DELETE ON OBJECT::dbo.CD_ecom_raw TO [ReplenishmentREAD];
 GO
 
-IF OBJECT_ID(N'dbo.usp_CDEcom_ProcessLoadSession', N'P') IS NOT NULL
-    GRANT EXECUTE ON OBJECT::dbo.usp_CDEcom_ProcessLoadSession TO [ReplenishmentREAD];
-GO
-
 IF OBJECT_ID(N'dbo.ABCData', N'U') IS NOT NULL
     GRANT SELECT, INSERT, UPDATE, DELETE ON OBJECT::dbo.ABCData TO [ReplenishmentREAD];
 GO
@@ -244,11 +240,6 @@ GO
 
 IF OBJECT_ID(N'dbo.usp_CDData_ProcessLoadSession', N'P') IS NOT NULL
     GRANT EXECUTE ON OBJECT::dbo.usp_CDData_ProcessLoadSession
-        TO [ReplenishmentREAD];
-GO
-
-IF OBJECT_ID(N'dbo.usp_CDEcom_ProcessLoadSession', N'P') IS NOT NULL
-    GRANT EXECUTE ON OBJECT::dbo.usp_CDEcom_ProcessLoadSession
         TO [ReplenishmentREAD];
 GO
 

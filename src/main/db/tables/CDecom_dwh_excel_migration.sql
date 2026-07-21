@@ -1,9 +1,7 @@
 USE ReplenishmentDWH;
 GO
 
-/* Safe migration for CDEcom to the common DWH Excel load framework.
-   Legacy dbo.CD_ecom_load_session and dbo.CD_ecom_load_error are kept
-   during production verification and can be removed in a later cleanup. */
+/* Safe migration for CDEcom to the common DWH Excel load framework. */
 
 IF COL_LENGTH('dbo.CD_ecom_raw', 'ExcelRowNum') IS NULL
 BEGIN
