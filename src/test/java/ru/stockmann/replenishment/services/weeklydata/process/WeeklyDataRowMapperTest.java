@@ -81,6 +81,14 @@ class WeeklyDataRowMapperTest {
     }
 
     @Test
+    void missingWeekThrowsIllegalStateException() {
+        assertThrows(IllegalStateException.class, () -> mapper.toTargetRow(row()
+                .year("2025")
+                .week(null)
+                .build()));
+    }
+
+    @Test
     void invalidDecimalThrowsIllegalStateException() {
         assertThrows(IllegalStateException.class, () -> mapper.toTargetRow(row()
                 .year("2025")

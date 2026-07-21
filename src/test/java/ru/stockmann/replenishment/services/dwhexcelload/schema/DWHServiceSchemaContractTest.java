@@ -56,6 +56,8 @@ class DWHServiceSchemaContractTest {
                 selectColumns(WEEKLY_RAW_REPOSITORY, "dbo.Weekly_data_raw"));
         assertEquals(toWeeklyRawRowComponents(business), recordComponents(WeeklyDataRawRow.class));
         assertInfrastructure(tableColumns(WEEKLY_DDL, "dbo.Weekly_data_raw"), true);
+        assertColumnContains(tableColumns(WEEKLY_DDL, "dbo.Weekly_data_raw"), "year", "nvarchar(50) null");
+        assertColumnContains(tableColumns(WEEKLY_DDL, "dbo.Weekly_data_raw"), "week", "nvarchar(50) null");
     }
 
     @Test
@@ -94,6 +96,8 @@ class DWHServiceSchemaContractTest {
         assertEquals(toWeeklyTargetRowComponents(insert), recordComponents(WeeklyDataTargetRow.class));
         assertFalse(insert.contains("id"));
         assertFalse(insert.contains("createdat"));
+        assertColumnContains(tableColumns(WEEKLY_DDL, "dbo.Weekly_data"), "year", "smallint not null");
+        assertColumnContains(tableColumns(WEEKLY_DDL, "dbo.Weekly_data"), "week", "smallint not null");
     }
 
     @Test
@@ -124,11 +128,20 @@ class DWHServiceSchemaContractTest {
     void migrationsMatchCurrentDdlEndStateForAuditedChanges() throws Exception {
         String weeklyDdl = normalizeSql(read(WEEKLY_DDL));
         String weeklyTextMigration = normalizeSql(read("src/main/db/tables/Weekly_data_raw_text_migration.sql"));
+        String weeklyYearWeekMigration = normalizeSql(read(
+                "src/main/db/tables/Weekly_data_year_week_not_null_migration.sql"
+        ));
         for (String column : definitionColumns(new WeeklyDataExcelLoadDefinition())) {
             if (weeklyTextMigration.contains(column.toLowerCase() + " nvarchar(4000)")) {
                 assertTrue(weeklyDdl.contains(column.toLowerCase() + " nvarchar(4000) null"), column);
             }
         }
+        assertTrue(weeklyDdl.contains("year smallint not null"));
+        assertTrue(weeklyDdl.contains("week smallint not null"));
+        assertTrue(weeklyYearWeekMigration.contains("where year is null"));
+        assertTrue(weeklyYearWeekMigration.contains("where week is null"));
+        assertTrue(weeklyYearWeekMigration.contains("alter table dbo.weekly_data alter column year smallint not null"));
+        assertTrue(weeklyYearWeekMigration.contains("alter table dbo.weekly_data alter column week smallint not null"));
 
         String cdDataDdl = normalizeSql(read(CD_DATA_DDL));
         String cdDataTextMigration = normalizeSql(read("src/main/db/tables/CDdata_raw_text_migration.sql"));
@@ -174,6 +187,18 @@ class DWHServiceSchemaContractTest {
                 .findFirst()
                 .orElseThrow();
         assertEquals(type, column.type(), name);
+    }
+
+    private static void assertColumnContains(
+            List<DWHSchemaTestSupport.ColumnDef> columns,
+            String name,
+            String expectedDefinitionPart
+    ) {
+        DWHSchemaTestSupport.ColumnDef column = columns.stream()
+                .filter(c -> c.name().equals(name))
+                .findFirst()
+                .orElseThrow();
+        assertTrue(column.contains(expectedDefinitionPart), name + " should contain " + expectedDefinitionPart);
     }
 
     private static List<String> withInfrastructure(

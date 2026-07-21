@@ -109,8 +109,8 @@ public class WeeklyDataTargetRepository {
         setNullableSmallint(ps, 3, row.week21());
         setNullableSmallint(ps, 4, row.yearCorr());
         setNullableSmallint(ps, 5, row.weekCorr());
-        setNullableSmallint(ps, 6, row.year());
-        setNullableSmallint(ps, 7, row.week());
+        ps.setShort(6, row.year());
+        ps.setShort(7, row.week());
         ps.setString(8, row.salesChannelBpo());
         ps.setString(9, row.storeRusBpo());
         ps.setString(10, row.storeRus());

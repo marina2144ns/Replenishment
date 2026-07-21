@@ -32,13 +32,45 @@ class WeeklyDataValidatorTest {
     }
 
     @Test
+    void blankAndWhitespaceYearReturnRequiredFieldError() {
+        assertHasError(validator.validate(row().year("").week("10").build()), "Year", "REQUIRED_FIELD_EMPTY");
+        assertHasError(validator.validate(row().year("   ").week("10").build()), "Year", "REQUIRED_FIELD_EMPTY");
+    }
+
+    @Test
+    void invalidYearReturnsSmallintError() {
+        assertHasError(validator.validate(row().year("abc").week("10").build()), "Year", "INVALID_SMALLINT");
+    }
+
+    @Test
+    void yearSmallintOverflowReturnsNumericOverflow() {
+        assertHasError(validator.validate(row().year("32768").week("10").build()), "Year", "NUMERIC_OVERFLOW");
+    }
+
+    @Test
     void emptyWeekReturnsRequiredFieldError() {
         List<WeeklyDataValidationError> errors = validator.validate(row()
                 .year("2025")
-                .week("")
+                .week(null)
                 .build());
 
         assertHasError(errors, "Week", "REQUIRED_FIELD_EMPTY");
+    }
+
+    @Test
+    void blankAndWhitespaceWeekReturnRequiredFieldError() {
+        assertHasError(validator.validate(row().year("2025").week("").build()), "Week", "REQUIRED_FIELD_EMPTY");
+        assertHasError(validator.validate(row().year("2025").week("   ").build()), "Week", "REQUIRED_FIELD_EMPTY");
+    }
+
+    @Test
+    void invalidWeekReturnsSmallintError() {
+        assertHasError(validator.validate(row().year("2025").week("abc").build()), "Week", "INVALID_SMALLINT");
+    }
+
+    @Test
+    void weekSmallintOverflowReturnsNumericOverflow() {
+        assertHasError(validator.validate(row().year("2025").week("32768").build()), "Week", "NUMERIC_OVERFLOW");
     }
 
     @Test

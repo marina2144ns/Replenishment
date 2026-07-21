@@ -71,17 +71,19 @@ class DWHJdbcBindingSchemaContractTest {
     }
 
     @Test
-    void weeklyDataTargetInsertBindsNullSmallintFieldsAsSqlSmallint() {
+    void weeklyDataTargetInsertBindsNullableSmallintFieldsAsSqlSmallintAndRequiredYearWeekAsShort() {
         RecordingJdbc jdbc = new RecordingJdbc();
 
         new WeeklyDataTargetRepository(null).insertAll(jdbc.connection(), List.of(weeklyTargetRowWithNullSmallints()));
 
         assertEquals(26, jdbc.statement.calls.size());
         assertSetter(jdbc, 1, "setLong", 1);
-        for (int parameter = 2; parameter <= 7; parameter++) {
+        for (int parameter = 2; parameter <= 5; parameter++) {
             assertSetter(jdbc, parameter, "setNull", parameter);
             assertEquals(Types.SMALLINT, jdbc.statement.calls.get(parameter - 1).sqlType(), "parameter " + parameter);
         }
+        assertSetter(jdbc, 6, "setShort", 6);
+        assertSetter(jdbc, 7, "setShort", 7);
         assertEquals(1, jdbc.statement.addBatchCalls);
         assertEquals(1, jdbc.statement.executeBatchCalls);
     }
@@ -204,8 +206,8 @@ class DWHJdbcBindingSchemaContractTest {
                 null,
                 null,
                 null,
-                null,
-                null,
+                (short) 2025,
+                (short) 10,
                 "SalesChannelBpo",
                 "StoreRusBpo",
                 "StoreRus",

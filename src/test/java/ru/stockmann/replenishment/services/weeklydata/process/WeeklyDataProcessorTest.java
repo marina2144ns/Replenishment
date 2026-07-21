@@ -82,6 +82,33 @@ class WeeklyDataProcessorTest {
     }
 
     @Test
+    void missingYearAndWeekValidationErrorsBlockWholeTargetInsert() {
+        TestFixture fixture = new TestFixture();
+        fixture.loadSessionRepository.exists = true;
+        fixture.rawRepository.rows = List.of(
+                row().rawId(1).excelRowNum(2).year(null).week("10").build(),
+                row().rawId(2).excelRowNum(3).year("2025").week(null).build(),
+                row().rawId(3).excelRowNum(4).year("2025").week("10").build()
+        );
+
+        WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
+
+        assertFalse(result.success());
+        assertEquals(3, result.totalRows());
+        assertEquals(0, result.loadedRows());
+        assertEquals(2, result.errorRows());
+        assertEquals(List.of("Year", "Week"), fixture.errorRepository.validationErrors.stream()
+                .map(WeeklyDataValidationError::fieldName)
+                .toList());
+        assertEquals(List.of(2L, 3L), fixture.errorRepository.validationErrors.stream()
+                .map(WeeklyDataValidationError::excelRowNum)
+                .toList());
+        assertEquals(0, fixture.targetRepository.insertedRows.size());
+        assertEquals(1, fixture.dataSource.commitCount);
+        assertEquals(0, fixture.dataSource.rollbackCount);
+    }
+
+    @Test
     void textLengthValidationFailureWritesErrorAndBlocksTargetInsert() {
         TestFixture fixture = new TestFixture();
         fixture.loadSessionRepository.exists = true;
@@ -427,9 +454,21 @@ class WeeklyDataProcessorTest {
     }
 
     private static class RowBuilder {
+        private long rawId = 2;
+        private long excelRowNum = 3L;
         private String year;
         private String week;
         private String storeRus;
+
+        RowBuilder rawId(long rawId) {
+            this.rawId = rawId;
+            return this;
+        }
+
+        RowBuilder excelRowNum(long excelRowNum) {
+            this.excelRowNum = excelRowNum;
+            return this;
+        }
 
         RowBuilder year(String year) {
             this.year = year;
@@ -449,8 +488,8 @@ class WeeklyDataProcessorTest {
         WeeklyDataRawRow build() {
             return new WeeklyDataRawRow(
                     1,
-                    2,
-                    3L,
+                    rawId,
+                    excelRowNum,
                     null,
                     null,
                     null,

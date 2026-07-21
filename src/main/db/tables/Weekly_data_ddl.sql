@@ -8,8 +8,8 @@ CREATE TABLE dbo.Weekly_data (
                                  Week21 SMALLINT NULL,
                                  YearCorr SMALLINT NULL,
                                  WeekCorr SMALLINT NULL,
-                                 Year SMALLINT NULL,
-                                 Week SMALLINT NULL,
+                                 Year SMALLINT NOT NULL,
+                                 Week SMALLINT NOT NULL,
 
     -- Организационные признаки
                                  SalesChannelBpo NVARCHAR(255) NULL,
