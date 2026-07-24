@@ -322,7 +322,8 @@ public abstract class AbstractDWHExcelLoader {
                         parsedRows[0]++;
 
                         if (rowNum == 0) {
-                            return; // header
+                            validateHeaderRow(currentRow);
+                            return;
                         }
 
                         if (isEmpty(currentRow)) {
@@ -411,6 +412,13 @@ public abstract class AbstractDWHExcelLoader {
         }
 
         return new ExcelRowData(rowNum, values);
+    }
+
+    /**
+     * Hook for loaders whose source contract requires literal header validation.
+     * Existing definitions retain their current behavior unless they override it.
+     */
+    protected void validateHeaderRow(String[] headerValues) {
     }
 
     protected String applyNullHandling(DWHExcelColumnSpec col, String value) {

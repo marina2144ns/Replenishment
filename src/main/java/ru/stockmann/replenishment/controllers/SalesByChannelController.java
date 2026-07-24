@@ -1,0 +1,51 @@
+package ru.stockmann.replenishment.controllers;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelAsyncLoadService;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadRequest;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadResult;
+import ru.stockmann.replenishment.services.salesbychannel.SalesByChannelBulkLoader;
+
+@RestController
+@RequestMapping("/salesbychannel/v1.0")
+public class SalesByChannelController {
+
+    private final SalesByChannelBulkLoader bulkLoader;
+    private final DWHExcelAsyncLoadService asyncLoadService;
+
+    public SalesByChannelController(
+            SalesByChannelBulkLoader bulkLoader,
+            DWHExcelAsyncLoadService asyncLoadService
+    ) {
+        this.bulkLoader = bulkLoader;
+        this.asyncLoadService = asyncLoadService;
+    }
+
+    @PostMapping("/bulk")
+    public ResponseEntity<?> bulk(@RequestBody DWHExcelLoadRequest request) {
+        if (request == null || request.getFilePath() == null || request.getFilePath().isBlank()) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(DWHExcelLoadResult.error(null, "filePath is empty"));
+        }
+
+        DWHExcelLoadResult result = bulkLoader.acceptFile(request.getFilePath());
+        if ("OK".equals(result.status()) && result.loadSessionId() != null) {
+            asyncLoadService.startAsync(
+                    bulkLoader,
+                    result.loadSessionId(),
+                    request.getFilePath()
+            );
+        }
+
+        HttpStatus status = "OK".equals(result.status())
+                ? HttpStatus.OK
+                : HttpStatus.INTERNAL_SERVER_ERROR;
+        return new ResponseEntity<>(result, status);
+    }
+}

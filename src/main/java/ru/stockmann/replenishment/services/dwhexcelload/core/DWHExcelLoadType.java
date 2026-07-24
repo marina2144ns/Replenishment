@@ -3,6 +3,7 @@ package ru.stockmann.replenishment.services.dwhexcelload.core;
 public enum DWHExcelLoadType {
     CD_DATA("CD_DATA", "CD data"),
     CD_ECOM("CD_ECOM", "CD ecom"),
+    SALES_BY_CHANNEL("SALES_BY_CHANNEL", "SalesByChannel"),
     WEEKLY_DATA("WEEKLY_DATA", "Weekly data");
 
     private final String code;
