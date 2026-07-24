@@ -2,10 +2,14 @@ package ru.stockmann.replenishment.services.cdecom.process;
 
 import org.junit.jupiter.api.Test;
 import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDEcomExcelLoadDefinition;
+import ru.stockmann.replenishment.services.dwhexcelload.validation.DWHParseResult;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.TimeZone;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CDEcomValidatorTest {
@@ -54,6 +58,44 @@ class CDEcomValidatorTest {
 
         assertEquals("01.01.2025", rawDate);
         assertTrue(validator.validate(row().withData(rawDate).build()).valid());
+    }
+
+    @Test
+    void excelSerialDateAndTypedDateAreIndependentOfDefaultTimezone() {
+        TimeZone original = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("Pacific/Kiritimati"));
+            String east = normalizeExcelDate("45658");
+            LocalDate eastDate = validator.validateAndMap(row().withData(east).build()).stageRow().data();
+
+            TimeZone.setDefault(TimeZone.getTimeZone("America/Adak"));
+            String west = normalizeExcelDate("45658");
+            LocalDate westDate = validator.validateAndMap(row().withData(west).build()).stageRow().data();
+
+            assertEquals("01.01.2025", east);
+            assertEquals(east, west);
+            assertEquals(LocalDate.of(2025, 1, 1), eastDate);
+            assertEquals(eastDate, westDate);
+        } finally {
+            TimeZone.setDefault(original);
+        }
+    }
+
+    @Test
+    void validateAndMapParsesDateOnlyOnceAndReturnsNormalErrorForInvalidDate() {
+        CountingParser parser = new CountingParser();
+        CDEcomValidator countingValidator = new CDEcomValidator(parser);
+
+        CDEcomRowValidationResult valid =
+                countingValidator.validateAndMap(row().withData("31.01.2025").build());
+        CDEcomRowValidationResult invalid =
+                countingValidator.validateAndMap(row().withData("invalid").build());
+
+        assertTrue(valid.valid());
+        assertEquals(LocalDate.of(2025, 1, 31), valid.stageRow().data());
+        assertEquals(2, parser.dateCalls);
+        assertFalse(invalid.valid());
+        assertEquals("INVALID_DATE", invalid.errors().get(0).errorCode());
     }
 
     @Test
@@ -137,6 +179,19 @@ class CDEcomValidatorTest {
 
     private static RowBuilder row() {
         return new RowBuilder();
+    }
+
+    private static String normalizeExcelDate(String value) {
+        return new CDEcomExcelLoadDefinition().columns().get(4).normalizer().normalize(value);
+    }
+
+    private static final class CountingParser extends CDEcomValueParser {
+        private int dateCalls;
+        @Override
+        DWHParseResult<LocalDate> parseDate(String value) {
+            dateCalls++;
+            return super.parseDate(value);
+        }
     }
 
     private static CDEcomRawRow validRow() {

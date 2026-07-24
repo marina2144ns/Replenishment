@@ -10,6 +10,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,6 +20,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CDDataRepositoryTest {
@@ -75,84 +77,6 @@ class CDDataRepositoryTest {
     }
 
     @Test
-    void targetRepositoryDeletesByLoadSessionId() {
-        RecordingPreparedStatement statement = new RecordingPreparedStatement();
-        RecordingConnection connection = new RecordingConnection(statement);
-
-        new CDDataTargetRepository(null).deleteByLoadSessionId(connection.proxy(), 20L);
-
-        assertTrue(connection.sql.contains("DELETE FROM dbo.CD_data"));
-        assertTrue(connection.sql.contains("WHERE LoadSessionId = ?"));
-        assertEquals(20L, statement.values.get(1));
-        assertTrue(statement.executeUpdateCalled);
-    }
-
-    @Test
-    void targetRepositoryInsertsRowsInTableColumnOrder() {
-        RecordingPreparedStatement statement = new RecordingPreparedStatement();
-        RecordingConnection connection = new RecordingConnection(statement);
-
-        new CDDataTargetRepository(null).insertAll(connection.proxy(), List.of(targetRow()));
-
-        assertTrue(connection.sql.contains("INSERT INTO dbo.CD_data"));
-        assertTrue(connection.sql.contains("LoadSessionId"));
-        assertTrue(connection.sql.contains("sku_comment"));
-        assertEquals(20L, statement.values.get(1));
-        assertEquals("Name", statement.values.get(2));
-        assertEquals(2025, statement.values.get(3));
-        assertEquals(1, statement.values.get(4));
-        assertEquals(31, statement.values.get(5));
-        assertEquals(Date.valueOf("2025-01-31"), statement.values.get(6));
-        assertEquals("Online", statement.values.get(7));
-        assertEquals(123456789L, statement.values.get(18));
-        assertEquals(new BigDecimal("12.35"), statement.values.get(20));
-        assertEquals(new BigDecimal("4.00"), statement.values.get(30));
-        assertEquals(123, statement.values.get(31));
-        assertEquals("Comment", statement.values.get(38));
-        assertEquals(1, statement.addBatchCalls);
-        assertTrue(statement.executeBatchCalled);
-    }
-
-    @Test
-    void targetRepositoryUsesExpectedSqlTypesForNullTargetFields() {
-        RecordingPreparedStatement statement = new RecordingPreparedStatement();
-        RecordingConnection connection = new RecordingConnection(statement);
-
-        new CDDataTargetRepository(null).insertAll(connection.proxy(), List.of(emptyTargetRow()));
-
-        assertEquals(20L, statement.values.get(1));
-        assertEquals(Types.NVARCHAR, statement.nullTypes.get(2));
-        assertEquals(Types.INTEGER, statement.nullTypes.get(3));
-        assertEquals(Types.DATE, statement.nullTypes.get(6));
-        assertEquals(Types.BIGINT, statement.nullTypes.get(18));
-        assertEquals(Types.DECIMAL, statement.nullTypes.get(20));
-        assertEquals(Types.INTEGER, statement.nullTypes.get(31));
-        assertEquals(Types.NVARCHAR, statement.nullTypes.get(38));
-        assertTrue(statement.executeBatchCalled);
-    }
-
-    @Test
-    void targetRepositoryInsertAllEmptyListDoesNothing() {
-        RecordingPreparedStatement statement = new RecordingPreparedStatement();
-        RecordingConnection connection = new RecordingConnection(statement);
-
-        new CDDataTargetRepository(null).insertAll(connection.proxy(), List.of());
-
-        assertFalse(connection.prepareStatementCalled);
-    }
-
-    @Test
-    void targetRepositoryDataSourceInsertAllEmptyListDoesNotOpenConnection() {
-        RecordingDataSource dataSource = new RecordingDataSource(new RecordingConnection(
-                new RecordingPreparedStatement()
-        ));
-
-        new CDDataTargetRepository(dataSource.proxy()).insertAll(List.of());
-
-        assertEquals(0, dataSource.getConnectionCalls);
-    }
-
-    @Test
     void errorRepositoryDeletesByLoadSessionIdAndLoadTypeCode() {
         RecordingPreparedStatement statement = new RecordingPreparedStatement();
         RecordingConnection connection = new RecordingConnection(statement);
@@ -196,6 +120,27 @@ class CDDataRepositoryTest {
         assertEquals(Types.NVARCHAR, statement.nullTypes.get(8));
         assertEquals("message", statement.values.get(9));
         assertTrue(statement.executeBatchCalled);
+    }
+
+    @Test
+    void errorRepositoryValidatesBatchUpdateCountsStrictly() {
+        RecordingPreparedStatement wrongLength = new RecordingPreparedStatement();
+        wrongLength.forcedUpdateCounts = new int[0];
+        RecordingConnection wrongLengthConnection = new RecordingConnection(wrongLength);
+
+        assertThrows(IllegalStateException.class, () ->
+                new CDDataErrorRepository(null).insertBatch(
+                        wrongLengthConnection.proxy(), 20L, List.of(validationError())
+                ));
+
+        RecordingPreparedStatement failed = new RecordingPreparedStatement();
+        failed.forcedUpdateCounts = new int[]{Statement.EXECUTE_FAILED};
+        RecordingConnection failedConnection = new RecordingConnection(failed);
+
+        assertThrows(IllegalStateException.class, () ->
+                new CDDataErrorRepository(null).insertBatch(
+                        failedConnection.proxy(), 20L, List.of(validationError())
+                ));
     }
 
     @Test
@@ -293,89 +238,10 @@ class CDDataRepositoryTest {
         assertEquals("Comment", row.skuComment());
     }
 
-    private static CDDataTargetRow targetRow() {
-        return new CDDataTargetRow(
-                20L,
-                "Name",
-                2025,
-                1,
-                31,
-                Date.valueOf("2025-01-31"),
-                "Online",
-                "Store",
-                "Division",
-                "Department",
-                "SubDepartment",
-                "Brand",
-                "TM",
-                "Node",
-                "Section",
-                "Group",
-                "Campaign",
-                123456789L,
-                "Phase",
-                new BigDecimal("12.35"),
-                new BigDecimal("1234.56"),
-                new BigDecimal("0.00"),
-                new BigDecimal("100.00"),
-                new BigDecimal("200.10"),
-                new BigDecimal("-12.34"),
-                new BigDecimal("5.00"),
-                new BigDecimal("99.99"),
-                new BigDecimal("10.00"),
-                new BigDecimal("3.00"),
-                new BigDecimal("4.00"),
-                123,
-                "Driver",
-                "Color",
-                "Composition",
-                "Supplier",
-                "Sku Name",
-                "Collection",
-                "Comment"
-        );
-    }
-
-    private static CDDataTargetRow emptyTargetRow() {
-        return new CDDataTargetRow(
-                20L,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
+    private static CDDataValidationError validationError() {
+        return new CDDataValidationError(
+                20L, 10L, 30L, "VALIDATION", "god",
+                "INVALID_INTEGER", "reason", "message"
         );
     }
 
@@ -421,6 +287,7 @@ class CDDataRepositoryTest {
         private final Map<Integer, Integer> nullTypes = new HashMap<>();
         private int addBatchCalls;
         private boolean executeBatchCalled;
+        private int[] forcedUpdateCounts;
         private boolean executeUpdateCalled;
         private ResultSet resultSet;
 
@@ -445,7 +312,12 @@ class CDDataRepositoryTest {
                 }
                 if ("executeBatch".equals(methodName)) {
                     executeBatchCalled = true;
-                    return new int[0];
+                    if (forcedUpdateCounts != null) {
+                        return java.util.Arrays.copyOf(forcedUpdateCounts, forcedUpdateCounts.length);
+                    }
+                    int[] updateCounts = new int[addBatchCalls];
+                    java.util.Arrays.fill(updateCounts, 1);
+                    return updateCounts;
                 }
                 if ("executeUpdate".equals(methodName)) {
                     executeUpdateCalled = true;

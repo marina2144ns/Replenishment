@@ -19,13 +19,18 @@ public class CDEcomProcessConfiguration {
     }
 
     @Bean
-    public CDEcomTargetRepository cdecomTargetRepository(DataSource dataSource) {
-        return new CDEcomTargetRepository(dataSource);
+    public CDEcomTargetRepository cdecomTargetRepository() {
+        return new CDEcomTargetRepository();
     }
 
     @Bean
     public CDEcomErrorRepository cdecomErrorRepository(DataSource dataSource) {
         return new CDEcomErrorRepository(dataSource);
+    }
+
+    @Bean
+    public CDEcomStageRepository cdecomStageRepository() {
+        return new CDEcomStageRepository();
     }
 
     @Bean
@@ -43,19 +48,19 @@ public class CDEcomProcessConfiguration {
             DataSource dataSource,
             CDEcomLoadSessionRepository loadSessionRepository,
             CDEcomRawRepository rawRepository,
-            CDEcomTargetRepository targetRepository,
             CDEcomErrorRepository errorRepository,
-            CDEcomValidator validator,
-            CDEcomRowMapper mapper
+            CDEcomStageRepository stageRepository,
+            CDEcomTargetRepository targetRepository,
+            CDEcomValidator validator
     ) {
         return new CDEcomProcessor(
                 dataSource,
                 loadSessionRepository,
                 rawRepository,
-                targetRepository,
                 errorRepository,
-                validator,
-                mapper
+                stageRepository,
+                targetRepository,
+                validator
         );
     }
 }

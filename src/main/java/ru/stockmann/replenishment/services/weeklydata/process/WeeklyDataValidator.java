@@ -1,6 +1,5 @@
 package ru.stockmann.replenishment.services.weeklydata.process;
 
-import ru.stockmann.replenishment.services.dwhexcelload.validation.DWHFieldValidator;
 import ru.stockmann.replenishment.services.dwhexcelload.validation.DWHParseResult;
 import ru.stockmann.replenishment.services.dwhexcelload.validation.DWHValueParser;
 
@@ -16,7 +15,6 @@ public class WeeklyDataValidator {
     private static final int WEEK_MAX = 100;
 
     private final DWHValueParser parser;
-    private final DWHFieldValidator fieldValidator;
 
     public WeeklyDataValidator() {
         this(new DWHValueParser());
@@ -24,102 +22,106 @@ public class WeeklyDataValidator {
 
     public WeeklyDataValidator(DWHValueParser parser) {
         this.parser = parser;
-        this.fieldValidator = new DWHFieldValidator(parser);
     }
 
     public List<WeeklyDataValidationError> validate(WeeklyDataRawRow row) {
+        return validateAndMap(row).errors();
+    }
+
+    public WeeklyDataRowValidationResult validateAndMap(WeeklyDataRawRow row) {
         List<WeeklyDataValidationError> errors = new ArrayList<>();
 
-        validateRequiredSmallint(errors, row, "Year", row.year());
-        validateRequiredWeek(errors, row, "Week", row.week());
+        DWHParseResult<Short> year21 = parseSmallint(errors, row, "Year21", row.year21(), false, false);
+        DWHParseResult<Short> week21 = parseSmallint(errors, row, "Week21", row.week21(), false, true);
+        DWHParseResult<Short> yearCorr = parseSmallint(errors, row, "YearCorr", row.yearCorr(), false, false);
+        DWHParseResult<Short> weekCorr = parseSmallint(errors, row, "WeekCorr", row.weekCorr(), false, true);
+        DWHParseResult<Short> year = parseSmallint(errors, row, "Year", row.year(), true, false);
+        DWHParseResult<Short> week = parseSmallint(errors, row, "Week", row.week(), true, true);
 
-        validateOptionalSmallint(errors, row, "Year21", row.year21());
-        validateOptionalWeek(errors, row, "Week21", row.week21());
-        validateOptionalSmallint(errors, row, "YearCorr", row.yearCorr());
-        validateOptionalWeek(errors, row, "WeekCorr", row.weekCorr());
+        DWHParseResult<BigDecimal> totalStockPcs =
+                parseDecimal(errors, row, "TotalStockPcs", row.totalStockPcs());
+        DWHParseResult<BigDecimal> totalStockDdp =
+                parseDecimal(errors, row, "TotalStockDdp", row.totalStockDdp());
+        DWHParseResult<BigDecimal> salesPcs = parseDecimal(errors, row, "SalesPcs", row.salesPcs());
+        DWHParseResult<BigDecimal> salesRub = parseDecimal(errors, row, "SalesRub", row.salesRub());
+        DWHParseResult<BigDecimal> revenue = parseDecimal(errors, row, "Revenue", row.revenue());
+        DWHParseResult<BigDecimal> gp = parseDecimal(errors, row, "Gp", row.gp());
+        DWHParseResult<BigDecimal> discountTotalRub =
+                parseDecimal(errors, row, "DiscountTotalRub", row.discountTotalRub());
 
-        validateDecimal(errors, row, "TotalStockPcs", row.totalStockPcs());
-        validateDecimal(errors, row, "TotalStockDdp", row.totalStockDdp());
-        validateDecimal(errors, row, "SalesPcs", row.salesPcs());
-        validateDecimal(errors, row, "SalesRub", row.salesRub());
-        validateDecimal(errors, row, "Revenue", row.revenue());
-        validateDecimal(errors, row, "Gp", row.gp());
-        validateDecimal(errors, row, "DiscountTotalRub", row.discountTotalRub());
+        String salesChannelBpo = cleanText(errors, row, "SalesChannelBpo", row.salesChannelBpo());
+        String storeRusBpo = cleanText(errors, row, "StoreRusBpo", row.storeRusBpo());
+        String storeRus = cleanText(errors, row, "StoreRus", row.storeRus());
+        String mfpDivisionNew = cleanText(errors, row, "MfpDivisionNew", row.mfpDivisionNew());
+        String mfpDepartment = cleanText(errors, row, "MfpDepartment", row.mfpDepartment());
+        String skuSeasonBudget = cleanText(errors, row, "SkuSeasonBudget", row.skuSeasonBudget());
+        String typeOfSales = cleanText(errors, row, "TypeOfSales", row.typeOfSales());
+        String mfpDivision = cleanText(errors, row, "MfpDivision", row.mfpDivision());
+        String season = cleanText(errors, row, "Season", row.season());
+        String month = cleanText(errors, row, "Month", row.month());
+        String bundle = cleanText(errors, row, "Bundle", row.bundle());
+        String seasonality = cleanText(errors, row, "Seasonality", row.seasonality());
 
-        validateText(errors, row, "SalesChannelBpo", row.salesChannelBpo());
-        validateText(errors, row, "StoreRusBpo", row.storeRusBpo());
-        validateText(errors, row, "StoreRus", row.storeRus());
-        validateText(errors, row, "MfpDivisionNew", row.mfpDivisionNew());
-        validateText(errors, row, "MfpDepartment", row.mfpDepartment());
-        validateText(errors, row, "SkuSeasonBudget", row.skuSeasonBudget());
-        validateText(errors, row, "TypeOfSales", row.typeOfSales());
-        validateText(errors, row, "MfpDivision", row.mfpDivision());
-        validateText(errors, row, "Season", row.season());
-        validateText(errors, row, "Month", row.month());
-        validateText(errors, row, "Bundle", row.bundle());
-        validateText(errors, row, "Seasonality", row.seasonality());
-
-        return errors;
-    }
-
-    private void validateRequiredSmallint(
-            List<WeeklyDataValidationError> errors,
-            WeeklyDataRawRow row,
-            String fieldName,
-            String value
-    ) {
-        if (!fieldValidator.isRequiredPresent(value)) {
-            errors.add(error(row, fieldName, "REQUIRED_FIELD_EMPTY", "Required value is empty"));
-            return;
+        if (!errors.isEmpty()) {
+            return new WeeklyDataRowValidationResult(null, errors);
         }
 
-        validateOptionalSmallint(errors, row, fieldName, value);
+        WeeklyDataStageRow stageRow = new WeeklyDataStageRow(
+                row.loadSessionId(),
+                row.excelRowNum(),
+                year21.value(),
+                week21.value(),
+                yearCorr.value(),
+                weekCorr.value(),
+                year.value(),
+                week.value(),
+                salesChannelBpo,
+                storeRusBpo,
+                storeRus,
+                mfpDivisionNew,
+                mfpDepartment,
+                skuSeasonBudget,
+                typeOfSales,
+                valueOrZero(totalStockPcs),
+                valueOrZero(totalStockDdp),
+                valueOrZero(salesPcs),
+                valueOrZero(salesRub),
+                valueOrZero(revenue),
+                valueOrZero(gp),
+                valueOrZero(discountTotalRub),
+                mfpDivision,
+                season,
+                month,
+                bundle,
+                seasonality
+        );
+        return new WeeklyDataRowValidationResult(stageRow, List.of());
     }
 
-    private void validateRequiredWeek(
+    private DWHParseResult<Short> parseSmallint(
             List<WeeklyDataValidationError> errors,
             WeeklyDataRawRow row,
             String fieldName,
-            String value
+            String value,
+            boolean required,
+            boolean week
     ) {
-        if (!fieldValidator.isRequiredPresent(value)) {
+        if (required && !isRequiredPresent(value)) {
             errors.add(error(row, fieldName, "REQUIRED_FIELD_EMPTY", "Required value is empty"));
-            return;
+            return DWHParseResult.success(null, value, null, "SMALLINT");
         }
 
-        validateOptionalWeek(errors, row, fieldName, value);
-    }
-
-    private void validateOptionalSmallint(
-            List<WeeklyDataValidationError> errors,
-            WeeklyDataRawRow row,
-            String fieldName,
-            String value
-    ) {
         DWHParseResult<Short> result = parser.parseSmallint(value);
         if (!result.success()) {
             errors.add(error(row, fieldName, result.errorCode(), "Invalid SMALLINT value"));
-        }
-    }
-
-    private void validateOptionalWeek(
-            List<WeeklyDataValidationError> errors,
-            WeeklyDataRawRow row,
-            String fieldName,
-            String value
-    ) {
-        DWHParseResult<Short> result = parser.parseSmallint(value);
-        if (!result.success()) {
-            errors.add(error(row, fieldName, result.errorCode(), "Invalid SMALLINT value"));
-            return;
-        }
-
-        if (result.value() != null && !fieldValidator.isInRange(result.value(), WEEK_MIN, WEEK_MAX)) {
+        } else if (week && result.value() != null
+                && (result.value() < WEEK_MIN || result.value() > WEEK_MAX)) {
             errors.add(error(row, fieldName, "VALUE_OUT_OF_RANGE", "Week value must be between 1 and 100"));
         }
+        return result;
     }
 
-    private void validateDecimal(
+    private DWHParseResult<BigDecimal> parseDecimal(
             List<WeeklyDataValidationError> errors,
             WeeklyDataRawRow row,
             String fieldName,
@@ -129,17 +131,29 @@ public class WeeklyDataValidator {
         if (!result.success()) {
             errors.add(error(row, fieldName, result.errorCode(), "Invalid numeric format"));
         }
+        return result;
     }
 
-    private void validateText(
+    private String cleanText(
             List<WeeklyDataValidationError> errors,
             WeeklyDataRawRow row,
             String fieldName,
             String value
     ) {
-        if (!fieldValidator.isTextLengthValid(value, TEXT_MAX_LENGTH)) {
+        String cleaned = parser.cleanText(value);
+        if (cleaned != null && cleaned.length() > TEXT_MAX_LENGTH) {
             errors.add(error(row, fieldName, "TEXT_TOO_LONG", "Value exceeds max length 255"));
         }
+        return cleaned;
+    }
+
+    private boolean isRequiredPresent(String value) {
+        String cleaned = parser.cleanText(value);
+        return cleaned != null && !parser.isSpecialNull(cleaned);
+    }
+
+    private BigDecimal valueOrZero(DWHParseResult<BigDecimal> result) {
+        return result.value() != null ? result.value() : BigDecimal.ZERO;
     }
 
     private WeeklyDataValidationError error(

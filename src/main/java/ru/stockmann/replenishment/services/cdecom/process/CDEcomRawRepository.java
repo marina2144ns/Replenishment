@@ -10,6 +10,9 @@ import java.util.List;
 
 public class CDEcomRawRepository {
 
+    public static final int DEFAULT_CHUNK_SIZE = 1_000;
+    public static final long INITIAL_LAST_RAW_ID = 0L;
+
     private final DataSource dataSource;
 
     public CDEcomRawRepository(DataSource dataSource) {
@@ -87,6 +90,85 @@ public class CDEcomRawRepository {
             return rows;
         } catch (SQLException e) {
             throw new RuntimeException("Failed to read CD_ecom_raw rows. loadSessionId=" + loadSessionId, e);
+        }
+    }
+
+    public List<CDEcomRawRow> findChunk(long loadSessionId, long lastRawId) {
+        try (Connection connection = dataSource.getConnection()) {
+            return findChunk(connection, loadSessionId, lastRawId, DEFAULT_CHUNK_SIZE);
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to read CD_ecom_raw chunk. loadSessionId=" + loadSessionId, e);
+        }
+    }
+
+    public List<CDEcomRawRow> findChunk(
+            Connection connection,
+            long loadSessionId,
+            long lastRawId,
+            int chunkSize
+    ) {
+        String sql = """
+                SELECT TOP (?)
+                    Id,
+                    LoadSessionId,
+                    ExcelRowNum,
+                    name,
+                    [year],
+                    season,
+                    [day],
+                    [data],
+                    salesChannelBpo,
+                    storeRus,
+                    mfpDivision,
+                    mfpDepartment,
+                    mfpSubDepartment,
+                    skuBrandType,
+                    skuTm,
+                    mfpNode,
+                    section,
+                    merchandiseSubGroup,
+                    campaignSalesType,
+                    skuStyleColor,
+                    skuPhase,
+                    orderPcs,
+                    orderRub,
+                    foundPcs,
+                    foundRub,
+                    salesPcs,
+                    salesRub,
+                    revenue,
+                    gp,
+                    cogs,
+                    salesDiscount,
+                    planRub,
+                    stockStoresPcs,
+                    stockStoresDdp,
+                    cdDrivers,
+                    skuSupplierModel,
+                    skuComposition,
+                    skuColorRussian,
+                    skuName,
+                    skuCommentBuyer,
+                    skuCollection
+                FROM dbo.CD_ecom_raw
+                WHERE LoadSessionId = ?
+                  AND Id > ?
+                ORDER BY Id
+                """;
+
+        List<CDEcomRawRow> rows = new ArrayList<>(chunkSize);
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, chunkSize);
+            ps.setLong(2, loadSessionId);
+            ps.setLong(3, lastRawId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    rows.add(mapRow(rs));
+                }
+            }
+            return rows;
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to read CD_ecom_raw chunk. loadSessionId=" + loadSessionId, e);
         }
     }
 

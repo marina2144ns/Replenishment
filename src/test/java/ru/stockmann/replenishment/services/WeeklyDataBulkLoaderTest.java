@@ -24,6 +24,7 @@ class WeeklyDataBulkLoaderTest {
                 true,
                 2,
                 2,
+                2,
                 0,
                 "WeeklyData load session processed successfully"
         ));
@@ -44,6 +45,7 @@ class WeeklyDataBulkLoaderTest {
         FakeWeeklyDataProcessor processor = new FakeWeeklyDataProcessor(new WeeklyDataProcessResult(
                 100L,
                 true,
+                0,
                 0,
                 0,
                 0,

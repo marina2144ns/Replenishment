@@ -3,7 +3,6 @@ package ru.stockmann.replenishment.services.cdecom.process;
 import org.junit.jupiter.api.Test;
 
 import javax.sql.DataSource;
-import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -12,709 +11,366 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CDEcomProcessorTest {
 
     @Test
-    void missingLoadSessionReturnsFailureWithoutOpeningProcessingTransaction() {
-        TestContext context = TestContext.withRows(row(1));
-        context.loadSessionRepository.exists = false;
+    void processesMultipleValidChunksAndPublishesOnce() {
+        TestContext context = TestContext.withChunks(List.of(row(1, "1")), List.of(row(2, "2")));
 
         CDEcomProcessResult result = context.processor().process(100L);
 
-        assertEquals(new CDEcomProcessResult(
-                100L,
-                false,
-                0,
-                0,
-                1,
-                "Load session not found or has unexpected LoadTypeCode. loadSessionId=100, expected LoadTypeCode=CD_ECOM"
-        ), result);
-        assertEquals(1, context.loadSessionRepository.existsCalls);
-        assertFalse(context.connection.commitCalled);
-        assertFalse(context.connection.rollbackCalled);
-        assertTrue(context.connection.setAutoCommitValues.isEmpty());
-        assertTrue(context.validator.validatedRows.isEmpty());
-        assertTrue(context.mapper.mappedRows.isEmpty());
-        assertEquals(0, context.errorRepository.insertAllInTransactionCalls);
-    }
-
-    @Test
-    void wrongLoadTypeReturnsFailureWithoutOpeningProcessingTransaction() {
-        TestContext context = TestContext.withRows(row(1));
-        context.loadSessionRepository.exists = false;
-
-        CDEcomProcessResult result = context.processor().process(100L);
-
-        assertEquals(new CDEcomProcessResult(
-                100L,
-                false,
-                0,
-                0,
-                1,
-                "Load session not found or has unexpected LoadTypeCode. loadSessionId=100, expected LoadTypeCode=CD_ECOM"
-        ), result);
-        assertEquals(1, context.loadSessionRepository.existsCalls);
-        assertFalse(context.connection.commitCalled);
-        assertFalse(context.connection.rollbackCalled);
-        assertTrue(context.connection.setAutoCommitValues.isEmpty());
-        assertTrue(context.validator.validatedRows.isEmpty());
-        assertTrue(context.mapper.mappedRows.isEmpty());
-        assertEquals(0, context.errorRepository.insertAllInTransactionCalls);
-        assertTrue(context.errorRepository.processingErrors.isEmpty());
-        assertEquals(List.of("exists"), context.events);
-    }
-
-    @Test
-    void successfulSessionCommitsAndInsertsTargets() {
-        TestContext context = TestContext.withRows(row(1), row(2));
-
-        CDEcomProcessResult result = context.processor().process(100L);
-
-        assertEquals(new CDEcomProcessResult(
-                100L,
-                true,
-                2,
-                2,
-                0,
-                "CDEcom load session processed successfully"
-        ), result);
-        assertSame(context.connection.proxy(), context.rawRepository.connection);
-        assertEquals(List.of(row(1), row(2)), context.validator.validatedRows);
-        assertEquals(List.of(row(1), row(2)), context.mapper.mappedRows);
-        assertEquals(1, context.targetRepository.insertAllCalls);
-        assertEquals(0, context.errorRepository.insertAllInTransactionCalls);
-        assertTrue(context.connection.commitCalled);
-        assertFalse(context.connection.rollbackCalled);
-        assertEquals(List.of(
-                "exists",
-                "setAutoCommit:false",
-                "readRaw",
-                "deleteErrors",
-                "deleteTarget",
-                "validate:1",
-                "validate:2",
-                "map:1",
-                "map:2",
-                "insertTarget",
-                "commit",
-                "setAutoCommit:true",
-                "close"
-        ), context.events);
-    }
-
-    @Test
-    void validationErrorsCommitErrorsWithoutMappingOrTargetInsert() {
-        CDEcomRawRow row1 = row(1);
-        CDEcomRawRow row2 = row(2);
-        TestContext context = TestContext.withRows(row1, row2);
-        context.validator.errorsByRawId.put(1L, List.of(error(row1, "god"), error(row1, "data")));
-        context.validator.errorsByRawId.put(2L, List.of(error(row2, "planRub")));
-
-        CDEcomProcessResult result = context.processor().process(100L);
-
-        assertEquals(100L, result.loadSessionId());
-        assertFalse(result.success());
+        assertTrue(result.success());
         assertEquals(2, result.totalRows());
-        assertEquals(0, result.loadedRows());
-        assertEquals(3, result.errorRows());
-        assertEquals("Validation failed", result.message());
-        assertEquals(List.of(row1, row2), context.validator.validatedRows);
-        assertTrue(context.mapper.mappedRows.isEmpty());
-        assertEquals(0, context.targetRepository.insertAllCalls);
-        assertEquals(1, context.errorRepository.insertAllInTransactionCalls);
-        assertEquals(3, context.errorRepository.transactionErrors.size());
-        assertTrue(context.connection.commitCalled);
-        assertFalse(context.connection.rollbackCalled);
+        assertEquals(2, result.stagedRows());
+        assertEquals(2, result.loadedRows());
+        assertEquals(0, result.errorRows());
+        assertEquals(List.of(0L, 1L, 2L), context.raw.lastRawIds);
+        assertEquals(List.of(List.of(1L), List.of(2L)), context.stage.insertedExcelRows);
+        assertEquals(4, context.connection.commits);
+        assertEquals(0, context.connection.rollbacks);
+        assertEquals(1, context.target.publishCalls);
+        assertEquals(2, context.stage.deleteCalls);
     }
 
     @Test
-    void multipleErrorsInOneRawRowInsertAllErrorRecordsAndCountAllErrors() {
-        CDEcomRawRow row = row(1);
-        TestContext context = TestContext.withRows(row);
-        context.validator.errorsByRawId.put(1L, List.of(
-                error(row, "god"),
-                error(row, "data"),
-                error(row, "planRub")
-        ));
+    void errorsAcrossChunksAreWrittenAndOnlyValidRowsAreStaged() {
+        TestContext context = TestContext.withChunks(
+                List.of(row(1, "1"), row(2, "bad")),
+                List.of(row(3, "3"), row(4, "bad"))
+        );
 
         CDEcomProcessResult result = context.processor().process(100L);
 
         assertFalse(result.success());
-        assertEquals(3, result.errorRows());
-        assertEquals(3, context.errorRepository.transactionErrors.size());
+        assertEquals(4, result.totalRows());
+        assertEquals(2, result.stagedRows());
+        assertEquals(0, result.loadedRows());
+        assertEquals(2, result.errorRows());
+        assertEquals(List.of(List.of(1L), List.of(3L)), context.stage.insertedExcelRows);
+        assertEquals(List.of(List.of(2L), List.of(4L)), context.errors.insertedExcelRows);
+        assertEquals(3, context.connection.commits);
+        assertEquals(0, context.target.publishCalls);
+        assertEquals(1, context.stage.deleteCalls);
     }
 
     @Test
-    void emptyRawSessionDeletesOldDataCommitsAndReturnsSuccess() {
-        TestContext context = TestContext.withRows();
-
-        CDEcomProcessResult result = context.processor().process(100L);
-
-        assertEquals(new CDEcomProcessResult(
-                100L,
-                true,
-                0,
-                0,
-                0,
-                "CDEcom load session processed successfully"
-        ), result);
-        assertEquals(0, context.errorRepository.insertAllInTransactionCalls);
-        assertEquals(0, context.targetRepository.insertAllCalls);
-        assertTrue(context.connection.commitCalled);
-        assertEquals(List.of(
-                "exists",
-                "setAutoCommit:false",
-                "readRaw",
-                "deleteErrors",
-                "deleteTarget",
-                "commit",
-                "setAutoCommit:true",
-                "close"
-        ), context.events);
-    }
-
-    @Test
-    void rawReadExceptionRollsBackWritesProcessingErrorAndReturnsFailure() {
-        TestContext context = TestContext.withRows(row(1));
-        context.rawRepository.failure = new RuntimeException("raw failed");
+    void missingOrWrongLoadTypeDoesNotOpenProcessingTransaction() {
+        TestContext context = TestContext.withChunks(List.of(row(1, "1")));
+        context.session.exists = false;
 
         CDEcomProcessResult result = context.processor().process(100L);
 
         assertFalse(result.success());
         assertEquals(0, result.totalRows());
+        assertEquals(0, result.stagedRows());
         assertEquals(0, result.loadedRows());
         assertEquals(1, result.errorRows());
-        assertEquals("raw failed", result.message());
-        assertTrue(context.connection.rollbackCalled);
-        assertFalse(context.connection.commitCalled);
-        assertProcessingError(context, "raw failed");
+        assertEquals(0, context.connection.commits);
+        assertTrue(context.raw.lastRawIds.isEmpty());
     }
 
     @Test
-    void deleteExceptionRollsBackWritesProcessingErrorAndReturnsFailure() {
-        TestContext context = TestContext.withRows(row(1));
-        context.errorRepository.deleteFailure = new RuntimeException("delete failed");
+    void stageSqlFailureRollsBackCurrentChunkAndStops() {
+        TestContext context = TestContext.withChunks(List.of(row(1, "1")), List.of(row(2, "2")));
+        context.stage.failOnInsertCall = 2;
 
         CDEcomProcessResult result = context.processor().process(100L);
 
         assertFalse(result.success());
         assertEquals(1, result.totalRows());
-        assertEquals(1, result.errorRows());
-        assertTrue(context.connection.rollbackCalled);
-        assertFalse(context.connection.commitCalled);
-        assertProcessingError(context, "delete failed");
+        assertEquals(1, result.stagedRows());
+        assertEquals(0, result.loadedRows());
+        assertEquals(1, context.connection.rollbacks);
+        assertEquals(2, context.connection.commits);
+        assertEquals(List.of(0L, 1L), context.raw.lastRawIds);
+        assertEquals(1, context.errors.processingErrors.size());
     }
 
     @Test
-    void errorInsertExceptionRollsBackWritesProcessingErrorAndReturnsFailure() {
-        CDEcomRawRow row = row(1);
-        TestContext context = TestContext.withRows(row);
-        context.validator.errorsByRawId.put(1L, List.of(error(row, "god")));
-        context.errorRepository.transactionInsertFailure = new RuntimeException("error insert failed");
+    void errorSqlFailureRollsBackCurrentChunk() {
+        TestContext context = TestContext.withChunks(List.of(row(1, "bad")));
+        context.errors.failChunkInsert = true;
 
         CDEcomProcessResult result = context.processor().process(100L);
 
         assertFalse(result.success());
-        assertEquals(1, result.totalRows());
+        assertEquals(0, result.totalRows());
         assertEquals(1, result.errorRows());
-        assertTrue(context.connection.rollbackCalled);
-        assertFalse(context.connection.commitCalled);
-        assertProcessingError(context, "error insert failed");
+        assertEquals(1, context.connection.rollbacks);
+        assertEquals(1, context.connection.commits);
     }
 
     @Test
-    void targetInsertExceptionRollsBackWritesProcessingErrorAndReturnsFailure() {
-        TestContext context = TestContext.withRows(row(1));
-        context.targetRepository.insertFailure = new RuntimeException("target insert failed");
-
-        CDEcomProcessResult result = context.processor().process(100L);
-
-        assertFalse(result.success());
-        assertEquals(1, result.totalRows());
-        assertEquals(1, result.errorRows());
-        assertTrue(context.connection.rollbackCalled);
-        assertFalse(context.connection.commitCalled);
-        assertProcessingError(context, "target insert failed");
-        assertEquals(List.of(
-                "exists",
-                "setAutoCommit:false",
-                "readRaw",
-                "deleteErrors",
-                "deleteTarget",
-                "validate:1",
-                "map:1",
-                "insertTarget",
-                "rollback",
-                "setAutoCommit:true",
-                "close",
-                "insertProcessingError"
-        ), context.events);
-    }
-
-    @Test
-    void restoresOriginalAutoCommit() {
-        TestContext context = TestContext.withRows(row(1));
+    void repeatProcessingCleansStageAndErrorsBeforeReadingRaw() {
+        TestContext context = TestContext.withChunks(List.of(row(1, "1")));
 
         context.processor().process(100L);
+        context.raw.reset();
+        context.processor().process(100L);
 
-        assertEquals(List.of(false, true), context.connection.setAutoCommitValues);
+        assertEquals(4, context.stage.deleteCalls);
+        assertEquals(2, context.errors.deleteCalls);
+        assertEquals(List.of("deleteStage", "deleteErrors", "read:0"), context.events.subList(0, 3));
+        int secondCleanup = context.events.lastIndexOf("deleteErrors");
+        assertEquals("deleteStage", context.events.get(secondCleanup - 1));
+        assertEquals("read:0", context.events.get(secondCleanup + 1));
     }
 
     @Test
-    void processingErrorInsertFailureIsSuppressed() {
-        TestContext context = TestContext.withRows(row(1));
-        context.rawRepository.failure = new RuntimeException("raw failed");
-        context.errorRepository.processingInsertFailure = new RuntimeException("processing insert failed");
+    void cleanupFailureRollsBackAndDoesNotReadRaw() {
+        TestContext context = TestContext.withChunks(List.of(row(1, "1")));
+        context.stage.deleteFailure = new RuntimeException("cleanup failed");
 
         CDEcomProcessResult result = context.processor().process(100L);
 
         assertFalse(result.success());
-        assertEquals("raw failed", result.message());
-        assertTrue(context.connection.rollbackCalled);
+        assertEquals(0, result.totalRows());
+        assertEquals(1, context.connection.rollbacks);
+        assertTrue(context.raw.lastRawIds.isEmpty());
     }
 
     @Test
-    void rollbackFailureDoesNotReplaceOriginalProcessingException() {
-        TestContext context = TestContext.withRows(row(1));
-        context.rawRepository.failure = new RuntimeException("raw failed");
-        context.connection.rollbackFailure = new SQLException("rollback failed");
+    void publishFailureAndPublishedCountMismatchRollbackWithoutStageCleanup() {
+        TestContext failure = TestContext.withChunks(List.of(row(1, "1")));
+        failure.target.failure = new RuntimeException("publish failed");
+
+        CDEcomProcessResult failed = failure.processor().process(100L);
+
+        assertFalse(failed.success());
+        assertEquals(0, failed.loadedRows());
+        assertEquals(1, failure.connection.rollbacks);
+        assertEquals(1, failure.stage.deleteCalls);
+
+        TestContext mismatch = TestContext.withChunks(List.of(row(1, "1")));
+        mismatch.target.publishedRowsOverride = 0;
+
+        CDEcomProcessResult mismatched = mismatch.processor().process(100L);
+
+        assertFalse(mismatched.success());
+        assertEquals(0, mismatched.loadedRows());
+        assertEquals(1, mismatch.connection.rollbacks);
+        assertEquals(1, mismatch.stage.deleteCalls);
+    }
+
+    @Test
+    void stageCleanupFailureAndMismatchRollbackPublish() {
+        TestContext failure = TestContext.withChunks(List.of(row(1, "1")));
+        failure.stage.failPublishCleanup = true;
+        assertFalse(failure.processor().process(100L).success());
+        assertEquals(1, failure.connection.rollbacks);
+
+        TestContext mismatch = TestContext.withChunks(List.of(row(1, "1")));
+        mismatch.stage.cleanupCountOverride = 0;
+        assertFalse(mismatch.processor().process(100L).success());
+        assertEquals(1, mismatch.connection.rollbacks);
+    }
+
+    @Test
+    void publishCommitFailureRollsBackAndReturnsNoLoadedRows() {
+        TestContext context = TestContext.withChunks(List.of(row(1, "1")));
+        context.connection.failCommitNumber = 3;
 
         CDEcomProcessResult result = context.processor().process(100L);
 
         assertFalse(result.success());
-        assertEquals("raw failed", result.message());
-        assertProcessingError(context, "raw failed");
-        assertEquals(List.of(
-                "exists",
-                "setAutoCommit:false",
-                "readRaw",
-                "rollback",
-                "setAutoCommit:true",
-                "close",
-                "insertProcessingError"
-        ), context.events);
+        assertEquals(0, result.loadedRows());
+        assertEquals(1, result.errorRows());
+        assertEquals(1, context.connection.rollbacks);
     }
 
     @Test
-    void autoCommitRestoreFailureDoesNotReplaceOriginalProcessingException() {
-        TestContext context = TestContext.withRows(row(1));
-        context.rawRepository.failure = new RuntimeException("raw failed");
-        context.connection.restoreAutoCommitFailure = new SQLException("restore failed");
+    void counterMismatchPreventsPublish() {
+        TestContext context = TestContext.withChunks();
 
-        CDEcomProcessResult result = context.processor().process(100L);
-
-        assertFalse(result.success());
-        assertEquals("raw failed", result.message());
-        assertProcessingError(context, "raw failed");
-        assertEquals(List.of(
-                "exists",
-                "setAutoCommit:false",
-                "readRaw",
-                "rollback",
-                "setAutoCommit:true",
-                "close",
-                "insertProcessingError"
-        ), context.events);
+        try {
+            context.processor().validatePublishCounters(100L, 10L, 9L);
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("counter mismatch"));
+        }
+        assertEquals(0, context.target.publishCalls);
     }
 
-    private static void assertProcessingError(TestContext context, String message) {
-        assertEquals(1, context.errorRepository.processingErrors.size());
-        CDEcomValidationError error = context.errorRepository.processingErrors.get(0);
-        assertEquals(100L, error.loadSessionId());
-        assertEquals(0L, error.rawId());
-        assertEquals("PROCESSING", error.errorLayer());
-        assertEquals("UNEXPECTED_PROCESSING_ERROR", error.errorCode());
-        assertEquals(message, error.errorReason());
-        assertEquals("Unexpected processing error: " + message, error.errorMessage());
-    }
-
-    private static CDEcomRawRow row(long id) {
+    private static CDEcomRawRow row(long id, String year) {
         return new CDEcomRawRow(
-                id,
-                100L,
-                id + 1,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        );
-    }
-
-    private static CDEcomTargetRow targetRow(long id) {
-        return new CDEcomTargetRow(
-                100L,
-                "target-" + id,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        );
-    }
-
-    private static CDEcomValidationError error(CDEcomRawRow row, String fieldName) {
-        return new CDEcomValidationError(
-                row.loadSessionId(),
-                row.id(),
-                row.excelRowNum(),
-                "VALIDATION",
-                fieldName,
-                "INVALID_VALUE",
-                "reason",
-                "message"
+                id, 100L, id, "name", year, null, null, "31.01.2025",
+                null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null
         );
     }
 
     private static final class TestContext {
-        private final List<String> events = new ArrayList<>();
-        private final RecordingConnection connection = new RecordingConnection(events);
-        private final FakeLoadSessionRepository loadSessionRepository;
-        private final FakeRawRepository rawRepository;
-        private final FakeTargetRepository targetRepository;
-        private final FakeErrorRepository errorRepository;
-        private final FakeValidator validator;
-        private final FakeMapper mapper;
+        final List<String> events = new ArrayList<>();
+        final RecordingConnection connection = new RecordingConnection();
+        final FakeSession session = new FakeSession();
+        final FakeRaw raw;
+        final FakeStage stage = new FakeStage(events);
+        final FakeErrors errors = new FakeErrors(events);
+        final FakeTarget target = new FakeTarget(stage);
 
-        private TestContext(List<CDEcomRawRow> rows) {
-            this.loadSessionRepository = new FakeLoadSessionRepository(events);
-            this.rawRepository = new FakeRawRepository(events, rows);
-            this.targetRepository = new FakeTargetRepository(events);
-            this.errorRepository = new FakeErrorRepository(events);
-            this.validator = new FakeValidator(events);
-            this.mapper = new FakeMapper(events);
+        TestContext(List<List<CDEcomRawRow>> chunks) {
+            raw = new FakeRaw(events, chunks);
         }
 
-        static TestContext withRows(CDEcomRawRow... rows) {
-            return new TestContext(List.of(rows));
+        @SafeVarargs
+        static TestContext withChunks(List<CDEcomRawRow>... chunks) {
+            return new TestContext(List.of(chunks));
         }
 
         CDEcomProcessor processor() {
             return new CDEcomProcessor(
-                    dataSource(connection),
-                    loadSessionRepository,
-                    rawRepository,
-                    targetRepository,
-                    errorRepository,
-                    validator,
-                    mapper
+                    dataSource(connection), session, raw, errors, stage, target, new CDEcomValidator()
             );
         }
     }
 
-    private static final class FakeLoadSessionRepository extends CDEcomLoadSessionRepository {
-        private final List<String> events;
-        private boolean exists = true;
-        private int existsCalls;
+    private static final class FakeSession extends CDEcomLoadSessionRepository {
+        boolean exists = true;
+        FakeSession() { super(null); }
+        @Override public boolean existsById(long loadSessionId) { return exists; }
+    }
 
-        private FakeLoadSessionRepository(List<String> events) {
+    private static final class FakeRaw extends CDEcomRawRepository {
+        final List<String> events;
+        final List<List<CDEcomRawRow>> chunks;
+        final List<Long> lastRawIds = new ArrayList<>();
+        int index;
+        FakeRaw(List<String> events, List<List<CDEcomRawRow>> chunks) {
             super(null);
             this.events = events;
+            this.chunks = chunks;
         }
-
-        @Override
-        public boolean existsById(long loadSessionId) {
-            events.add("exists");
-            existsCalls++;
-            return exists;
+        @Override public List<CDEcomRawRow> findChunk(long loadSessionId, long lastRawId) {
+            events.add("read:" + lastRawId);
+            lastRawIds.add(lastRawId);
+            return index < chunks.size() ? chunks.get(index++) : List.of();
         }
+        void reset() { index = 0; lastRawIds.clear(); }
     }
 
-    private static DataSource dataSource(RecordingConnection connection) {
-        InvocationHandler handler = (proxy, method, args) -> {
-            if ("getConnection".equals(method.getName())) {
-                return connection.proxy();
+    private static final class FakeStage extends CDEcomStageRepository {
+        final List<String> events;
+        final List<List<Long>> insertedExcelRows = new ArrayList<>();
+        int deleteCalls;
+        int insertCalls;
+        int failOnInsertCall;
+        RuntimeException deleteFailure;
+        boolean failPublishCleanup;
+        Integer cleanupCountOverride;
+        boolean publishCleanupPending;
+        int currentRows;
+        FakeStage(List<String> events) { this.events = events; }
+        @Override public int deleteByLoadSessionId(Connection connection, long loadSessionId) {
+            events.add("deleteStage");
+            deleteCalls++;
+            if (deleteFailure != null) throw deleteFailure;
+            if (publishCleanupPending) {
+                if (failPublishCleanup) throw new RuntimeException("stage cleanup failed");
+                int result = cleanupCountOverride == null ? currentRows : cleanupCountOverride;
+                currentRows = 0;
+                publishCleanupPending = false;
+                return result;
             }
-            return defaultValue(method.getReturnType());
-        };
-        return (DataSource) Proxy.newProxyInstance(
-                DataSource.class.getClassLoader(),
-                new Class<?>[]{DataSource.class},
-                handler
-        );
-    }
-
-    private static final class RecordingConnection {
-        private final List<String> events;
-        private final List<Boolean> setAutoCommitValues = new ArrayList<>();
-        private boolean autoCommit = true;
-        private boolean commitCalled;
-        private boolean rollbackCalled;
-        private SQLException rollbackFailure;
-        private SQLException restoreAutoCommitFailure;
-        private Connection proxy;
-
-        private RecordingConnection(List<String> events) {
-            this.events = events;
+            currentRows = 0;
+            return 0;
         }
-
-        Connection proxy() {
-            if (proxy == null) {
-                InvocationHandler handler = (p, method, args) -> {
-                    String name = method.getName();
-                    if ("getAutoCommit".equals(name)) {
-                        return autoCommit;
-                    }
-                    if ("setAutoCommit".equals(name)) {
-                        autoCommit = (Boolean) args[0];
-                        setAutoCommitValues.add(autoCommit);
-                        events.add("setAutoCommit:" + autoCommit);
-                        if (autoCommit && restoreAutoCommitFailure != null) {
-                            throw restoreAutoCommitFailure;
-                        }
-                        return null;
-                    }
-                    if ("commit".equals(name)) {
-                        commitCalled = true;
-                        events.add("commit");
-                        return null;
-                    }
-                    if ("rollback".equals(name)) {
-                        rollbackCalled = true;
-                        events.add("rollback");
-                        if (rollbackFailure != null) {
-                            throw rollbackFailure;
-                        }
-                        return null;
-                    }
-                    if ("close".equals(name)) {
-                        events.add("close");
-                        return null;
-                    }
-                    return defaultValue(method.getReturnType());
-                };
-                proxy = (Connection) Proxy.newProxyInstance(
-                        Connection.class.getClassLoader(),
-                        new Class<?>[]{Connection.class},
-                        handler
-                );
-            }
-            return proxy;
+        @Override public void insertBatch(Connection connection, long loadSessionId, List<CDEcomStageRow> rows) {
+            insertCalls++;
+            if (insertCalls == failOnInsertCall) throw new RuntimeException("stage failed");
+            insertedExcelRows.add(rows.stream().map(CDEcomStageRow::excelRowNum).toList());
+            currentRows += rows.size();
         }
     }
 
-    private static final class FakeRawRepository extends CDEcomRawRepository {
-        private final List<String> events;
-        private final List<CDEcomRawRow> rows;
-        private RuntimeException failure;
-        private Connection connection;
-
-        private FakeRawRepository(List<String> events, List<CDEcomRawRow> rows) {
-            super(null);
-            this.events = events;
-            this.rows = rows;
-        }
-
-        @Override
-        public List<CDEcomRawRow> findByLoadSessionId(Connection connection, long loadSessionId) {
-            events.add("readRaw");
-            this.connection = connection;
-            if (failure != null) {
-                throw failure;
-            }
-            return rows;
+    private static final class FakeTarget extends CDEcomTargetRepository {
+        final FakeStage stage;
+        int publishCalls;
+        Integer publishedRowsOverride;
+        RuntimeException failure;
+        FakeTarget(FakeStage stage) { this.stage = stage; }
+        @Override public int publishFromStage(Connection connection, long loadSessionId) {
+            publishCalls++;
+            if (failure != null) throw failure;
+            int result = publishedRowsOverride == null ? stage.currentRows : publishedRowsOverride;
+            stage.publishCleanupPending = true;
+            return result;
         }
     }
 
-    private static final class FakeTargetRepository extends CDEcomTargetRepository {
-        private final List<String> events;
-        private int insertAllCalls;
-        private RuntimeException insertFailure;
-
-        private FakeTargetRepository(List<String> events) {
-            super(null);
-            this.events = events;
-        }
-
-        @Override
-        public void deleteByLoadSessionId(Connection connection, long loadSessionId) {
-            events.add("deleteTarget");
-        }
-
-        @Override
-        public void insertAll(Connection connection, List<CDEcomTargetRow> rows) {
-            events.add("insertTarget");
-            insertAllCalls++;
-            if (insertFailure != null) {
-                throw insertFailure;
-            }
-        }
-    }
-
-    private static final class FakeErrorRepository extends CDEcomErrorRepository {
-        private final List<String> events;
-        private int insertAllInTransactionCalls;
-        private RuntimeException deleteFailure;
-        private RuntimeException transactionInsertFailure;
-        private RuntimeException processingInsertFailure;
-        private final List<CDEcomValidationError> transactionErrors = new ArrayList<>();
-        private final List<CDEcomValidationError> processingErrors = new ArrayList<>();
-
-        private FakeErrorRepository(List<String> events) {
-            super(null);
-            this.events = events;
-        }
-
-        @Override
-        public void deleteByLoadSessionId(Connection connection, long loadSessionId) {
+    private static final class FakeErrors extends CDEcomErrorRepository {
+        final List<String> events;
+        final List<List<Long>> insertedExcelRows = new ArrayList<>();
+        final List<CDEcomValidationError> processingErrors = new ArrayList<>();
+        int deleteCalls;
+        boolean failChunkInsert;
+        FakeErrors(List<String> events) { super(null); this.events = events; }
+        @Override public void deleteByLoadSessionId(Connection connection, long loadSessionId) {
             events.add("deleteErrors");
-            if (deleteFailure != null) {
-                throw deleteFailure;
-            }
+            deleteCalls++;
         }
-
-        @Override
-        public void insertAll(Connection connection, List<CDEcomValidationError> errors) {
-            events.add("insertErrors");
-            insertAllInTransactionCalls++;
-            if (transactionInsertFailure != null) {
-                throw transactionInsertFailure;
-            }
-            transactionErrors.addAll(errors);
+        @Override public void insertBatch(
+                Connection connection, long loadSessionId, List<CDEcomValidationError> errors
+        ) {
+            if (failChunkInsert && !errors.isEmpty()) throw new RuntimeException("error insert failed");
+            insertedExcelRows.add(errors.stream().map(CDEcomValidationError::excelRowNum).toList());
         }
-
-        @Override
-        public void insertAll(List<CDEcomValidationError> errors) {
-            events.add("insertProcessingError");
-            if (processingInsertFailure != null) {
-                throw processingInsertFailure;
-            }
+        @Override public void insertAll(List<CDEcomValidationError> errors) {
             processingErrors.addAll(errors);
         }
     }
 
-    private static final class FakeValidator extends CDEcomValidator {
-        private final List<String> events;
-        private final List<CDEcomRawRow> validatedRows = new ArrayList<>();
-        private final java.util.Map<Long, List<CDEcomValidationError>> errorsByRawId = new java.util.HashMap<>();
+    private static DataSource dataSource(RecordingConnection recording) {
+        return (DataSource) Proxy.newProxyInstance(
+                DataSource.class.getClassLoader(), new Class<?>[]{DataSource.class},
+                (proxy, method, args) -> "getConnection".equals(method.getName())
+                        ? recording.proxy() : defaultValue(method.getReturnType())
+        );
+    }
 
-        private FakeValidator(List<String> events) {
-            this.events = events;
-        }
-
-        @Override
-        public CDEcomValidationResult validate(CDEcomRawRow row) {
-            events.add("validate:" + row.id());
-            validatedRows.add(row);
-            return new CDEcomValidationResult(
-                    row,
-                    errorsByRawId.getOrDefault(row.id(), List.of())
+    private static final class RecordingConnection {
+        int commits;
+        int rollbacks;
+        int failCommitNumber;
+        boolean autoCommit = true;
+        Connection proxy() {
+            return (Connection) Proxy.newProxyInstance(
+                    Connection.class.getClassLoader(), new Class<?>[]{Connection.class},
+                    (proxy, method, args) -> {
+                        return switch (method.getName()) {
+                            case "getAutoCommit" -> autoCommit;
+                            case "setAutoCommit" -> {
+                                autoCommit = (Boolean) args[0];
+                                yield null;
+                            }
+                            case "commit" -> {
+                                commits++;
+                                if (commits == failCommitNumber) throw new SQLException("commit failed");
+                                yield null;
+                            }
+                            case "rollback" -> {
+                                rollbacks++;
+                                yield null;
+                            }
+                            default -> defaultValue(method.getReturnType());
+                        };
+                    }
             );
         }
     }
 
-    private static final class FakeMapper extends CDEcomRowMapper {
-        private final List<String> events;
-        private final List<CDEcomRawRow> mappedRows = new ArrayList<>();
-
-        private FakeMapper(List<String> events) {
-            this.events = events;
-        }
-
-        @Override
-        public CDEcomTargetRow toTargetRow(CDEcomRawRow row) {
-            events.add("map:" + row.id());
-            mappedRows.add(row);
-            return targetRow(row.id());
-        }
-    }
-
-    private static Object defaultValue(Class<?> returnType) {
-        if (returnType == Void.TYPE) {
-            return null;
-        }
-        if (returnType == Boolean.TYPE) {
-            return false;
-        }
-        if (returnType == Byte.TYPE) {
-            return (byte) 0;
-        }
-        if (returnType == Short.TYPE) {
-            return (short) 0;
-        }
-        if (returnType == Integer.TYPE) {
-            return 0;
-        }
-        if (returnType == Long.TYPE) {
-            return 0L;
-        }
-        if (returnType == Float.TYPE) {
-            return 0F;
-        }
-        if (returnType == Double.TYPE) {
-            return 0D;
-        }
-        if (returnType == Character.TYPE) {
-            return '\0';
-        }
-        return null;
+    private static Object defaultValue(Class<?> type) {
+        if (type == void.class) return null;
+        if (!type.isPrimitive()) return null;
+        if (type == boolean.class) return false;
+        if (type == byte.class) return (byte) 0;
+        if (type == short.class) return (short) 0;
+        if (type == int.class) return 0;
+        if (type == long.class) return 0L;
+        if (type == float.class) return 0F;
+        if (type == double.class) return 0D;
+        if (type == char.class) return '\0';
+        throw new IllegalArgumentException(type.getName());
     }
 }

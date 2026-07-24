@@ -4,6 +4,8 @@ import ru.stockmann.replenishment.services.dwhexcelload.validation.DWHFieldValid
 import ru.stockmann.replenishment.services.dwhexcelload.validation.DWHParseResult;
 import ru.stockmann.replenishment.services.dwhexcelload.validation.DWHValueParser;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,86 +27,131 @@ public class CDEcomValidator {
     }
 
     public CDEcomValidationResult validate(CDEcomRawRow row) {
+        return new CDEcomValidationResult(row, validateAndMap(row).errors());
+    }
+
+    public CDEcomRowValidationResult validateAndMap(CDEcomRawRow row) {
         List<CDEcomValidationError> errors = new ArrayList<>();
 
-        validateText(errors, row, "name", row.name());
-        validateInteger(errors, row, "year", row.year());
-        validateInteger(errors, row, "season", row.season());
-        validateInteger(errors, row, "day", row.day());
-        validateDate(errors, row, "data", row.data());
-        validateText(errors, row, "salesChannelBpo", row.salesChannelBpo());
-        validateText(errors, row, "storeRus", row.storeRus());
-        validateText(errors, row, "mfpDivision", row.mfpDivision());
-        validateText(errors, row, "mfpDepartment", row.mfpDepartment());
-        validateText(errors, row, "mfpSubDepartment", row.mfpSubDepartment());
-        validateText(errors, row, "skuBrandType", row.skuBrandType());
-        validateText(errors, row, "skuTm", row.skuTm());
-        validateText(errors, row, "mfpNode", row.mfpNode());
-        validateText(errors, row, "section", row.section());
-        validateText(errors, row, "merchandiseSubGroup", row.merchandiseSubGroup());
-        validateText(errors, row, "campaignSalesType", row.campaignSalesType());
-        validateRoundedLong(errors, row, "skuStyleColor", row.skuStyleColor());
-        validateText(errors, row, "skuPhase", row.skuPhase());
-        validateDecimal(errors, row, "orderPcs", row.orderPcs());
-        validateDecimal(errors, row, "orderRub", row.orderRub());
-        validateDecimal(errors, row, "foundPcs", row.foundPcs());
-        validateDecimal(errors, row, "foundRub", row.foundRub());
-        validateDecimal(errors, row, "salesPcs", row.salesPcs());
-        validateDecimal(errors, row, "salesRub", row.salesRub());
-        validateDecimal(errors, row, "revenue", row.revenue());
-        validateDecimal(errors, row, "gp", row.gp());
-        validateDecimal(errors, row, "cogs", row.cogs());
-        validateDecimal(errors, row, "salesDiscount", row.salesDiscount());
-        validateDirectLong(errors, row, "planRub", row.planRub());
-        validateDirectLong(errors, row, "stockStoresPcs", row.stockStoresPcs());
-        validateDirectLong(errors, row, "stockStoresDdp", row.stockStoresDdp());
-        validateText(errors, row, "cdDrivers", row.cdDrivers());
-        validateText(errors, row, "skuSupplierModel", row.skuSupplierModel());
-        validateText(errors, row, "skuComposition", row.skuComposition());
-        validateText(errors, row, "skuColorRussian", row.skuColorRussian());
-        validateText(errors, row, "skuName", row.skuName());
-        validateText(errors, row, "skuCommentBuyer", row.skuCommentBuyer());
-        validateText(errors, row, "skuCollection", row.skuCollection());
+        String name = cleanText(errors, row, "name", row.name());
+        DWHParseResult<Integer> year = parseInteger(errors, row, "year", row.year());
+        DWHParseResult<Integer> season = parseInteger(errors, row, "season", row.season());
+        DWHParseResult<Integer> day = parseInteger(errors, row, "day", row.day());
+        DWHParseResult<LocalDate> data = parseDate(errors, row, "data", row.data());
+        String salesChannelBpo = cleanText(errors, row, "salesChannelBpo", row.salesChannelBpo());
+        String storeRus = cleanText(errors, row, "storeRus", row.storeRus());
+        String mfpDivision = cleanText(errors, row, "mfpDivision", row.mfpDivision());
+        String mfpDepartment = cleanText(errors, row, "mfpDepartment", row.mfpDepartment());
+        String mfpSubDepartment = cleanText(errors, row, "mfpSubDepartment", row.mfpSubDepartment());
+        String skuBrandType = cleanText(errors, row, "skuBrandType", row.skuBrandType());
+        String skuTm = cleanText(errors, row, "skuTm", row.skuTm());
+        String mfpNode = cleanText(errors, row, "mfpNode", row.mfpNode());
+        String section = cleanText(errors, row, "section", row.section());
+        String merchandiseSubGroup =
+                cleanText(errors, row, "merchandiseSubGroup", row.merchandiseSubGroup());
+        String campaignSalesType =
+                cleanText(errors, row, "campaignSalesType", row.campaignSalesType());
+        DWHParseResult<Long> skuStyleColor =
+                parseRoundedLong(errors, row, "skuStyleColor", row.skuStyleColor());
+        String skuPhase = cleanText(errors, row, "skuPhase", row.skuPhase());
+        DWHParseResult<BigDecimal> orderPcs = parseDecimal(errors, row, "orderPcs", row.orderPcs());
+        DWHParseResult<BigDecimal> orderRub = parseDecimal(errors, row, "orderRub", row.orderRub());
+        DWHParseResult<BigDecimal> foundPcs = parseDecimal(errors, row, "foundPcs", row.foundPcs());
+        DWHParseResult<BigDecimal> foundRub = parseDecimal(errors, row, "foundRub", row.foundRub());
+        DWHParseResult<BigDecimal> salesPcs = parseDecimal(errors, row, "salesPcs", row.salesPcs());
+        DWHParseResult<BigDecimal> salesRub = parseDecimal(errors, row, "salesRub", row.salesRub());
+        DWHParseResult<BigDecimal> revenue = parseDecimal(errors, row, "revenue", row.revenue());
+        DWHParseResult<BigDecimal> gp = parseDecimal(errors, row, "gp", row.gp());
+        DWHParseResult<BigDecimal> cogs = parseDecimal(errors, row, "cogs", row.cogs());
+        DWHParseResult<BigDecimal> salesDiscount =
+                parseDecimal(errors, row, "salesDiscount", row.salesDiscount());
+        DWHParseResult<Long> planRub = parseDirectLong(errors, row, "planRub", row.planRub());
+        DWHParseResult<Long> stockStoresPcs =
+                parseDirectLong(errors, row, "stockStoresPcs", row.stockStoresPcs());
+        DWHParseResult<Long> stockStoresDdp =
+                parseDirectLong(errors, row, "stockStoresDdp", row.stockStoresDdp());
+        String cdDrivers = cleanText(errors, row, "cdDrivers", row.cdDrivers());
+        String skuSupplierModel =
+                cleanText(errors, row, "skuSupplierModel", row.skuSupplierModel());
+        String skuComposition = cleanText(errors, row, "skuComposition", row.skuComposition());
+        String skuColorRussian =
+                cleanText(errors, row, "skuColorRussian", row.skuColorRussian());
+        String skuName = cleanText(errors, row, "skuName", row.skuName());
+        String skuCommentBuyer =
+                cleanText(errors, row, "skuCommentBuyer", row.skuCommentBuyer());
+        String skuCollection = cleanText(errors, row, "skuCollection", row.skuCollection());
 
-        return new CDEcomValidationResult(row, errors);
+        if (!errors.isEmpty()) {
+            return new CDEcomRowValidationResult(null, errors);
+        }
+
+        return new CDEcomRowValidationResult(new CDEcomStageRow(
+                row.loadSessionId(), row.excelRowNum(), name, year.value(), season.value(), day.value(),
+                data.value(), salesChannelBpo, storeRus, mfpDivision, mfpDepartment, mfpSubDepartment,
+                skuBrandType, skuTm, mfpNode, section, merchandiseSubGroup, campaignSalesType,
+                skuStyleColor.value(), skuPhase, orderPcs.value(), orderRub.value(), foundPcs.value(),
+                foundRub.value(), salesPcs.value(), salesRub.value(), revenue.value(), gp.value(),
+                cogs.value(), salesDiscount.value(), planRub.value(), stockStoresPcs.value(),
+                stockStoresDdp.value(), cdDrivers, skuSupplierModel, skuComposition, skuColorRussian,
+                skuName, skuCommentBuyer, skuCollection
+        ), List.of());
     }
 
-    private void validateInteger(List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value) {
+    private DWHParseResult<Integer> parseInteger(
+            List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value
+    ) {
         DWHParseResult<Integer> result = parser.parseInteger(value);
-        if (!result.success()) {
-            errors.add(parseError(row, fieldName, value, result));
-        }
+        addParseError(errors, row, fieldName, value, result);
+        return result;
     }
 
-    private void validateDate(List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value) {
-        DWHParseResult<?> result = parser.parseDate(value);
-        if (!result.success()) {
-            errors.add(parseError(row, fieldName, value, result));
-        }
+    private DWHParseResult<LocalDate> parseDate(
+            List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value
+    ) {
+        DWHParseResult<LocalDate> result = parser.parseDate(value);
+        addParseError(errors, row, fieldName, value, result);
+        return result;
     }
 
-    private void validateRoundedLong(List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value) {
+    private DWHParseResult<Long> parseRoundedLong(
+            List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value
+    ) {
         DWHParseResult<Long> result = parser.parseRoundedLong(value);
-        if (!result.success()) {
-            errors.add(parseError(row, fieldName, value, result));
-        }
+        addParseError(errors, row, fieldName, value, result);
+        return result;
     }
 
-    private void validateDecimal(List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value) {
-        DWHParseResult<?> result = parser.parseDecimal(value);
-        if (!result.success()) {
-            errors.add(parseError(row, fieldName, value, result));
-        }
+    private DWHParseResult<BigDecimal> parseDecimal(
+            List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value
+    ) {
+        DWHParseResult<BigDecimal> result = parser.parseDecimal(value);
+        addParseError(errors, row, fieldName, value, result);
+        return result;
     }
 
-    private void validateDirectLong(List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value) {
+    private DWHParseResult<Long> parseDirectLong(
+            List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value
+    ) {
         DWHParseResult<Long> result = parser.parseDirectLong(value);
+        addParseError(errors, row, fieldName, value, result);
+        return result;
+    }
+
+    private void addParseError(
+            List<CDEcomValidationError> errors,
+            CDEcomRawRow row,
+            String fieldName,
+            String value,
+            DWHParseResult<?> result
+    ) {
         if (!result.success()) {
             errors.add(parseError(row, fieldName, value, result));
         }
     }
 
-    private void validateText(List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value) {
+    private String cleanText(
+            List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value
+    ) {
         if (!fieldValidator.isTextLengthValid(value, TEXT_MAX_LENGTH)) {
             errors.add(error(
                     row,
@@ -114,6 +161,7 @@ public class CDEcomValidator {
                     "RawId=" + row.id() + ". Value in [" + fieldName + "] exceeds target length 255: [" + value + "]"
             ));
         }
+        return parser.cleanText(value);
     }
 
     private CDEcomValidationError parseError(

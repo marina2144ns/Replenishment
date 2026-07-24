@@ -9,7 +9,6 @@ import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDEcomExcelL
 import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDDataExcelLoadDefinition;
 import ru.stockmann.replenishment.services.dwhexcelload.definitions.WeeklyDataExcelLoadDefinition;
 import ru.stockmann.replenishment.services.weeklydata.process.WeeklyDataRawRow;
-import ru.stockmann.replenishment.services.weeklydata.process.WeeklyDataTargetRow;
 
 import java.util.List;
 
@@ -92,10 +91,10 @@ class DWHServiceSchemaContractTest {
         List<String> targetColumns = businessColumns(tableColumns(WEEKLY_DDL, "dbo.Weekly_data"));
 
         assertEquals(withLoadSession(targetColumns), insert);
-        assertEquals(insert.size(), placeholderCount(WEEKLY_TARGET_REPOSITORY, "dbo.Weekly_data"));
-        assertEquals(toWeeklyTargetRowComponents(insert), recordComponents(WeeklyDataTargetRow.class));
+        assertEquals(insert, selectColumns(WEEKLY_TARGET_REPOSITORY, "dbo.Weekly_data_stage"));
         assertFalse(insert.contains("id"));
         assertFalse(insert.contains("createdat"));
+        assertFalse(insert.contains("excelrownum"));
         assertColumnContains(tableColumns(WEEKLY_DDL, "dbo.Weekly_data"), "year", "smallint not null");
         assertColumnContains(tableColumns(WEEKLY_DDL, "dbo.Weekly_data"), "week", "smallint not null");
     }
@@ -106,10 +105,11 @@ class DWHServiceSchemaContractTest {
         List<String> targetColumns = businessColumns(tableColumns(CD_DATA_DDL, "dbo.CD_data"));
 
         assertEquals(withLoadSession(targetColumns), insert);
-        assertEquals(insert.size(), placeholderCount(CD_DATA_TARGET_REPOSITORY, "dbo.CD_data"));
+        assertEquals(insert, selectColumns(CD_DATA_TARGET_REPOSITORY, "dbo.CD_data_stage"));
         assertEquals(toCamelComponents(insert), recordComponents(CDDataTargetRow.class));
         assertFalse(insert.contains("id"));
         assertFalse(insert.contains("createdat"));
+        assertFalse(insert.contains("excelrownum"));
     }
 
     @Test
@@ -118,10 +118,11 @@ class DWHServiceSchemaContractTest {
         List<String> targetColumns = businessColumns(tableColumns(CD_ECOM_DDL, "dbo.CD_ecom"));
 
         assertEquals(withLoadSession(targetColumns), insert);
-        assertEquals(insert.size(), placeholderCount(CD_ECOM_TARGET_REPOSITORY, "dbo.CD_ecom"));
+        assertEquals(insert, selectColumns(CD_ECOM_TARGET_REPOSITORY, "dbo.CD_ecom_stage"));
         assertEquals(toCamelComponents(insert), recordComponents(CDEcomTargetRow.class));
         assertFalse(insert.contains("id"));
         assertFalse(insert.contains("createdat"));
+        assertFalse(insert.contains("excelrownum"));
     }
 
     @Test
@@ -229,10 +230,6 @@ class DWHServiceSchemaContractTest {
         components.add("excelrownum");
         components.addAll(toCamelComponents(business));
         return components;
-    }
-
-    private static List<String> toWeeklyTargetRowComponents(List<String> insert) {
-        return toCamelComponents(insert);
     }
 
     private static List<String> toCamelComponents(List<String> columns) {

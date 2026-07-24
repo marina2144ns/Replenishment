@@ -1,7 +1,10 @@
 package ru.stockmann.replenishment.services.weeklydata.process;
 
 import org.junit.jupiter.api.Test;
+import ru.stockmann.replenishment.services.dwhexcelload.validation.DWHParseResult;
+import ru.stockmann.replenishment.services.dwhexcelload.validation.DWHValueParser;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -168,6 +171,24 @@ class WeeklyDataValidatorTest {
         assertHasError(errors, "StoreRus", "TEXT_TOO_LONG");
     }
 
+    @Test
+    void validRowIsParsedOnceAndMappedDirectlyToStageWithExcelRowNumber() {
+        CountingParser parser = new CountingParser();
+        WeeklyDataValidator typedValidator = new WeeklyDataValidator(parser);
+
+        WeeklyDataRowValidationResult result = typedValidator.validateAndMap(row()
+                .year("2025")
+                .week("10")
+                .salesRub("12.50")
+                .build());
+
+        assertTrue(result.valid());
+        assertEquals(6, parser.smallintCalls);
+        assertEquals(7, parser.decimalCalls);
+        assertEquals(3L, result.stageRow().excelRowNum());
+        assertEquals(new BigDecimal("12.50"), result.stageRow().salesRub());
+    }
+
     private void assertHasError(List<WeeklyDataValidationError> errors, String fieldName, String errorCode) {
         assertTrue(
                 errors.stream().anyMatch(error ->
@@ -293,6 +314,23 @@ class WeeklyDataValidatorTest {
                     null,
                     null
             );
+        }
+    }
+
+    private static final class CountingParser extends DWHValueParser {
+        private int smallintCalls;
+        private int decimalCalls;
+
+        @Override
+        public DWHParseResult<Short> parseSmallint(String value) {
+            smallintCalls++;
+            return super.parseSmallint(value);
+        }
+
+        @Override
+        public DWHParseResult<BigDecimal> parseDecimal(String value) {
+            decimalCalls++;
+            return super.parseDecimal(value);
         }
     }
 }

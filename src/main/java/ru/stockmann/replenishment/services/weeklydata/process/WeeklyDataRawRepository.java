@@ -10,15 +10,18 @@ import java.util.List;
 
 public class WeeklyDataRawRepository {
 
+    public static final int DEFAULT_CHUNK_SIZE = 1_000;
+    public static final long INITIAL_LAST_RAW_ID = 0L;
+
     private final DataSource dataSource;
 
     public WeeklyDataRawRepository(DataSource dataSource) {
         this.dataSource = dataSource;
     }
 
-    public List<WeeklyDataRawRow> findByLoadSessionId(long loadSessionId) {
+    public List<WeeklyDataRawRow> findChunk(long loadSessionId, long lastRawId) {
         try (Connection connection = dataSource.getConnection()) {
-            return findByLoadSessionId(connection, loadSessionId);
+            return findChunk(connection, loadSessionId, lastRawId, DEFAULT_CHUNK_SIZE);
         } catch (SQLException e) {
             throw new RuntimeException(
                     "Failed to read Weekly_data_raw rows. loadSessionId=" + loadSessionId,
@@ -27,9 +30,14 @@ public class WeeklyDataRawRepository {
         }
     }
 
-    public List<WeeklyDataRawRow> findByLoadSessionId(Connection connection, long loadSessionId) {
+    public List<WeeklyDataRawRow> findChunk(
+            Connection connection,
+            long loadSessionId,
+            long lastRawId,
+            int chunkSize
+    ) {
         String sql = """
-                SELECT
+                SELECT TOP (?)
                     Id AS rawId,
                     LoadSessionId,
                     ExcelRowNum,
@@ -60,6 +68,7 @@ public class WeeklyDataRawRepository {
                     Seasonality
                 FROM dbo.Weekly_data_raw
                 WHERE LoadSessionId = ?
+                  AND Id > ?
                 ORDER BY Id
                 """;
 
@@ -67,7 +76,9 @@ public class WeeklyDataRawRepository {
 
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
 
-            ps.setLong(1, loadSessionId);
+            ps.setInt(1, chunkSize);
+            ps.setLong(2, loadSessionId);
+            ps.setLong(3, lastRawId);
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {

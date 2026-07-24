@@ -115,6 +115,58 @@ CREATE TABLE dbo.CD_ecom
 );
 GO
 
+/*==============================================================*/
+/* 3. Типизированная staging-таблица                             */
+/*==============================================================*/
+CREATE TABLE dbo.CD_ecom_stage
+(
+    LoadSessionId               BIGINT                NOT NULL,
+    ExcelRowNum                 BIGINT                NULL,
+
+    name                        NVARCHAR(255)         NULL,
+    [year]                      INT                   NULL,
+    season                      INT                   NULL,
+    [day]                       INT                   NULL,
+    [data]                      DATE                  NULL,
+    salesChannelBpo             NVARCHAR(255)         NULL,
+    storeRus                    NVARCHAR(255)         NULL,
+    mfpDivision                 NVARCHAR(255)         NULL,
+    mfpDepartment               NVARCHAR(255)         NULL,
+    mfpSubDepartment            NVARCHAR(255)         NULL,
+    skuBrandType                NVARCHAR(255)         NULL,
+    skuTm                       NVARCHAR(255)         NULL,
+    mfpNode                     NVARCHAR(255)         NULL,
+    section                     NVARCHAR(255)         NULL,
+    merchandiseSubGroup         NVARCHAR(255)         NULL,
+    campaignSalesType           NVARCHAR(255)         NULL,
+    skuStyleColor               BIGINT                NULL,
+    skuPhase                    NVARCHAR(255)         NULL,
+    orderPcs                    DECIMAL(18,2)         NULL,
+    orderRub                    DECIMAL(18,2)         NULL,
+    foundPcs                    DECIMAL(18,2)         NULL,
+    foundRub                    DECIMAL(18,2)         NULL,
+    salesPcs                    DECIMAL(18,2)         NULL,
+    salesRub                    DECIMAL(18,2)         NULL,
+    revenue                     DECIMAL(18,2)         NULL,
+    gp                          DECIMAL(18,2)         NULL,
+    cogs                        DECIMAL(18,2)         NULL,
+    salesDiscount               DECIMAL(18,2)         NULL,
+    planRub                     BIGINT                NULL,
+    stockStoresPcs              BIGINT                NULL,
+    stockStoresDdp              BIGINT                NULL,
+    cdDrivers                   NVARCHAR(255)         NULL,
+    skuSupplierModel            NVARCHAR(255)         NULL,
+    skuComposition              NVARCHAR(255)         NULL,
+    skuColorRussian             NVARCHAR(255)         NULL,
+    skuName                     NVARCHAR(255)         NULL,
+    skuCommentBuyer             NVARCHAR(255)         NULL,
+    skuCollection               NVARCHAR(255)         NULL,
+
+    CONSTRAINT FK_CD_ecom_stage_LoadSession
+        FOREIGN KEY (LoadSessionId) REFERENCES dbo.DWH_Excel_Load_Session(Id)
+);
+GO
+
 CREATE INDEX IX_CD_ecom_LoadSessionId
     ON dbo.CD_ecom(LoadSessionId);
 GO
@@ -133,4 +185,8 @@ GO
 
 CREATE INDEX IX_CD_ecom_section
     ON dbo.CD_ecom(section);
+GO
+
+CREATE INDEX IX_CD_ecom_stage_LoadSessionId
+    ON dbo.CD_ecom_stage(LoadSessionId);
 GO

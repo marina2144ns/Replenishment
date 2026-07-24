@@ -4,12 +4,16 @@ import org.junit.jupiter.api.Test;
 
 import javax.sql.DataSource;
 import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -21,256 +25,265 @@ class WeeklyDataProcessorTest {
     private static final long LOAD_SESSION_ID = 10L;
 
     @Test
-    void sessionNotFoundReturnsErrorWithoutReadingRawOrCleaningTables() {
+    void sessionNotFoundDoesNotReadOrClean() {
         TestFixture fixture = new TestFixture();
         fixture.loadSessionRepository.exists = false;
 
         WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
 
         assertFalse(result.success());
-        assertEquals(0, result.totalRows());
-        assertEquals(0, result.loadedRows());
-        assertEquals(1, result.errorRows());
-        assertTrue(result.message().contains("loadSessionId=" + LOAD_SESSION_ID));
-        assertTrue(result.message().contains("expected LoadTypeCode=WEEKLY_DATA"));
-
         assertEquals(0, fixture.rawRepository.findCalls);
+        assertEquals(0, fixture.stageRepository.deleteCalls);
         assertEquals(0, fixture.errorRepository.deleteCalls);
-        assertEquals(0, fixture.targetRepository.deleteCalls);
-    }
-
-    @Test
-    void wrongLoadTypeReturnsErrorWithoutReadingRawOrCleaningTables() {
-        TestFixture fixture = new TestFixture();
-        fixture.loadSessionRepository.exists = false;
-
-        WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
-
-        assertFalse(result.success());
-        assertEquals(0, result.totalRows());
-        assertEquals(0, result.loadedRows());
-        assertEquals(1, result.errorRows());
-        assertTrue(result.message().contains("expected LoadTypeCode=WEEKLY_DATA"));
-        assertEquals(0, fixture.rawRepository.findCalls);
-        assertEquals(0, fixture.errorRepository.deleteCalls);
-        assertEquals(0, fixture.errorRepository.validationErrors.size());
-        assertEquals(0, fixture.targetRepository.deleteCalls);
-        assertEquals(0, fixture.targetRepository.insertedRows.size());
         assertEquals(0, fixture.dataSource.commitCount);
-        assertEquals(0, fixture.dataSource.rollbackCount);
     }
 
     @Test
-    void validationFailedWritesValidationErrorsAndDoesNotWriteTargetRows() {
+    void processesMultipleValidChunksAndCommitsCleanupAndEachChunk() {
         TestFixture fixture = new TestFixture();
-        fixture.loadSessionRepository.exists = true;
-        fixture.rawRepository.rows = List.of(row().year("").week("10").build());
-
-        WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
-
-        assertFalse(result.success());
-        assertEquals(1, result.totalRows());
-        assertEquals(0, result.loadedRows());
-        assertTrue(result.errorRows() > 0);
-
-        assertEquals(1, fixture.errorRepository.deleteCalls);
-        assertEquals(1, fixture.targetRepository.deleteCalls);
-        assertEquals(1, fixture.errorRepository.validationErrors.size());
-        assertEquals(0, fixture.targetRepository.insertedRows.size());
-        assertEquals(1, fixture.dataSource.commitCount);
-        assertEquals(0, fixture.dataSource.rollbackCount);
-    }
-
-    @Test
-    void missingYearAndWeekValidationErrorsBlockWholeTargetInsert() {
-        TestFixture fixture = new TestFixture();
-        fixture.loadSessionRepository.exists = true;
-        fixture.rawRepository.rows = List.of(
-                row().rawId(1).excelRowNum(2).year(null).week("10").build(),
-                row().rawId(2).excelRowNum(3).year("2025").week(null).build(),
-                row().rawId(3).excelRowNum(4).year("2025").week("10").build()
-        );
-
-        WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
-
-        assertFalse(result.success());
-        assertEquals(3, result.totalRows());
-        assertEquals(0, result.loadedRows());
-        assertEquals(2, result.errorRows());
-        assertEquals(List.of("Year", "Week"), fixture.errorRepository.validationErrors.stream()
-                .map(WeeklyDataValidationError::fieldName)
-                .toList());
-        assertEquals(List.of(2L, 3L), fixture.errorRepository.validationErrors.stream()
-                .map(WeeklyDataValidationError::excelRowNum)
-                .toList());
-        assertEquals(0, fixture.targetRepository.insertedRows.size());
-        assertEquals(1, fixture.dataSource.commitCount);
-        assertEquals(0, fixture.dataSource.rollbackCount);
-    }
-
-    @Test
-    void textLengthValidationFailureWritesErrorAndBlocksTargetInsert() {
-        TestFixture fixture = new TestFixture();
-        fixture.loadSessionRepository.exists = true;
-        fixture.rawRepository.rows = List.of(row()
-                .year("2025")
-                .week("10")
-                .storeRus("a".repeat(256))
-                .build());
-
-        WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
-
-        assertFalse(result.success());
-        assertEquals(1, result.totalRows());
-        assertEquals(0, result.loadedRows());
-        assertEquals(1, result.errorRows());
-        assertEquals(1, fixture.errorRepository.validationErrors.size());
-        assertEquals("StoreRus", fixture.errorRepository.validationErrors.get(0).fieldName());
-        assertEquals("TEXT_TOO_LONG", fixture.errorRepository.validationErrors.get(0).errorCode());
-        assertEquals(3L, fixture.errorRepository.validationErrors.get(0).excelRowNum());
-        assertEquals(0, fixture.targetRepository.insertedRows.size());
-        assertEquals(1, fixture.dataSource.commitCount);
-        assertEquals(0, fixture.dataSource.rollbackCount);
-    }
-
-    @Test
-    void successWritesTargetRowsAndDoesNotWriteValidationErrors() {
-        TestFixture fixture = new TestFixture();
-        fixture.loadSessionRepository.exists = true;
-        fixture.rawRepository.rows = List.of(row().year("2025").week("10").build());
+        fixture.rawRepository.chunks.put(0L, List.of(validRow(1), validRow(2)));
+        fixture.rawRepository.chunks.put(2L, List.of(validRow(3)));
 
         WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
 
         assertTrue(result.success());
-        assertEquals(1, result.totalRows());
-        assertEquals(1, result.loadedRows());
+        assertEquals(3, result.totalRows());
+        assertEquals(3, result.stagedRows());
+        assertEquals(3, result.loadedRows());
         assertEquals(0, result.errorRows());
-
-        assertEquals(1, fixture.errorRepository.deleteCalls);
-        assertEquals(1, fixture.targetRepository.deleteCalls);
+        assertEquals(List.of(0L, 2L, 3L), fixture.rawRepository.requestedLastIds);
+        assertEquals(List.of(2, 1), fixture.stageRepository.batchSizes);
         assertEquals(0, fixture.errorRepository.validationErrors.size());
-        assertEquals(1, fixture.targetRepository.insertedRows.size());
-        assertEquals(1, fixture.dataSource.commitCount);
+        assertEquals(4, fixture.dataSource.commitCount);
         assertEquals(0, fixture.dataSource.rollbackCount);
+        assertEquals(1, fixture.targetRepository.publishCalls);
+        assertTrue(fixture.stageRepository.rows.isEmpty());
     }
 
     @Test
-    void unexpectedExceptionWritesProcessingErrorOutsideTransaction() {
+    void writesErrorsFromDifferentChunksAndStagesOnlyValidRows() {
         TestFixture fixture = new TestFixture();
-        fixture.loadSessionRepository.exists = true;
-        fixture.rawRepository.rows = List.of(row().year("2025").week("10").build());
-        fixture.targetRepository.throwOnInsert = true;
+        fixture.rawRepository.chunks.put(0L, List.of(validRow(1), invalidRow(2)));
+        fixture.rawRepository.chunks.put(2L, List.of(invalidRow(3), validRow(4)));
+
+        WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
+
+        assertFalse(result.success());
+        assertEquals(4, result.totalRows());
+        assertEquals(2, result.stagedRows());
+        assertEquals(0, result.loadedRows());
+        assertEquals(2, result.errorRows());
+        assertEquals(List.of(1, 1), fixture.stageRepository.batchSizes);
+        assertEquals(List.of(1, 1), fixture.errorRepository.batchSizes);
+        assertEquals(List.of(2L, 3L), fixture.errorRepository.validationErrors.stream()
+                .map(WeeklyDataValidationError::rawId)
+                .toList());
+        assertEquals(List.of(3L, 4L), fixture.errorRepository.validationErrors.stream()
+                .map(WeeklyDataValidationError::excelRowNum)
+                .toList());
+        assertEquals(3, fixture.dataSource.commitCount);
+        assertEquals(0, fixture.targetRepository.publishCalls);
+        assertEquals(2, fixture.stageRepository.rows.size());
+    }
+
+    @Test
+    void rollsBackOnlyFailingChunkAndStopsProcessing() {
+        TestFixture fixture = new TestFixture();
+        fixture.rawRepository.chunks.put(0L, List.of(validRow(1)));
+        fixture.rawRepository.chunks.put(1L, List.of(validRow(2)));
+        fixture.stageRepository.failOnBatchNumber = 2;
 
         WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
 
         assertFalse(result.success());
         assertEquals(1, result.totalRows());
+        assertEquals(1, result.stagedRows());
         assertEquals(0, result.loadedRows());
         assertEquals(1, result.errorRows());
-
-        assertEquals(0, fixture.dataSource.commitCount);
+        assertEquals(2, fixture.dataSource.commitCount);
         assertEquals(1, fixture.dataSource.rollbackCount);
+        assertEquals(List.of(0L, 1L), fixture.rawRepository.requestedLastIds);
         assertEquals(1, fixture.errorRepository.processingErrors.size());
-        assertEquals("PROCESSING", fixture.errorRepository.processingErrors.get(0).errorLayer());
-        assertEquals("UNEXPECTED_PROCESSING_ERROR", fixture.errorRepository.processingErrors.get(0).errorCode());
-        assertEquals(List.of(
-                "setAutoCommit:false",
-                "rollback",
-                "setAutoCommit:true",
-                "close",
-                "insertProcessingError"
-        ), fixture.dataSource.events.stream()
-                .filter(event -> event.startsWith("setAutoCommit") || event.equals("rollback") || event.equals("close") || event.equals("insertProcessingError"))
-                .toList());
     }
 
     @Test
-    void rollbackFailureDoesNotReplaceOriginalProcessingException() {
+    void everyRunCleansPreviouslyCommittedStageAndErrorsFirst() {
         TestFixture fixture = new TestFixture();
-        fixture.loadSessionRepository.exists = true;
-        fixture.rawRepository.throwOnFind = true;
-        fixture.dataSource.rollbackFailure = new SQLException("rollback failed");
+
+        fixture.processor.process(LOAD_SESSION_ID);
+        fixture.processor.process(LOAD_SESSION_ID);
+
+        assertEquals(4, fixture.stageRepository.deleteCalls);
+        assertEquals(2, fixture.errorRepository.deleteCalls);
+        assertEquals(4, fixture.dataSource.commitCount);
+    }
+
+    @Test
+    void counterMismatchPreventsPublishAndCreatesProcessingError() {
+        TestFixture fixture = new TestFixture();
+        List<WeeklyDataRawRow> inconsistentChunk = new java.util.AbstractList<>() {
+            @Override
+            public WeeklyDataRawRow get(int index) {
+                return index == 0 ? validRow(1) : validRow(2);
+            }
+
+            @Override
+            public int size() {
+                return 2;
+            }
+
+            @Override
+            public java.util.Iterator<WeeklyDataRawRow> iterator() {
+                return List.of(validRow(1)).iterator();
+            }
+        };
+        fixture.rawRepository.chunks.put(0L, inconsistentChunk);
 
         WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
 
         assertFalse(result.success());
-        assertEquals("raw read failed", result.message());
+        assertEquals(2, result.totalRows());
+        assertEquals(1, result.stagedRows());
+        assertEquals(0, result.loadedRows());
+        assertEquals(0, fixture.targetRepository.publishCalls);
         assertEquals(1, fixture.errorRepository.processingErrors.size());
-        assertEquals("raw read failed", fixture.errorRepository.processingErrors.get(0).errorReason());
-        assertEquals(List.of(
-                "setAutoCommit:false",
-                "rollback",
-                "setAutoCommit:true",
-                "close",
-                "insertProcessingError"
-        ), fixture.dataSource.events.stream()
-                .filter(event -> event.startsWith("setAutoCommit") || event.equals("rollback") || event.equals("close") || event.equals("insertProcessingError"))
-                .toList());
     }
 
     @Test
-    void processingErrorInsertFailureDoesNotReplaceOriginalProcessingException() {
+    void publishFailureRollsBackAndLeavesStageAvailable() {
         TestFixture fixture = new TestFixture();
-        fixture.loadSessionRepository.exists = true;
-        fixture.rawRepository.throwOnFind = true;
-        fixture.errorRepository.throwOnProcessingInsert = true;
+        fixture.rawRepository.chunks.put(0L, List.of(validRow(1)));
+        fixture.targetRepository.failure = new RuntimeException("publish failed");
 
         WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
 
         assertFalse(result.success());
-        assertEquals("raw read failed", result.message());
-        assertEquals(0, fixture.errorRepository.processingErrors.size());
+        assertEquals(0, result.loadedRows());
         assertEquals(1, fixture.dataSource.rollbackCount);
+        assertEquals(1, fixture.stageRepository.rows.size());
+        assertEquals(1, fixture.errorRepository.processingErrors.size());
     }
 
     @Test
-    void autoCommitRestoreFailureDoesNotReplaceOriginalProcessingException() {
+    void publishedRowMismatchRollsBackAndLeavesStageAvailable() {
         TestFixture fixture = new TestFixture();
-        fixture.loadSessionRepository.exists = true;
-        fixture.rawRepository.throwOnFind = true;
-        fixture.dataSource.restoreAutoCommitFailure = new SQLException("restore failed");
+        fixture.rawRepository.chunks.put(0L, List.of(validRow(1)));
+        fixture.targetRepository.publishedRowsOverride = 0;
 
         WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
 
         assertFalse(result.success());
-        assertEquals("raw read failed", result.message());
-        assertEquals(1, fixture.errorRepository.processingErrors.size());
-        assertEquals(List.of(
-                "setAutoCommit:false",
-                "rollback",
-                "setAutoCommit:true",
-                "close",
-                "insertProcessingError"
-        ), fixture.dataSource.events.stream()
-                .filter(event -> event.startsWith("setAutoCommit") || event.equals("rollback") || event.equals("close") || event.equals("insertProcessingError"))
-                .toList());
+        assertEquals(1, fixture.dataSource.rollbackCount);
+        assertEquals(1, fixture.stageRepository.rows.size());
     }
 
-    private static RowBuilder row() {
-        return new RowBuilder();
+    @Test
+    void stageCleanupFailureRollsBackPublishAndLeavesStageAvailable() {
+        TestFixture fixture = new TestFixture();
+        fixture.rawRepository.chunks.put(0L, List.of(validRow(1)));
+        fixture.stageRepository.failOnDeleteCall = 2;
+
+        WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
+
+        assertFalse(result.success());
+        assertEquals(1, fixture.dataSource.rollbackCount);
+        assertEquals(1, fixture.stageRepository.rows.size());
     }
 
-    private static class TestFixture {
+    @Test
+    void publishCommitFailureRollsBackAndDoesNotReturnSuccess() {
+        TestFixture fixture = new TestFixture();
+        fixture.rawRepository.chunks.put(0L, List.of(validRow(1)));
+        fixture.dataSource.failCommitNumber = 3;
+
+        WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
+
+        assertFalse(result.success());
+        assertEquals(1, fixture.dataSource.rollbackCount);
+        assertEquals(0, result.loadedRows());
+    }
+
+    @Test
+    void processorSourceUsesChunkApiAndOnlySetBasedTargetPublish() throws Exception {
+        String source = Files.readString(Path.of(
+                "src/main/java/ru/stockmann/replenishment/services/weeklydata/process/WeeklyDataProcessor.java"
+        ));
+        String targetSource = Files.readString(Path.of(
+                "src/main/java/ru/stockmann/replenishment/services/weeklydata/process/WeeklyDataTargetRepository.java"
+        ));
+
+        assertTrue(source.contains("rawRepository.findChunk("));
+        assertFalse(source.contains("findByLoadSessionId("));
+        assertFalse(source.contains("List<WeeklyDataTargetRow>"));
+        assertTrue(source.contains("targetRepository.publishFromStage("));
+        assertFalse(targetSource.contains("addBatch("));
+        assertFalse(targetSource.contains("executeBatch("));
+    }
+
+    private static WeeklyDataRawRow validRow(long rawId) {
+        return row(rawId, "2025", "10");
+    }
+
+    private static WeeklyDataRawRow invalidRow(long rawId) {
+        return row(rawId, null, "10");
+    }
+
+    private static WeeklyDataRawRow row(long rawId, String year, String week) {
+        return new WeeklyDataRawRow(
+                LOAD_SESSION_ID,
+                rawId,
+                rawId + 1,
+                null,
+                null,
+                null,
+                null,
+                year,
+                week,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    private static final class TestFixture {
         private final RecordingDataSource dataSource = new RecordingDataSource();
         private final FakeLoadSessionRepository loadSessionRepository = new FakeLoadSessionRepository();
         private final FakeRawRepository rawRepository = new FakeRawRepository();
-        private final FakeErrorRepository errorRepository = new FakeErrorRepository(dataSource.events);
-        private final FakeTargetRepository targetRepository = new FakeTargetRepository();
+        private final List<String> cleanupEvents = new ArrayList<>();
+        private final FakeErrorRepository errorRepository = new FakeErrorRepository(cleanupEvents);
+        private final FakeStageRepository stageRepository = new FakeStageRepository(cleanupEvents);
+        private final FakeTargetRepository targetRepository = new FakeTargetRepository(stageRepository);
         private final WeeklyDataProcessor processor = new WeeklyDataProcessor(
                 dataSource,
                 loadSessionRepository,
                 rawRepository,
                 errorRepository,
+                stageRepository,
                 targetRepository,
-                new WeeklyDataValidator(),
-                new WeeklyDataRowMapper()
+                new WeeklyDataValidator()
         );
     }
 
-    private static class FakeLoadSessionRepository extends WeeklyDataLoadSessionRepository {
-        private boolean exists;
+    private static final class FakeLoadSessionRepository extends WeeklyDataLoadSessionRepository {
+        private boolean exists = true;
 
-        FakeLoadSessionRepository() {
+        private FakeLoadSessionRepository() {
             super(null);
         }
 
@@ -280,86 +293,123 @@ class WeeklyDataProcessorTest {
         }
     }
 
-    private static class FakeRawRepository extends WeeklyDataRawRepository {
-        private List<WeeklyDataRawRow> rows = List.of();
+    private static final class FakeRawRepository extends WeeklyDataRawRepository {
+        private final Map<Long, List<WeeklyDataRawRow>> chunks = new LinkedHashMap<>();
+        private final List<Long> requestedLastIds = new ArrayList<>();
         private int findCalls;
-        private boolean throwOnFind;
 
-        FakeRawRepository() {
+        private FakeRawRepository() {
             super(null);
         }
 
         @Override
-        public List<WeeklyDataRawRow> findByLoadSessionId(Connection connection, long loadSessionId) {
+        public List<WeeklyDataRawRow> findChunk(long loadSessionId, long lastRawId) {
             findCalls++;
-            if (throwOnFind) {
-                throw new RuntimeException("raw read failed");
-            }
-            return rows;
+            requestedLastIds.add(lastRawId);
+            return chunks.getOrDefault(lastRawId, List.of());
         }
     }
 
-    private static class FakeErrorRepository extends WeeklyDataErrorRepository {
+    private static final class FakeStageRepository extends WeeklyDataStageRepository {
+        private final List<String> cleanupEvents;
+        private final List<WeeklyDataStageRow> rows = new ArrayList<>();
+        private final List<Integer> batchSizes = new ArrayList<>();
         private int deleteCalls;
-        private boolean throwOnProcessingInsert;
-        private final List<String> events;
+        private int insertCalls;
+        private int failOnBatchNumber;
+        private int failOnDeleteCall;
+
+        private FakeStageRepository(List<String> cleanupEvents) {
+            super(null);
+            this.cleanupEvents = cleanupEvents;
+        }
+
+        @Override
+        public int deleteByLoadSessionId(Connection connection, long loadSessionId) {
+            deleteCalls++;
+            cleanupEvents.add("stageDelete");
+            if (deleteCalls == failOnDeleteCall) {
+                throw new RuntimeException("stage cleanup failed");
+            }
+            int deleted = rows.size();
+            rows.clear();
+            return deleted;
+        }
+
+        @Override
+        public void insertBatch(Connection connection, long loadSessionId, List<WeeklyDataStageRow> rows) {
+            if (rows.isEmpty()) {
+                return;
+            }
+            insertCalls++;
+            if (insertCalls == failOnBatchNumber) {
+                throw new RuntimeException("stage insert failed");
+            }
+            batchSizes.add(rows.size());
+            this.rows.addAll(rows);
+        }
+    }
+
+    private static final class FakeTargetRepository extends WeeklyDataTargetRepository {
+        private final FakeStageRepository stageRepository;
+        private int publishCalls;
+        private RuntimeException failure;
+        private Integer publishedRowsOverride;
+
+        private FakeTargetRepository(FakeStageRepository stageRepository) {
+            this.stageRepository = stageRepository;
+        }
+
+        @Override
+        public int publishFromStage(Connection connection, long loadSessionId) {
+            publishCalls++;
+            if (failure != null) {
+                throw failure;
+            }
+            return publishedRowsOverride != null ? publishedRowsOverride : stageRepository.rows.size();
+        }
+    }
+
+    private static final class FakeErrorRepository extends WeeklyDataErrorRepository {
+        private final List<String> cleanupEvents;
         private final List<WeeklyDataValidationError> validationErrors = new ArrayList<>();
         private final List<WeeklyDataValidationError> processingErrors = new ArrayList<>();
+        private final List<Integer> batchSizes = new ArrayList<>();
+        private int deleteCalls;
 
-        FakeErrorRepository(List<String> events) {
+        private FakeErrorRepository(List<String> cleanupEvents) {
             super(null);
-            this.events = events;
+            this.cleanupEvents = cleanupEvents;
         }
 
         @Override
         public void deleteByLoadSessionId(Connection connection, long loadSessionId) {
             deleteCalls++;
+            cleanupEvents.add("errorDelete");
         }
 
         @Override
-        public void insertAll(Connection connection, List<WeeklyDataValidationError> errors) {
-            validationErrors.addAll(errors);
+        public void insertBatch(
+                Connection connection,
+                long loadSessionId,
+                List<WeeklyDataValidationError> errors
+        ) {
+            if (!errors.isEmpty()) {
+                batchSizes.add(errors.size());
+                validationErrors.addAll(errors);
+            }
         }
 
         @Override
         public void insertAll(List<WeeklyDataValidationError> errors) {
-            events.add("insertProcessingError");
-            if (throwOnProcessingInsert) {
-                throw new RuntimeException("processing insert failed");
-            }
             processingErrors.addAll(errors);
         }
     }
 
-    private static class FakeTargetRepository extends WeeklyDataTargetRepository {
-        private int deleteCalls;
-        private boolean throwOnInsert;
-        private final List<WeeklyDataTargetRow> insertedRows = new ArrayList<>();
-
-        FakeTargetRepository() {
-            super(null);
-        }
-
-        @Override
-        public void deleteByLoadSessionId(Connection connection, long loadSessionId) {
-            deleteCalls++;
-        }
-
-        @Override
-        public void insertAll(Connection connection, List<WeeklyDataTargetRow> rows) {
-            if (throwOnInsert) {
-                throw new RuntimeException("target insert failed");
-            }
-            insertedRows.addAll(rows);
-        }
-    }
-
-    private static class RecordingDataSource implements DataSource {
+    private static final class RecordingDataSource implements DataSource {
         private int commitCount;
         private int rollbackCount;
-        private final List<String> events = new ArrayList<>();
-        private SQLException rollbackFailure;
-        private SQLException restoreAutoCommitFailure;
+        private int failCommitNumber;
 
         @Override
         public Connection getConnection() {
@@ -368,29 +418,16 @@ class WeeklyDataProcessorTest {
                     new Class<?>[]{Connection.class},
                     (proxy, method, args) -> switch (method.getName()) {
                         case "getAutoCommit" -> true;
-                        case "setAutoCommit" -> {
-                            boolean value = (Boolean) args[0];
-                            events.add("setAutoCommit:" + value);
-                            if (value && restoreAutoCommitFailure != null) {
-                                throw restoreAutoCommitFailure;
-                            }
-                            yield null;
-                        }
-                        case "close" -> {
-                            events.add("close");
-                            yield null;
-                        }
+                        case "setAutoCommit", "close" -> null;
                         case "commit" -> {
                             commitCount++;
-                            events.add("commit");
+                            if (commitCount == failCommitNumber) {
+                                throw new SQLException("commit failed");
+                            }
                             yield null;
                         }
                         case "rollback" -> {
                             rollbackCount++;
-                            events.add("rollback");
-                            if (rollbackFailure != null) {
-                                throw rollbackFailure;
-                            }
                             yield null;
                         }
                         case "isClosed" -> false;
@@ -438,84 +475,18 @@ class WeeklyDataProcessorTest {
         public boolean isWrapperFor(Class<?> iface) {
             return false;
         }
-
-        private Object defaultValue(Class<?> type) {
-            if (!type.isPrimitive()) {
-                return null;
-            }
-            if (type == boolean.class) {
-                return false;
-            }
-            if (type == void.class) {
-                return null;
-            }
-            return 0;
-        }
     }
 
-    private static class RowBuilder {
-        private long rawId = 2;
-        private long excelRowNum = 3L;
-        private String year;
-        private String week;
-        private String storeRus;
-
-        RowBuilder rawId(long rawId) {
-            this.rawId = rawId;
-            return this;
+    private static Object defaultValue(Class<?> type) {
+        if (!type.isPrimitive()) {
+            return null;
         }
-
-        RowBuilder excelRowNum(long excelRowNum) {
-            this.excelRowNum = excelRowNum;
-            return this;
+        if (type == boolean.class) {
+            return false;
         }
-
-        RowBuilder year(String year) {
-            this.year = year;
-            return this;
+        if (type == long.class) {
+            return 0L;
         }
-
-        RowBuilder week(String week) {
-            this.week = week;
-            return this;
-        }
-
-        RowBuilder storeRus(String storeRus) {
-            this.storeRus = storeRus;
-            return this;
-        }
-
-        WeeklyDataRawRow build() {
-            return new WeeklyDataRawRow(
-                    1,
-                    rawId,
-                    excelRowNum,
-                    null,
-                    null,
-                    null,
-                    null,
-                    year,
-                    week,
-                    null,
-                    null,
-                    storeRus,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
-            );
-        }
+        return 0;
     }
 }

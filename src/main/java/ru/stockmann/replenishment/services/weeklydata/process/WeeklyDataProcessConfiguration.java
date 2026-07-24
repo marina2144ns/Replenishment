@@ -24,8 +24,13 @@ public class WeeklyDataProcessConfiguration {
     }
 
     @Bean
-    public WeeklyDataTargetRepository weeklyDataTargetRepository(DataSource dataSource) {
-        return new WeeklyDataTargetRepository(dataSource);
+    public WeeklyDataTargetRepository weeklyDataTargetRepository() {
+        return new WeeklyDataTargetRepository();
+    }
+
+    @Bean
+    public WeeklyDataStageRepository weeklyDataStageRepository(DataSource dataSource) {
+        return new WeeklyDataStageRepository(dataSource);
     }
 
     @Bean
@@ -44,18 +49,18 @@ public class WeeklyDataProcessConfiguration {
             WeeklyDataLoadSessionRepository loadSessionRepository,
             WeeklyDataRawRepository rawRepository,
             WeeklyDataErrorRepository errorRepository,
+            WeeklyDataStageRepository stageRepository,
             WeeklyDataTargetRepository targetRepository,
-            WeeklyDataValidator validator,
-            WeeklyDataRowMapper mapper
+            WeeklyDataValidator validator
     ) {
         return new WeeklyDataProcessor(
                 dataSource,
                 loadSessionRepository,
                 rawRepository,
                 errorRepository,
+                stageRepository,
                 targetRepository,
-                validator,
-                mapper
+                validator
         );
     }
 }

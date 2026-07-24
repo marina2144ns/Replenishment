@@ -76,91 +76,6 @@ class CDEcomRepositoryTest {
     }
 
     @Test
-    void targetRepositoryDeletesByLoadSessionId() {
-        RecordingPreparedStatement statement = new RecordingPreparedStatement();
-        RecordingConnection connection = new RecordingConnection(statement);
-
-        new CDEcomTargetRepository(null).deleteByLoadSessionId(connection.proxy(), 20L);
-
-        assertTrue(connection.sql.contains("DELETE FROM dbo.CD_ecom"));
-        assertTrue(connection.sql.contains("WHERE LoadSessionId = ?"));
-        assertEquals(20L, statement.values.get(1));
-        assertTrue(statement.executeUpdateCalled);
-    }
-
-    @Test
-    void targetRepositoryInsertsRowsInTableColumnOrder() {
-        RecordingPreparedStatement statement = new RecordingPreparedStatement();
-        RecordingConnection connection = new RecordingConnection(statement);
-
-        new CDEcomTargetRepository(null).insertAll(connection.proxy(), List.of(targetRow()));
-
-        assertTrue(connection.sql.contains("INSERT INTO dbo.CD_ecom"));
-        assertTrue(connection.sql.contains("LoadSessionId"));
-        assertTrue(connection.sql.contains("skuCommentBuyer"));
-        assertEquals(20L, statement.values.get(1));
-        assertEquals("Name", statement.values.get(2));
-        assertEquals(2025, statement.values.get(3));
-        assertEquals(1, statement.values.get(4));
-        assertEquals(31, statement.values.get(5));
-        assertEquals(Date.valueOf("2025-01-31"), statement.values.get(6));
-        assertEquals("Online", statement.values.get(7));
-        assertEquals(123456789L, statement.values.get(18));
-        assertEquals(new BigDecimal("12.35"), statement.values.get(20));
-        assertEquals(123L, statement.values.get(30));
-        assertEquals(456L, statement.values.get(31));
-        assertEquals(789L, statement.values.get(32));
-        assertEquals("Comment", statement.values.get(38));
-        assertEquals("Collection", statement.values.get(39));
-        assertEquals(1, statement.addBatchCalls);
-        assertTrue(statement.executeBatchCalled);
-    }
-
-    @Test
-    void targetRepositoryRejectsNullLoadSessionId() {
-        RecordingPreparedStatement statement = new RecordingPreparedStatement();
-        RecordingConnection connection = new RecordingConnection(statement);
-
-        NullPointerException exception = assertThrows(
-                NullPointerException.class,
-                () -> new CDEcomTargetRepository(null).insertAll(connection.proxy(), List.of(targetRowWithLoadSessionId(null)))
-        );
-
-        assertEquals("CDEcom target LoadSessionId is required", exception.getMessage());
-        assertFalse(statement.executeBatchCalled);
-    }
-
-    @Test
-    void targetRepositoryUsesExpectedSqlTypesForNullTargetFields() {
-        RecordingPreparedStatement statement = new RecordingPreparedStatement();
-        RecordingConnection connection = new RecordingConnection(statement);
-
-        new CDEcomTargetRepository(null).insertAll(connection.proxy(), List.of(emptyTargetRow()));
-
-        assertEquals(20L, statement.values.get(1));
-        assertEquals(Types.NVARCHAR, statement.nullTypes.get(2));
-        assertEquals(Types.INTEGER, statement.nullTypes.get(3));
-        assertEquals(Types.DATE, statement.nullTypes.get(6));
-        assertEquals(Types.BIGINT, statement.nullTypes.get(18));
-        assertEquals(Types.DECIMAL, statement.nullTypes.get(20));
-        assertEquals(Types.BIGINT, statement.nullTypes.get(31));
-        assertEquals(Types.BIGINT, statement.nullTypes.get(32));
-        assertEquals(Types.NVARCHAR, statement.nullTypes.get(38));
-        assertEquals(Types.NVARCHAR, statement.nullTypes.get(39));
-        assertTrue(statement.executeBatchCalled);
-    }
-
-    @Test
-    void targetRepositoryInsertAllEmptyListDoesNothing() {
-        RecordingPreparedStatement statement = new RecordingPreparedStatement();
-        RecordingConnection connection = new RecordingConnection(statement);
-
-        new CDEcomTargetRepository(null).insertAll(connection.proxy(), List.of());
-
-        assertFalse(connection.prepareStatementCalled);
-    }
-
-    @Test
     void errorRepositoryDeletesByLoadSessionIdAndLoadTypeCode() {
         RecordingPreparedStatement statement = new RecordingPreparedStatement();
         RecordingConnection connection = new RecordingConnection(statement);
@@ -461,7 +376,9 @@ class CDEcomRepositoryTest {
                 }
                 if ("executeBatch".equals(methodName)) {
                     executeBatchCalled = true;
-                    return new int[0];
+                    int[] counts = new int[addBatchCalls];
+                    java.util.Arrays.fill(counts, 1);
+                    return counts;
                 }
                 if ("executeUpdate".equals(methodName)) {
                     executeUpdateCalled = true;

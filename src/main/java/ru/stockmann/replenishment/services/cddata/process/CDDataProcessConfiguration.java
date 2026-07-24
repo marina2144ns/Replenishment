@@ -19,13 +19,18 @@ public class CDDataProcessConfiguration {
     }
 
     @Bean
-    public CDDataTargetRepository cdDataTargetRepository(DataSource dataSource) {
-        return new CDDataTargetRepository(dataSource);
+    public CDDataTargetRepository cdDataTargetRepository() {
+        return new CDDataTargetRepository();
     }
 
     @Bean
     public CDDataErrorRepository cdDataErrorRepository(DataSource dataSource) {
         return new CDDataErrorRepository(dataSource);
+    }
+
+    @Bean
+    public CDDataStageRepository cdDataStageRepository() {
+        return new CDDataStageRepository();
     }
 
     @Bean
@@ -43,19 +48,19 @@ public class CDDataProcessConfiguration {
             DataSource dataSource,
             CDDataLoadSessionRepository loadSessionRepository,
             CDDataRawRepository rawRepository,
-            CDDataTargetRepository targetRepository,
             CDDataErrorRepository errorRepository,
-            CDDataValidator validator,
-            CDDataRowMapper mapper
+            CDDataStageRepository stageRepository,
+            CDDataTargetRepository targetRepository,
+            CDDataValidator validator
     ) {
         return new CDDataProcessor(
                 dataSource,
                 loadSessionRepository,
                 rawRepository,
-                targetRepository,
                 errorRepository,
-                validator,
-                mapper
+                stageRepository,
+                targetRepository,
+                validator
         );
     }
 }

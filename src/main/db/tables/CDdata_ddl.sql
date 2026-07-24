@@ -136,6 +136,71 @@ CREATE TABLE dbo.CD_data_raw (
 );
 GO
 
+CREATE TABLE dbo.CD_data_stage (
+                                   LoadSessionId BIGINT NOT NULL,
+                                   ExcelRowNum BIGINT NULL,
+
+    -- Основные данные
+                                   nazvanie                NVARCHAR(255)        NULL,
+                                   god                     INT                  NULL,
+                                   sezon                   INT                  NULL,
+                                   den                     INT                  NULL,
+                                   data                    DATE                 NULL,
+
+    -- Организационные признаки
+                                   sales_channel           NVARCHAR(255)        NULL,
+                                   store_rus               NVARCHAR(255)        NULL,
+                                   mfp_division            NVARCHAR(255)        NULL,
+                                   mfp_department          NVARCHAR(255)        NULL,
+                                   mfp_sub_department      NVARCHAR(255)        NULL,
+                                   sku_brand_type          NVARCHAR(255)        NULL,
+                                   sku_tm                  NVARCHAR(255)        NULL,
+                                   mfp_node                NVARCHAR(255)        NULL,
+                                   section                 NVARCHAR(255)        NULL,
+                                   merchandise_sub_group   NVARCHAR(255)        NULL,
+                                   campaign_sales          NVARCHAR(255)        NULL,
+
+    -- SKU
+                                   sku_style_color         BIGINT               NULL,
+                                   sku_phase               NVARCHAR(255)        NULL,
+
+    -- Остатки
+                                   stock_start_pcs         DECIMAL(18,2)        NULL,
+                                   stock_start_dd          DECIMAL(18,2)        NULL,
+
+    -- Продажи
+                                   sales_pcs               DECIMAL(18,2)        NULL,
+                                   sales_rub               DECIMAL(18,2)        NULL,
+                                   revenue                 DECIMAL(18,2)        NULL,
+                                   gp                      DECIMAL(18,2)        NULL,
+                                   cogs                    DECIMAL(18,2)        NULL,
+
+    -- Цены / скидки
+                                   sales_frp_price         DECIMAL(18,2)        NULL,
+                                   sales_discount          DECIMAL(18,2)        NULL,
+
+    -- Остатки по магазинам
+                                   stock_stores_pcs        DECIMAL(18,2)        NULL,
+                                   stock_stores_dd         DECIMAL(18,2)        NULL,
+
+    -- План
+                                   plan_rub                INT                  NULL,
+
+    -- Доп. аналитика
+                                   draivery_cd             NVARCHAR(255)        NULL,
+                                   sku_color_rus           NVARCHAR(255)        NULL,
+                                   sku_composition         NVARCHAR(255)        NULL,
+                                   sku_supplier            NVARCHAR(255)        NULL,
+                                   sku_name                NVARCHAR(255)        NULL,
+                                   sku_collection          NVARCHAR(255)        NULL,
+                                   sku_comment             NVARCHAR(255)        NULL,
+
+                                   CONSTRAINT FK_CD_data_stage_Load_session
+                                       FOREIGN KEY (LoadSessionId)
+                                           REFERENCES dbo.DWH_Excel_Load_Session(Id)
+);
+GO
+
 
 
 CREATE INDEX IX_CD_data_LoadSessionId
@@ -144,4 +209,8 @@ GO
 
 CREATE INDEX IX_CD_data_raw_LoadSessionId
     ON dbo.CD_data_raw(LoadSessionId);
+GO
+
+CREATE INDEX IX_CD_data_stage_LoadSessionId
+    ON dbo.CD_data_stage(LoadSessionId);
 GO

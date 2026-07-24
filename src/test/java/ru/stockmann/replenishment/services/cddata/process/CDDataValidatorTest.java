@@ -1,7 +1,11 @@
 package ru.stockmann.replenishment.services.cddata.process;
 
 import org.junit.jupiter.api.Test;
+import ru.stockmann.replenishment.services.dwhexcelload.validation.DWHParseResult;
+import ru.stockmann.replenishment.services.dwhexcelload.validation.DWHValueParser;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -251,8 +255,76 @@ class CDDataValidatorTest {
         assertSingleError(result, "nazvanie", "TEXT_TOO_LONG");
     }
 
+    @Test
+    void validateAndMapParsesEachTypedFieldOnceAndReusesValues() {
+        CountingParser parser = new CountingParser();
+        CDDataValidator typedValidator = new CDDataValidator(parser);
+        CDDataRawRow row = rowBuilder()
+                .god("2025")
+                .sezon("1")
+                .den("31")
+                .data("2025-01-31")
+                .skuStyleColor("123")
+                .planRub("100")
+                .stockStartPcs("1.255")
+                .stockStartDd("2")
+                .salesPcs("3")
+                .salesRub("4")
+                .revenue("5")
+                .gp("6")
+                .cogs("7")
+                .salesFrpPrice("8")
+                .salesDiscount("9")
+                .stockStoresPcs("10")
+                .stockStoresDd("11")
+                .build();
+
+        CDDataRowValidationResult result = typedValidator.validateAndMap(row);
+
+        assertTrue(result.valid());
+        assertEquals(4, parser.integerCalls);
+        assertEquals(1, parser.longCalls);
+        assertEquals(11, parser.decimalCalls);
+        assertEquals(1, parser.dateCalls);
+        assertEquals(2025, result.stageRow().god());
+        assertEquals(LocalDate.of(2025, 1, 31), result.stageRow().data().toLocalDate());
+        assertEquals(new BigDecimal("1.26"), result.stageRow().stockStartPcs());
+        assertEquals(30L, result.stageRow().excelRowNum());
+    }
+
     private static CDDataRawRow emptyRow() {
         return rowBuilder().build();
+    }
+
+    private static final class CountingParser extends DWHValueParser {
+        private int integerCalls;
+        private int longCalls;
+        private int decimalCalls;
+        private int dateCalls;
+
+        @Override
+        public DWHParseResult<Integer> parseInteger(String value) {
+            integerCalls++;
+            return super.parseInteger(value);
+        }
+
+        @Override
+        public DWHParseResult<Long> parseLong(String value) {
+            longCalls++;
+            return super.parseLong(value);
+        }
+
+        @Override
+        public DWHParseResult<BigDecimal> parseDecimal(String value, int precision, int scale) {
+            decimalCalls++;
+            return super.parseDecimal(value, precision, scale);
+        }
+
+        @Override
+        public DWHParseResult<LocalDate> parseDate(String value) {
+            dateCalls++;
+            return super.parseDate(value);
+        }
     }
 
     private static CDDataRawRowBuilder rowBuilder() {

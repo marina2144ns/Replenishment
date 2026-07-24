@@ -1,24 +1,16 @@
 package ru.stockmann.replenishment.services.dwhexcelload.schema;
 
 import org.junit.jupiter.api.Test;
-import ru.stockmann.replenishment.services.cdecom.process.CDEcomTargetRepository;
-import ru.stockmann.replenishment.services.cdecom.process.CDEcomTargetRow;
-import ru.stockmann.replenishment.services.cddata.process.CDDataTargetRepository;
-import ru.stockmann.replenishment.services.cddata.process.CDDataTargetRow;
 import ru.stockmann.replenishment.services.dwhexcelload.core.AbstractDWHExcelLoader;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadDefinition;
 import ru.stockmann.replenishment.services.dwhexcelload.core.ExcelRowData;
 import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDEcomExcelLoadDefinition;
 import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDDataExcelLoadDefinition;
 import ru.stockmann.replenishment.services.dwhexcelload.definitions.WeeklyDataExcelLoadDefinition;
-import ru.stockmann.replenishment.services.weeklydata.process.WeeklyDataTargetRepository;
-import ru.stockmann.replenishment.services.weeklydata.process.WeeklyDataTargetRow;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
-import java.math.BigDecimal;
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -46,108 +38,6 @@ class DWHJdbcBindingSchemaContractTest {
         assertRawBinding(new CDEcomExcelLoadDefinition());
     }
 
-    @Test
-    void weeklyDataTargetInsertBindsParametersInInsertColumnOrder() {
-        RecordingJdbc jdbc = new RecordingJdbc();
-
-        new WeeklyDataTargetRepository(null).insertAll(jdbc.connection(), List.of(weeklyTargetRow()));
-
-        assertEquals(26, jdbc.statement.calls.size());
-        assertSetter(jdbc, 1, "setLong", 1);
-        for (int parameter = 2; parameter <= 7; parameter++) {
-            assertSetter(jdbc, parameter, "setShort", parameter);
-        }
-        for (int parameter = 8; parameter <= 14; parameter++) {
-            assertSetter(jdbc, parameter, "setString", parameter);
-        }
-        for (int parameter = 15; parameter <= 21; parameter++) {
-            assertSetter(jdbc, parameter, "setBigDecimal", parameter);
-        }
-        for (int parameter = 22; parameter <= 26; parameter++) {
-            assertSetter(jdbc, parameter, "setString", parameter);
-        }
-        assertEquals(1, jdbc.statement.addBatchCalls);
-        assertEquals(1, jdbc.statement.executeBatchCalls);
-    }
-
-    @Test
-    void weeklyDataTargetInsertBindsNullableSmallintFieldsAsSqlSmallintAndRequiredYearWeekAsShort() {
-        RecordingJdbc jdbc = new RecordingJdbc();
-
-        new WeeklyDataTargetRepository(null).insertAll(jdbc.connection(), List.of(weeklyTargetRowWithNullSmallints()));
-
-        assertEquals(26, jdbc.statement.calls.size());
-        assertSetter(jdbc, 1, "setLong", 1);
-        for (int parameter = 2; parameter <= 5; parameter++) {
-            assertSetter(jdbc, parameter, "setNull", parameter);
-            assertEquals(Types.SMALLINT, jdbc.statement.calls.get(parameter - 1).sqlType(), "parameter " + parameter);
-        }
-        assertSetter(jdbc, 6, "setShort", 6);
-        assertSetter(jdbc, 7, "setShort", 7);
-        assertEquals(1, jdbc.statement.addBatchCalls);
-        assertEquals(1, jdbc.statement.executeBatchCalls);
-    }
-
-    @Test
-    void cdDataTargetInsertBindsParametersInInsertColumnOrder() {
-        RecordingJdbc jdbc = new RecordingJdbc();
-
-        new CDDataTargetRepository(null).insertAll(jdbc.connection(), List.of(cdDataTargetRow()));
-
-        assertEquals(38, jdbc.statement.calls.size());
-        assertSetter(jdbc, 1, "setLong", 1);
-        assertSetter(jdbc, 2, "setString", 2);
-        assertSetter(jdbc, 3, "setInt", 3);
-        assertSetter(jdbc, 4, "setInt", 4);
-        assertSetter(jdbc, 5, "setInt", 5);
-        assertSetter(jdbc, 6, "setDate", 6);
-        for (int parameter = 7; parameter <= 17; parameter++) {
-            assertSetter(jdbc, parameter, "setString", parameter);
-        }
-        assertSetter(jdbc, 18, "setLong", 18);
-        assertSetter(jdbc, 19, "setString", 19);
-        for (int parameter = 20; parameter <= 30; parameter++) {
-            assertSetter(jdbc, parameter, "setBigDecimal", parameter);
-        }
-        assertSetter(jdbc, 31, "setInt", 31);
-        for (int parameter = 32; parameter <= 38; parameter++) {
-            assertSetter(jdbc, parameter, "setString", parameter);
-        }
-        assertEquals(1, jdbc.statement.addBatchCalls);
-        assertEquals(1, jdbc.statement.executeBatchCalls);
-    }
-
-    @Test
-    void cdecomTargetInsertBindsParametersInInsertColumnOrder() {
-        RecordingJdbc jdbc = new RecordingJdbc();
-
-        new CDEcomTargetRepository(null).insertAll(jdbc.connection(), List.of(cdecomTargetRow()));
-
-        assertEquals(39, jdbc.statement.calls.size());
-        assertSetter(jdbc, 1, "setLong", 1);
-        assertSetter(jdbc, 2, "setString", 2);
-        assertSetter(jdbc, 3, "setInt", 3);
-        assertSetter(jdbc, 4, "setInt", 4);
-        assertSetter(jdbc, 5, "setInt", 5);
-        assertSetter(jdbc, 6, "setDate", 6);
-        for (int parameter = 7; parameter <= 17; parameter++) {
-            assertSetter(jdbc, parameter, "setString", parameter);
-        }
-        assertSetter(jdbc, 18, "setLong", 18);
-        assertSetter(jdbc, 19, "setString", 19);
-        for (int parameter = 20; parameter <= 29; parameter++) {
-            assertSetter(jdbc, parameter, "setBigDecimal", parameter);
-        }
-        assertSetter(jdbc, 30, "setLong", 30);
-        assertSetter(jdbc, 31, "setLong", 31);
-        assertSetter(jdbc, 32, "setLong", 32);
-        for (int parameter = 33; parameter <= 39; parameter++) {
-            assertSetter(jdbc, parameter, "setString", parameter);
-        }
-        assertEquals(1, jdbc.statement.addBatchCalls);
-        assertEquals(1, jdbc.statement.executeBatchCalls);
-    }
-
     private static void assertRawBinding(DWHExcelLoadDefinition definition) throws SQLException {
         TestLoader loader = new TestLoader(definition);
         Map<String, String> values = new LinkedHashMap<>();
@@ -164,163 +54,6 @@ class DWHJdbcBindingSchemaContractTest {
         for (int parameter = 3; parameter <= definition.columns().size() + 2; parameter++) {
             assertSetter(statement, parameter, "setString", parameter);
         }
-    }
-
-    private static WeeklyDataTargetRow weeklyTargetRow() {
-        BigDecimal decimal = new BigDecimal("1.23");
-        return new WeeklyDataTargetRow(
-                10L,
-                (short) 2025,
-                (short) 10,
-                (short) 2025,
-                (short) 10,
-                (short) 2025,
-                (short) 10,
-                "SalesChannelBpo",
-                "StoreRusBpo",
-                "StoreRus",
-                "MfpDivisionNew",
-                "MfpDepartment",
-                "SkuSeasonBudget",
-                "TypeOfSales",
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                "MfpDivision",
-                "Season",
-                "Month",
-                "Bundle",
-                "Seasonality"
-        );
-    }
-
-    private static WeeklyDataTargetRow weeklyTargetRowWithNullSmallints() {
-        BigDecimal decimal = new BigDecimal("1.23");
-        return new WeeklyDataTargetRow(
-                10L,
-                null,
-                null,
-                null,
-                null,
-                (short) 2025,
-                (short) 10,
-                "SalesChannelBpo",
-                "StoreRusBpo",
-                "StoreRus",
-                "MfpDivisionNew",
-                "MfpDepartment",
-                "SkuSeasonBudget",
-                "TypeOfSales",
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                "MfpDivision",
-                "Season",
-                "Month",
-                "Bundle",
-                "Seasonality"
-        );
-    }
-
-    private static CDDataTargetRow cdDataTargetRow() {
-        BigDecimal decimal = new BigDecimal("1.23");
-        return new CDDataTargetRow(
-                10L,
-                "nazvanie",
-                2025,
-                1,
-                31,
-                Date.valueOf("2025-01-31"),
-                "salesChannel",
-                "storeRus",
-                "mfpDivision",
-                "mfpDepartment",
-                "mfpSubDepartment",
-                "skuBrandType",
-                "skuTm",
-                "mfpNode",
-                "section",
-                "merchandiseSubGroup",
-                "campaignSales",
-                123L,
-                "skuPhase",
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                100,
-                "draiveryCd",
-                "skuColorRus",
-                "skuComposition",
-                "skuSupplier",
-                "skuName",
-                "skuCollection",
-                "skuComment"
-        );
-    }
-
-    private static CDEcomTargetRow cdecomTargetRow() {
-        BigDecimal decimal = new BigDecimal("1.23");
-        return new CDEcomTargetRow(
-                10L,
-                "name",
-                2025,
-                1,
-                31,
-                Date.valueOf("2025-01-31"),
-                "salesChannelBpo",
-                "storeRus",
-                "mfpDivision",
-                "mfpDepartment",
-                "mfpSubDepartment",
-                "skuBrandType",
-                "skuTm",
-                "mfpNode",
-                "section",
-                "merchandiseSubGroup",
-                "campaignSalesType",
-                123L,
-                "skuPhase",
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                decimal,
-                100L,
-                200L,
-                300L,
-                "cdDrivers",
-                "skuSupplierModel",
-                "skuComposition",
-                "skuColorRussian",
-                "skuName",
-                "skuCommentBuyer",
-                "skuCollection"
-        );
-    }
-
-    private static void assertSetter(RecordingJdbc jdbc, int callNumber, String method, int parameterIndex) {
-        assertSetter(jdbc.statement, callNumber, method, parameterIndex);
     }
 
     private static void assertSetter(RecordingStatement statement, int callNumber, String method, int parameterIndex) {

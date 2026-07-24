@@ -100,12 +100,63 @@ CREATE TABLE dbo.Weekly_data_raw (
 );
 GO
 
+CREATE TABLE dbo.Weekly_data_stage (
+                                       LoadSessionId BIGINT NOT NULL,
+                                       ExcelRowNum BIGINT NULL,
+
+    -- Периоды
+                                       Year21 SMALLINT NULL,
+                                       Week21 SMALLINT NULL,
+                                       YearCorr SMALLINT NULL,
+                                       WeekCorr SMALLINT NULL,
+                                       Year SMALLINT NOT NULL,
+                                       Week SMALLINT NOT NULL,
+
+    -- Организационные признаки
+                                       SalesChannelBpo NVARCHAR(255) NULL,
+                                       StoreRusBpo NVARCHAR(255) NULL,
+                                       StoreRus NVARCHAR(255) NULL,
+                                       MfpDivisionNew NVARCHAR(255) NULL,
+                                       MfpDepartment NVARCHAR(255) NULL,
+                                       SkuSeasonBudget NVARCHAR(255) NULL,
+                                       TypeOfSales NVARCHAR(255) NULL,
+
+    -- Остатки
+                                       TotalStockPcs DECIMAL(18,2) NULL,
+                                       TotalStockDdp DECIMAL(18,2) NULL,
+
+    -- Продажи
+                                       SalesPcs DECIMAL(18,2) NULL,
+                                       SalesRub DECIMAL(18,2) NULL,
+
+    -- Финансы
+                                       Revenue DECIMAL(18,2) NULL,
+                                       Gp DECIMAL(18,2) NULL,
+                                       DiscountTotalRub DECIMAL(18,2) NULL,
+
+    -- Доп. аналитика
+                                       MfpDivision NVARCHAR(255) NULL,
+                                       Season NVARCHAR(255) NULL,
+                                       Month NVARCHAR(255) NULL,
+                                       Bundle NVARCHAR(255) NULL,
+                                       Seasonality NVARCHAR(255) NULL,
+
+                                       CONSTRAINT FK_Weekly_data_stage_Load_session
+                                           FOREIGN KEY (LoadSessionId)
+                                               REFERENCES dbo.DWH_Excel_Load_Session(Id)
+);
+GO
+
 CREATE INDEX IX_Weekly_data_LoadSessionId
     ON dbo.Weekly_data(LoadSessionId);
 GO
 
 CREATE INDEX IX_Weekly_data_raw_LoadSessionId
     ON dbo.Weekly_data_raw(LoadSessionId);
+GO
+
+CREATE INDEX IX_Weekly_data_stage_LoadSessionId
+    ON dbo.Weekly_data_stage(LoadSessionId);
 GO
 
 CREATE INDEX IX_Weekly_data_Year_Week

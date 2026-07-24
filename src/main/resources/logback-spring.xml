@@ -5,7 +5,7 @@
     <property name="LOG_DIR" value="logs"/>
     <property name="WEEKLY_LOG" value="${LOG_DIR}/replenishment.log"/>
 
-    <!-- отдельный файл только для загрузчика -->
+    <!-- общий файл приложения относительно рабочего каталога процесса -->
     <appender name="WEEKLY_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${WEEKLY_LOG}</file>
 
@@ -21,11 +21,8 @@
         </rollingPolicy>
     </appender>
 
-    <!-- только твой класс -->
-    <logger name="ru.stockmann.replenishment.services.WeeklyDataBulkLoader"
-            level="INFO"
-            additivity="true">
+    <root level="INFO">
         <appender-ref ref="WEEKLY_FILE"/>
-    </logger>
+    </root>
 
 </configuration>
