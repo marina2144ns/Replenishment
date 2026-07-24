@@ -19,6 +19,7 @@ public class SalesByChannelProcessor {
     private final SalesByChannelRawRepository rawRepository;
     private final SalesByChannelStageRepository stageRepository;
     private final SalesByChannelErrorRepository errorRepository;
+    private final SalesByChannelTargetRepository targetRepository;
     private final SalesByChannelValidator validator;
     private final int chunkSize;
 
@@ -28,6 +29,7 @@ public class SalesByChannelProcessor {
             SalesByChannelRawRepository rawRepository,
             SalesByChannelStageRepository stageRepository,
             SalesByChannelErrorRepository errorRepository,
+            SalesByChannelTargetRepository targetRepository,
             SalesByChannelValidator validator,
             int chunkSize
     ) {
@@ -36,6 +38,7 @@ public class SalesByChannelProcessor {
         this.rawRepository = rawRepository;
         this.stageRepository = stageRepository;
         this.errorRepository = errorRepository;
+        this.targetRepository = targetRepository;
         this.validator = validator;
         this.chunkSize = chunkSize;
     }
@@ -44,13 +47,14 @@ public class SalesByChannelProcessor {
         long startedAt = System.nanoTime();
         long totalRows = 0;
         long stagedRows = 0;
+        long loadedRows = 0;
         long errorRows = 0;
         boolean sessionValidated = false;
 
         log.info("SalesByChannel processing started. loadSessionId={}, chunkSize={}", loadSessionId, chunkSize);
         try {
             if (!loadSessionRepository.existsById(loadSessionId)) {
-                return result(loadSessionId, false, 0, 0, 0,
+                return result(loadSessionId, false, 0, 0, 0, 0,
                         "Load session not found or has unexpected LoadTypeCode. loadSessionId="
                                 + loadSessionId + ", expected LoadTypeCode=SALES_BY_CHANNEL");
             }
@@ -95,12 +99,27 @@ public class SalesByChannelProcessor {
                         stagedRows, errorRows, elapsedMs(chunkStartedAt), usedMemoryMb());
             }
 
-            boolean success = errorRows == 0;
-            String message = success
-                    ? "SalesByChannel raw rows processed into stage; target was not changed"
-                    : "Validation failed; target was not changed";
-            return result(loadSessionId, success, totalRows, stagedRows, errorRows, message);
+            if (errorRows > 0) {
+                return result(loadSessionId, false, totalRows, stagedRows, 0, errorRows,
+                        "Validation failed; target was not changed");
+            }
+            if (totalRows == 0 || stagedRows == 0) {
+                return result(loadSessionId, false, totalRows, stagedRows, 0, 0,
+                        "Publication is impossible because stage contains no rows and "
+                                + "the year/month publication scope is undefined");
+            }
+            if (stagedRows != totalRows) {
+                throw new IllegalStateException(
+                        "SalesByChannel processing counter mismatch. loadSessionId=" + loadSessionId
+                                + ", totalRows=" + totalRows + ", stagedRows=" + stagedRows
+                );
+            }
+
+            loadedRows = publish(loadSessionId, stagedRows);
+            return result(loadSessionId, true, totalRows, stagedRows, loadedRows, 0,
+                    "SalesByChannel processed and published successfully");
         } catch (RuntimeException e) {
+            errorRows++;
             if (sessionValidated) {
                 errorRepository.insertBestEffort(new SalesByChannelValidationError(
                         loadSessionId, 0L, null, "PROCESSING", null,
@@ -108,11 +127,12 @@ public class SalesByChannelProcessor {
                         trim("Unexpected processing error: " + e.getMessage(), 4000)
                 ));
             }
-            return result(loadSessionId, false, totalRows, stagedRows, errorRows + 1, e.getMessage());
+            return result(loadSessionId, false, totalRows, stagedRows, loadedRows,
+                    errorRows, e.getMessage());
         } finally {
             log.info("SalesByChannel processing finished. loadSessionId={}, elapsedMs={}, totalRows={}, "
-                            + "stagedRows={}, loadedRows=0, errorRows={}",
-                    loadSessionId, elapsedMs(startedAt), totalRows, stagedRows, errorRows);
+                            + "stagedRows={}, loadedRows={}, errorRows={}",
+                    loadSessionId, elapsedMs(startedAt), totalRows, stagedRows, loadedRows, errorRows);
             logMemory(loadSessionId);
         }
     }
@@ -162,16 +182,51 @@ public class SalesByChannelProcessor {
         }
     }
 
+    private long publish(long loadSessionId, long expectedRows) {
+        long startedAt = System.nanoTime();
+        log.info("SalesByChannel publish started. loadSessionId={}, expectedRows={}",
+                loadSessionId, expectedRows);
+        try (Connection connection = dataSource.getConnection()) {
+            boolean oldAutoCommit = connection.getAutoCommit();
+            try {
+                connection.setAutoCommit(false);
+                int publishedRows = targetRepository.publishFromStage(connection, loadSessionId);
+                if (publishedRows != expectedRows) {
+                    throw new IllegalStateException(
+                            "SalesByChannel publish row count mismatch. loadSessionId=" + loadSessionId
+                                    + ", expectedRows=" + expectedRows
+                                    + ", publishedRows=" + publishedRows
+                    );
+                }
+                connection.commit();
+                log.info("SalesByChannel publish commit completed. loadSessionId={}, publishedRows={}, "
+                                + "elapsedMs={}",
+                        loadSessionId, publishedRows, elapsedMs(startedAt));
+                return publishedRows;
+            } catch (RuntimeException | SQLException e) {
+                rollbackQuietly(connection);
+                log.info("SalesByChannel publish rollback. loadSessionId={}, reason={}",
+                        loadSessionId, e.getMessage());
+                throw asRuntime("Failed to publish SalesByChannel", loadSessionId, e);
+            } finally {
+                restoreAutoCommit(connection, oldAutoCommit);
+            }
+        } catch (SQLException e) {
+            throw asRuntime("Failed to open SalesByChannel publish transaction", loadSessionId, e);
+        }
+    }
+
     private SalesByChannelProcessResult result(
             long loadSessionId,
             boolean success,
             long totalRows,
             long stagedRows,
+            long loadedRows,
             long errorRows,
             String message
     ) {
         return new SalesByChannelProcessResult(
-                loadSessionId, success, totalRows, stagedRows, 0, errorRows, message
+                loadSessionId, success, totalRows, stagedRows, loadedRows, errorRows, message
         );
     }
 

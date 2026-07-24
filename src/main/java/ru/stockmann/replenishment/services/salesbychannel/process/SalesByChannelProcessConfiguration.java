@@ -31,6 +31,11 @@ public class SalesByChannelProcessConfiguration {
     }
 
     @Bean
+    public SalesByChannelTargetRepository salesByChannelTargetRepository() {
+        return new SalesByChannelTargetRepository();
+    }
+
+    @Bean
     public SalesByChannelValidator salesByChannelValidator() {
         return new SalesByChannelValidator();
     }
@@ -42,11 +47,12 @@ public class SalesByChannelProcessConfiguration {
             SalesByChannelRawRepository rawRepository,
             SalesByChannelStageRepository stageRepository,
             SalesByChannelErrorRepository errorRepository,
+            SalesByChannelTargetRepository targetRepository,
             SalesByChannelValidator validator
     ) {
         return new SalesByChannelProcessor(
                 dataSource, sessionRepository, rawRepository, stageRepository,
-                errorRepository, validator, DEFAULT_CHUNK_SIZE
+                errorRepository, targetRepository, validator, DEFAULT_CHUNK_SIZE
         );
     }
 }

@@ -9,6 +9,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -26,8 +27,9 @@ class SalesByChannelProcessorTest {
         ));
         FakeStageRepository stage = new FakeStageRepository();
         FakeErrorRepository errors = new FakeErrorRepository();
+        FakeTargetRepository target = new FakeTargetRepository();
         SalesByChannelProcessor processor = processor(
-                true, transactions, raw, stage, errors
+                true, transactions, raw, stage, errors, target
         );
 
         SalesByChannelProcessResult result = processor.process(10L);
@@ -43,6 +45,7 @@ class SalesByChannelProcessorTest {
         assertEquals(3, transactions.commits); // cleanup + two chunks
         assertEquals(1, stage.cleanupCalls);
         assertEquals(1, errors.cleanupCalls);
+        assertEquals(0, target.calls);
     }
 
     @Test
@@ -52,13 +55,16 @@ class SalesByChannelProcessorTest {
         FakeErrorRepository errors = new FakeErrorRepository();
 
         processor(true, transactions,
-                new FakeRawRepository(List.of(List.of())), stage, errors).process(10L);
+                new FakeRawRepository(List.of(List.of())), stage, errors,
+                new FakeTargetRepository()).process(10L);
         processor(true, transactions,
-                new FakeRawRepository(List.of(List.of())), stage, errors).process(10L);
+                new FakeRawRepository(List.of(List.of())), stage, errors,
+                new FakeTargetRepository()).process(10L);
 
         assertEquals(2, stage.cleanupCalls);
         assertEquals(2, errors.cleanupCalls);
         assertEquals(2, transactions.commits);
+        assertTrue(errors.bestEffort.isEmpty());
     }
 
     @Test
@@ -69,7 +75,7 @@ class SalesByChannelProcessorTest {
         FakeRawRepository raw = new FakeRawRepository(List.of(List.of(row(1, "2025", "April", "1"))));
 
         SalesByChannelProcessResult result =
-                processor(false, transactions, raw, stage, errors).process(10L);
+                processor(false, transactions, raw, stage, errors, new FakeTargetRepository()).process(10L);
 
         assertFalse(result.success());
         assertEquals(0, result.totalRows());
@@ -90,7 +96,7 @@ class SalesByChannelProcessorTest {
         SalesByChannelProcessResult result = processor(
                 true, transactions,
                 new FakeRawRepository(List.of(List.of(row(1, "2025", "April", "1")))),
-                stage, errors
+                stage, errors, new FakeTargetRepository()
         ).process(10L);
 
         assertFalse(result.success());
@@ -101,12 +107,117 @@ class SalesByChannelProcessorTest {
         assertEquals("UNEXPECTED_PROCESSING_ERROR", errors.bestEffort.get(0).errorCode());
     }
 
+    @Test
+    void validRowsPublishAndLoadedRowsEqualsActualInsertCount() {
+        Transactions transactions = new Transactions();
+        FakeTargetRepository target = new FakeTargetRepository();
+
+        SalesByChannelProcessResult result = processor(
+                true, transactions,
+                new FakeRawRepository(List.of(
+                        List.of(row(1, "2025", "April", "1"), row(7, "2025", "May", "2")),
+                        List.of()
+                )),
+                new FakeStageRepository(), new FakeErrorRepository(), target
+        ).process(10L);
+
+        assertTrue(result.success());
+        assertEquals(2, result.totalRows());
+        assertEquals(2, result.stagedRows());
+        assertEquals(2, result.loadedRows());
+        assertEquals(0, result.errorRows());
+        assertEquals(1, target.calls);
+        assertEquals(10L, target.loadSessionId);
+        assertEquals(3, transactions.commits); // cleanup, chunk, publish
+    }
+
+    @Test
+    void emptyRawDoesNotPublishOrCreateProcessingError() {
+        Transactions transactions = new Transactions();
+        FakeTargetRepository target = new FakeTargetRepository();
+        FakeErrorRepository errors = new FakeErrorRepository();
+
+        SalesByChannelProcessResult result = processor(
+                true, transactions, new FakeRawRepository(List.of(List.of())),
+                new FakeStageRepository(), errors, target
+        ).process(10L);
+
+        assertFalse(result.success());
+        assertEquals(0, result.loadedRows());
+        assertTrue(result.message().contains("scope is undefined"));
+        assertEquals(0, target.calls);
+        assertTrue(errors.bestEffort.isEmpty());
+        assertEquals(1, transactions.commits); // cleanup only
+    }
+
+    @Test
+    void publishFailureRollsBackDeleteAndLeavesStageForRetry() {
+        Transactions transactions = new Transactions();
+        FakeStageRepository stage = new FakeStageRepository();
+        FakeTargetRepository target = new FakeTargetRepository();
+        target.fail = true;
+        FakeErrorRepository errors = new FakeErrorRepository();
+
+        SalesByChannelProcessResult result = processor(
+                true, transactions,
+                new FakeRawRepository(List.of(List.of(row(1, "2025", "April", "1")), List.of())),
+                stage, errors, target
+        ).process(10L);
+
+        assertFalse(result.success());
+        assertEquals(2, transactions.commits); // cleanup and chunk
+        assertEquals(1, transactions.rollbacks); // complete publish transaction
+        assertEquals(1, stage.cleanupCalls); // no cleanup after publish attempt
+        assertEquals(1, errors.bestEffort.size());
+    }
+
+    @Test
+    void noSeparatePublicPublishEntryPointExists() {
+        assertFalse(Arrays.stream(SalesByChannelProcessor.class.getMethods())
+                .anyMatch(method -> method.getName().toLowerCase().contains("publish")));
+        assertFalse(Arrays.stream(SalesByChannelTargetRepository.class.getMethods())
+                .anyMatch(method -> method.getName().equals("publishFromStage")));
+    }
+
+    @Test
+    void repeatedProcessRepublishesSameScopeWithoutAppendPath() {
+        Transactions transactions = new Transactions();
+        FakeTargetRepository target = new FakeTargetRepository();
+        FakeStageRepository stage = new FakeStageRepository();
+        FakeErrorRepository errors = new FakeErrorRepository();
+
+        SalesByChannelProcessResult first = processor(
+                true, transactions,
+                new FakeRawRepository(List.of(List.of(
+                        row(1, "2025", "April", "1"),
+                        row(2, "2025", "May", "2")
+                ), List.of())),
+                stage, errors, target
+        ).process(10L);
+        SalesByChannelProcessResult second = processor(
+                true, transactions,
+                new FakeRawRepository(List.of(List.of(
+                        row(1, "2025", "April", "1"),
+                        row(2, "2025", "May", "2")
+                ), List.of())),
+                stage, errors, target
+        ).process(10L);
+
+        assertTrue(first.success());
+        assertTrue(second.success());
+        assertEquals(2, first.loadedRows());
+        assertEquals(2, second.loadedRows());
+        assertEquals(2, target.calls);
+        assertEquals(2, stage.cleanupCalls);
+    }
+
     private SalesByChannelProcessor processor(
             boolean sessionExists,
             Transactions transactions,
             FakeRawRepository raw,
             FakeStageRepository stage,
-            FakeErrorRepository errors
+            FakeErrorRepository errors,
+            FakeTargetRepository target
     ) {
         return new SalesByChannelProcessor(
                 transactions,
@@ -114,9 +225,22 @@ class SalesByChannelProcessorTest {
                 raw,
                 stage,
                 errors,
+                target,
                 new SalesByChannelValidator(),
                 SalesByChannelProcessConfiguration.DEFAULT_CHUNK_SIZE
         );
+    }
+
+    private static final class FakeTargetRepository extends SalesByChannelTargetRepository {
+        private int calls;
+        private long loadSessionId;
+        private boolean fail;
+        @Override int publishFromStage(Connection connection, long loadSessionId) {
+            calls++;
+            this.loadSessionId = loadSessionId;
+            if (fail) throw new RuntimeException("target insert failed");
+            return 2;
+        }
     }
 
     private SalesByChannelRawRow row(long id, String year, String month, String quantity) {
