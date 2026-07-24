@@ -1,0 +1,37 @@
+package ru.stockmann.replenishment.services.salesbychannel.process;
+
+public record SalesByChannelRawRow(
+        Long id,
+        Long loadSessionId,
+        Long excelRowNum,
+        String seasonYear,
+        String season6m,
+        String yearMonth,
+        String yearSeason,
+        String year,
+        String month,
+        String salesChannelType,
+        String storeRus,
+        String typeOfSales,
+        String mfpDivision,
+        String mfpDepartment,
+        String campaignSalesType,
+        String seasonality,
+        String skuBrandType,
+        String salesQuantity,
+        String salesCurr,
+        String gm,
+        String discountTtl,
+        String turnoverCurr,
+        String skuSeasonBudget,
+        String storeRusBpo,
+        String salesChannelBpo,
+        String mfpSubDepartment,
+        String skuTm,
+        String mfpNode,
+        String section,
+        String merchandiseSubGroup,
+        String skuPhase,
+        String skuProductClass
+) {
+}

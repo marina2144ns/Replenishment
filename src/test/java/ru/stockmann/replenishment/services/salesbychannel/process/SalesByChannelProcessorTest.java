@@ -1,0 +1,213 @@
+package ru.stockmann.replenishment.services.salesbychannel.process;
+
+import org.junit.jupiter.api.Test;
+
+import javax.sql.DataSource;
+import java.lang.reflect.Proxy;
+import java.sql.Connection;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class SalesByChannelProcessorTest {
+
+    @Test
+    void processesMultipleChunksContinuesAfterErrorsAndNeverPublishesTarget() {
+        Transactions transactions = new Transactions();
+        FakeRawRepository raw = new FakeRawRepository(List.of(
+                List.of(row(1, "2025", "April", "1"), row(4, null, "April", "2")),
+                List.of(row(9, "FY", "Period", "3")),
+                List.of()
+        ));
+        FakeStageRepository stage = new FakeStageRepository();
+        FakeErrorRepository errors = new FakeErrorRepository();
+        SalesByChannelProcessor processor = processor(
+                true, transactions, raw, stage, errors
+        );
+
+        SalesByChannelProcessResult result = processor.process(10L);
+
+        assertFalse(result.success());
+        assertEquals(3, result.totalRows());
+        assertEquals(2, result.stagedRows());
+        assertEquals(0, result.loadedRows());
+        assertEquals(1, result.errorRows());
+        assertEquals(List.of(1L, 9L), stage.rawEquivalentIds);
+        assertEquals(List.of(4L), errors.validationRawIds);
+        assertEquals(List.of(0L, 4L, 9L), raw.lastIds);
+        assertEquals(3, transactions.commits); // cleanup + two chunks
+        assertEquals(1, stage.cleanupCalls);
+        assertEquals(1, errors.cleanupCalls);
+    }
+
+    @Test
+    void repeatedRunStartsWithStageAndErrorCleanup() {
+        Transactions transactions = new Transactions();
+        FakeStageRepository stage = new FakeStageRepository();
+        FakeErrorRepository errors = new FakeErrorRepository();
+
+        processor(true, transactions,
+                new FakeRawRepository(List.of(List.of())), stage, errors).process(10L);
+        processor(true, transactions,
+                new FakeRawRepository(List.of(List.of())), stage, errors).process(10L);
+
+        assertEquals(2, stage.cleanupCalls);
+        assertEquals(2, errors.cleanupCalls);
+        assertEquals(2, transactions.commits);
+    }
+
+    @Test
+    void missingOrWrongLoadTypeChangesNothing() {
+        Transactions transactions = new Transactions();
+        FakeStageRepository stage = new FakeStageRepository();
+        FakeErrorRepository errors = new FakeErrorRepository();
+        FakeRawRepository raw = new FakeRawRepository(List.of(List.of(row(1, "2025", "April", "1"))));
+
+        SalesByChannelProcessResult result =
+                processor(false, transactions, raw, stage, errors).process(10L);
+
+        assertFalse(result.success());
+        assertEquals(0, result.totalRows());
+        assertEquals(0, stage.cleanupCalls);
+        assertEquals(0, errors.cleanupCalls);
+        assertEquals(0, raw.calls);
+        assertEquals(0, transactions.connections);
+        assertTrue(errors.bestEffort.isEmpty());
+    }
+
+    @Test
+    void technicalChunkFailureRollsBackThatChunkAndReportsProcessingError() {
+        Transactions transactions = new Transactions();
+        FakeStageRepository stage = new FakeStageRepository();
+        stage.failInsert = true;
+        FakeErrorRepository errors = new FakeErrorRepository();
+
+        SalesByChannelProcessResult result = processor(
+                true, transactions,
+                new FakeRawRepository(List.of(List.of(row(1, "2025", "April", "1")))),
+                stage, errors
+        ).process(10L);
+
+        assertFalse(result.success());
+        assertEquals(1, transactions.commits); // cleanup only
+        assertEquals(1, transactions.rollbacks);
+        assertEquals(1, errors.bestEffort.size());
+        assertEquals("PROCESSING", errors.bestEffort.get(0).errorLayer());
+        assertEquals("UNEXPECTED_PROCESSING_ERROR", errors.bestEffort.get(0).errorCode());
+    }
+
+    private SalesByChannelProcessor processor(
+            boolean sessionExists,
+            Transactions transactions,
+            FakeRawRepository raw,
+            FakeStageRepository stage,
+            FakeErrorRepository errors
+    ) {
+        return new SalesByChannelProcessor(
+                transactions,
+                new FakeSessionRepository(sessionExists),
+                raw,
+                stage,
+                errors,
+                new SalesByChannelValidator(),
+                SalesByChannelProcessConfiguration.DEFAULT_CHUNK_SIZE
+        );
+    }
+
+    private SalesByChannelRawRow row(long id, String year, String month, String quantity) {
+        return new SalesByChannelRawRow(
+                id, 10L, id + 1, "sy", "s6", "ym", "ys", year, month,
+                "channel", "store", "type", "division", "department", "campaign",
+                "seasonality", "brand", quantity, "1", "2", "3", "4",
+                "budget", "storeBpo", "channelBpo", "sub", "tm", "node", "section",
+                "group", "phase", "product"
+        );
+    }
+
+    private static final class FakeSessionRepository extends SalesByChannelLoadSessionRepository {
+        private final boolean exists;
+        FakeSessionRepository(boolean exists) { super(null); this.exists = exists; }
+        @Override public boolean existsById(long loadSessionId) { return exists; }
+    }
+
+    private static final class FakeRawRepository extends SalesByChannelRawRepository {
+        private final Deque<List<SalesByChannelRawRow>> chunks;
+        private final List<Long> lastIds = new ArrayList<>();
+        private int calls;
+        FakeRawRepository(List<List<SalesByChannelRawRow>> chunks) {
+            super(null, 1_000);
+            this.chunks = new ArrayDeque<>(chunks);
+        }
+        @Override public List<SalesByChannelRawRow> findChunk(long session, long lastId) {
+            calls++;
+            lastIds.add(lastId);
+            return chunks.removeFirst();
+        }
+    }
+
+    private static final class FakeStageRepository extends SalesByChannelStageRepository {
+        private int cleanupCalls;
+        private boolean failInsert;
+        private final List<Long> rawEquivalentIds = new ArrayList<>();
+        @Override public int deleteByLoadSessionId(Connection connection, long id) {
+            cleanupCalls++;
+            return 0;
+        }
+        @Override public void insertBatch(Connection connection, long id, List<SalesByChannelStageRow> rows) {
+            if (failInsert) throw new RuntimeException("stage failed");
+            rows.forEach(row -> rawEquivalentIds.add(row.excelRowNum() - 1));
+        }
+    }
+
+    private static final class FakeErrorRepository extends SalesByChannelErrorRepository {
+        private int cleanupCalls;
+        private final List<Long> validationRawIds = new ArrayList<>();
+        private final List<SalesByChannelValidationError> bestEffort = new ArrayList<>();
+        FakeErrorRepository() { super(null); }
+        @Override public void deleteByLoadSessionId(Connection connection, long id) { cleanupCalls++; }
+        @Override public void insertBatch(Connection connection, long id,
+                                         List<SalesByChannelValidationError> errors) {
+            errors.forEach(error -> validationRawIds.add(error.rawId()));
+        }
+        @Override public void insertBestEffort(SalesByChannelValidationError error) {
+            bestEffort.add(error);
+        }
+    }
+
+    private static final class Transactions implements DataSource {
+        private int connections;
+        private int commits;
+        private int rollbacks;
+        @Override public Connection getConnection() {
+            connections++;
+            return (Connection) Proxy.newProxyInstance(getClass().getClassLoader(),
+                    new Class<?>[]{Connection.class}, (proxy, method, args) -> {
+                        if ("getAutoCommit".equals(method.getName())) return true;
+                        if ("commit".equals(method.getName())) { commits++; return null; }
+                        if ("rollback".equals(method.getName())) { rollbacks++; return null; }
+                        return defaultValue(method.getReturnType());
+                    });
+        }
+        @Override public Connection getConnection(String u, String p) { return getConnection(); }
+        @Override public <T> T unwrap(Class<T> iface) { return null; }
+        @Override public boolean isWrapperFor(Class<?> iface) { return false; }
+        @Override public java.io.PrintWriter getLogWriter() { return null; }
+        @Override public void setLogWriter(java.io.PrintWriter out) { }
+        @Override public void setLoginTimeout(int seconds) { }
+        @Override public int getLoginTimeout() { return 0; }
+        @Override public java.util.logging.Logger getParentLogger() { return null; }
+    }
+
+    private static Object defaultValue(Class<?> type) {
+        if (!type.isPrimitive()) return null;
+        if (type == boolean.class) return false;
+        if (type == int.class) return 0;
+        if (type == long.class) return 0L;
+        return null;
+    }
+}
