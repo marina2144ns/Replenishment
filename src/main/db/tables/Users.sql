@@ -148,6 +148,18 @@ IF OBJECT_ID(N'dbo.CD_ecom_stage', N'U') IS NOT NULL
     GRANT SELECT, INSERT, UPDATE, DELETE ON OBJECT::dbo.CD_ecom_stage TO [ReplenishmentREAD];
 GO
 
+IF OBJECT_ID(N'dbo.SalesByChannel_raw', N'U') IS NOT NULL
+    GRANT SELECT, INSERT ON OBJECT::dbo.SalesByChannel_raw TO [ReplenishmentREAD];
+GO
+
+IF OBJECT_ID(N'dbo.SalesByChannel_stage', N'U') IS NOT NULL
+    GRANT SELECT, INSERT, DELETE ON OBJECT::dbo.SalesByChannel_stage TO [ReplenishmentREAD];
+GO
+
+IF OBJECT_ID(N'dbo.SalesByChannel', N'U') IS NOT NULL
+    GRANT SELECT, INSERT, DELETE ON OBJECT::dbo.SalesByChannel TO [ReplenishmentREAD];
+GO
+
 IF OBJECT_ID(N'dbo.ABCData', N'U') IS NOT NULL
     GRANT SELECT, INSERT, UPDATE, DELETE ON OBJECT::dbo.ABCData TO [ReplenishmentREAD];
 GO

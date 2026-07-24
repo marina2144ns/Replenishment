@@ -3,6 +3,9 @@ package ru.stockmann.replenishment.services.dwhexcelload.schema;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -19,6 +22,7 @@ class SalesByChannelSchemaContractTest {
     private static final String RAW = "dbo.SalesByChannel_raw";
     private static final String STAGE = "dbo.SalesByChannel_stage";
     private static final String TARGET = "dbo.SalesByChannel";
+    private static final String USERS_DDL = "src/main/db/tables/Users.sql";
 
     private static final List<String> BUSINESS_COLUMNS = List.of(
             "seasonyear", "season6m", "yearmonth", "yearseason", "year", "month",
@@ -142,6 +146,37 @@ class SalesByChannelSchemaContractTest {
         assertFalse(ddl.contains("alter table"));
         assertFalse(ddl.contains("create procedure"));
         assertFalse(ddl.contains("drop procedure"));
+    }
+
+    @Test
+    void applicationUserHasOnlyRequiredObjectPermissions() throws Exception {
+        String permissions = normalizeSql(read(USERS_DDL));
+
+        assertEquals(Set.of("select", "insert"),
+                grantedPermissions(permissions, "salesbychannel_raw"));
+        assertEquals(Set.of("select", "insert", "delete"),
+                grantedPermissions(permissions, "salesbychannel_stage"));
+        assertEquals(Set.of("select", "insert", "delete"),
+                grantedPermissions(permissions, "salesbychannel"));
+
+        assertFalse(Pattern.compile(
+                "grant .*? on schema::dbo to replenishmentread"
+        ).matcher(permissions).find());
+    }
+
+    private static Set<String> grantedPermissions(String sql, String objectName) {
+        Pattern grant = Pattern.compile(
+                "grant ([a-z]+(?:\\s*,\\s*[a-z]+)*) on object::dbo\\."
+                        + Pattern.quote(objectName) + " to ([a-z0-9_]+)"
+        );
+        Matcher matcher = grant.matcher(sql);
+        assertTrue(matcher.find(), "GRANT not found for dbo." + objectName);
+        String grantedPermissions = matcher.group(1);
+        assertEquals("replenishmentread", matcher.group(2), objectName);
+        assertFalse(matcher.find(), "Multiple GRANT statements found for dbo." + objectName);
+        return java.util.Arrays.stream(grantedPermissions.split(","))
+                .map(String::trim)
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     private static void assertCreatedAt(
