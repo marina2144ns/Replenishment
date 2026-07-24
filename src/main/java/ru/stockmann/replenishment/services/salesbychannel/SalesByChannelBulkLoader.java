@@ -5,6 +5,8 @@ import ru.stockmann.replenishment.services.dwhexcelload.core.AbstractDWHExcelLoa
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelColumnSpec;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadSessionResult;
 import ru.stockmann.replenishment.services.dwhexcelload.definitions.SalesByChannelExcelLoadDefinition;
+import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannelProcessResult;
+import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannelProcessor;
 
 import javax.sql.DataSource;
 import java.util.List;
@@ -13,11 +15,15 @@ import java.util.Objects;
 @Service
 public class SalesByChannelBulkLoader extends AbstractDWHExcelLoader {
 
+    private final SalesByChannelProcessor processor;
+
     public SalesByChannelBulkLoader(
             DataSource dataSource,
-            SalesByChannelExcelLoadDefinition definition
+            SalesByChannelExcelLoadDefinition definition,
+            SalesByChannelProcessor processor
     ) {
         super(dataSource, definition);
+        this.processor = processor;
     }
 
     @Override
@@ -37,10 +43,11 @@ public class SalesByChannelBulkLoader extends AbstractDWHExcelLoader {
 
     @Override
     protected DWHExcelLoadSessionResult processLoadSession(Long loadSessionId) {
+        SalesByChannelProcessResult result = processor.process(loadSessionId);
         return new DWHExcelLoadSessionResult(
                 loadSessionId,
-                true,
-                "SalesByChannel raw load completed"
+                result.success(),
+                result.message()
         );
     }
 }

@@ -4,9 +4,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadSessionResult;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelErrorLayer;
 import ru.stockmann.replenishment.services.dwhexcelload.core.ExcelRowData;
 import ru.stockmann.replenishment.services.dwhexcelload.definitions.SalesByChannelExcelLoadDefinition;
 import ru.stockmann.replenishment.services.salesbychannel.SalesByChannelBulkLoader;
+import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannelProcessResult;
+import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannelProcessor;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -18,6 +21,7 @@ import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -74,18 +78,45 @@ class SalesByChannelBulkLoaderTest {
     }
 
     @Test
-    void rawOnlyCompletionDoesNotAcquireConnectionOrCallProcedure() {
+    void processHookCallsJavaProcessorExactlyOnceAndDoesNotCallProcedure() {
         RecordingDataSource dataSource = new RecordingDataSource();
-        TestLoader loader = new TestLoader(dataSource);
+        FakeProcessor processor = new FakeProcessor(new SalesByChannelProcessResult(
+                44L, true, 3, 3, 3, 0, "published"
+        ));
+        TestLoader loader = new TestLoader(dataSource, processor);
 
         DWHExcelLoadSessionResult result = loader.process(44L);
 
         assertTrue(result.success());
         assertEquals(44L, result.loadSessionId());
-        assertEquals("SalesByChannel raw load completed", result.message());
+        assertEquals("published", result.message());
+        assertEquals(1, processor.calls);
+        assertEquals(44L, processor.loadSessionId);
         assertEquals(0, dataSource.connectionCalls);
         assertThrows(UnsupportedOperationException.class, () -> loader.defaultProcedure(44L));
         assertEquals(0, dataSource.connectionCalls);
+    }
+
+    @Test
+    void processHookPreservesEmptyAndTechnicalFailureMessages() {
+        FakeProcessor emptyProcessor = new FakeProcessor(new SalesByChannelProcessResult(
+                45L, false, 0, 0, 0, 0,
+                "Publication is impossible because stage contains no rows"
+        ));
+        DWHExcelLoadSessionResult empty =
+                new TestLoader(null, emptyProcessor).process(45L);
+        assertFalse(empty.success());
+        assertEquals("Publication is impossible because stage contains no rows", empty.message());
+        assertEquals(1, emptyProcessor.calls);
+
+        FakeProcessor technicalProcessor = new FakeProcessor(new SalesByChannelProcessResult(
+                46L, false, 2, 2, 0, 1, "target insert failed"
+        ));
+        DWHExcelLoadSessionResult technical =
+                new TestLoader(null, technicalProcessor).process(46L);
+        assertFalse(technical.success());
+        assertEquals("target insert failed", technical.message());
+        assertEquals(1, technicalProcessor.calls);
     }
 
     @Test
@@ -153,10 +184,71 @@ class SalesByChannelBulkLoaderTest {
         assertEquals(0, dataSource.rollbacks);
     }
 
+    @Test
+    void runtimeCallsProcessorOnlyAfterRawInsertAndFinishesSessionWithProcessorResult() {
+        List<String> events = new ArrayList<>();
+        EventProcessor processor = new EventProcessor(events, new SalesByChannelProcessResult(
+                55L, true, 2, 2, 2, 0, "published 2 rows"
+        ));
+        FlowLoader loader = new FlowLoader(processor, events, false);
+
+        loader.processAcceptedFile(55L, "/tmp/source.xlsx");
+
+        assertEquals(List.of(
+                "status:RUNNING",
+                "raw",
+                "processor:55",
+                "finish:SUCCESS:published 2 rows"
+        ), events);
+        assertEquals(1, processor.calls);
+    }
+
+    @Test
+    void validationOrEmptyFailureBecomesSessionErrorWithoutSecondProcessorCall() {
+        List<String> events = new ArrayList<>();
+        EventProcessor processor = new EventProcessor(events, new SalesByChannelProcessResult(
+                56L, false, 1, 0, 0, 1, "Validation failed; target was not changed"
+        ));
+        FlowLoader loader = new FlowLoader(processor, events, false);
+
+        loader.processAcceptedFile(56L, "/tmp/source.xlsx");
+
+        assertEquals(List.of(
+                "status:RUNNING",
+                "raw",
+                "processor:56",
+                "finish:ERROR:Validation failed; target was not changed"
+        ), events);
+        assertEquals(1, processor.calls);
+    }
+
+    @Test
+    void rawFailurePreventsProcessorInvocationAndMarksSessionError() {
+        List<String> events = new ArrayList<>();
+        EventProcessor processor = new EventProcessor(events, new SalesByChannelProcessResult(
+                57L, true, 1, 1, 1, 0, "unused"
+        ));
+        FlowLoader loader = new FlowLoader(processor, events, true);
+
+        assertThrows(RuntimeException.class,
+                () -> loader.processAcceptedFile(57L, "/tmp/source.xlsx"));
+
+        assertEquals(0, processor.calls);
+        assertEquals("status:RUNNING", events.get(0));
+        assertEquals("raw", events.get(1));
+        assertTrue(events.stream().anyMatch(event -> event.startsWith("finish:ERROR:")));
+    }
+
     private static final class TestLoader extends SalesByChannelBulkLoader {
 
         private TestLoader(DataSource dataSource) {
-            super(dataSource, new SalesByChannelExcelLoadDefinition());
+            this(dataSource, new FakeProcessor(new SalesByChannelProcessResult(
+                    1L, true, 0, 0, 0, 0, "OK"
+            )));
+        }
+
+        private TestLoader(DataSource dataSource, SalesByChannelProcessor processor) {
+            super(dataSource, new SalesByChannelExcelLoadDefinition(), processor);
         }
 
         private String rawInsertSql() {
@@ -195,6 +287,86 @@ class SalesByChannelBulkLoaderTest {
 
         private DWHExcelLoadSessionResult createSession(String path) {
             return createLoadSession(path);
+        }
+    }
+
+    private static final class FakeProcessor extends SalesByChannelProcessor {
+        private final SalesByChannelProcessResult result;
+        private int calls;
+        private long loadSessionId;
+
+        private FakeProcessor(SalesByChannelProcessResult result) {
+            super(null, null, null, null, null, null, null, 1_000);
+            this.result = result;
+        }
+
+        @Override
+        public SalesByChannelProcessResult process(long loadSessionId) {
+            calls++;
+            this.loadSessionId = loadSessionId;
+            return result;
+        }
+    }
+
+    private static final class EventProcessor extends SalesByChannelProcessor {
+        private final List<String> events;
+        private final SalesByChannelProcessResult result;
+        private int calls;
+
+        private EventProcessor(List<String> events, SalesByChannelProcessResult result) {
+            super(null, null, null, null, null, null, null, 1_000);
+            this.events = events;
+            this.result = result;
+        }
+
+        @Override
+        public SalesByChannelProcessResult process(long loadSessionId) {
+            calls++;
+            events.add("processor:" + loadSessionId);
+            return result;
+        }
+    }
+
+    private static final class FlowLoader extends SalesByChannelBulkLoader {
+        private final List<String> events;
+        private final boolean failRaw;
+
+        private FlowLoader(EventProcessor processor, List<String> events, boolean failRaw) {
+            super(null, new SalesByChannelExcelLoadDefinition(), processor);
+            this.events = events;
+            this.failRaw = failRaw;
+        }
+
+        @Override
+        protected void readAndInsertExcel(String filePath, Long loadSessionId) {
+            events.add("raw");
+            if (failRaw) {
+                throw new RuntimeException("raw failed");
+            }
+        }
+
+        @Override
+        protected void updateLoadSessionStatus(Long loadSessionId, String status, String message) {
+            events.add("status:" + status);
+        }
+
+        @Override
+        protected void finishLoadSession(Long loadSessionId, String status, String message) {
+            events.add("finish:" + status + ":" + message);
+        }
+
+        @Override
+        protected void logLoadError(
+                Long loadSessionId,
+                DWHExcelErrorLayer errorLayer,
+                Long excelRowNum,
+                Long rawId,
+                String fieldName,
+                String errorCode,
+                String errorReason,
+                String errorMessage
+        ) {
+            events.add("loadError:" + errorCode);
         }
     }
 

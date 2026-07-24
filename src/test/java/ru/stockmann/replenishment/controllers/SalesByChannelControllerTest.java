@@ -10,6 +10,8 @@ import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadRequest
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadResult;
 import ru.stockmann.replenishment.services.dwhexcelload.definitions.SalesByChannelExcelLoadDefinition;
 import ru.stockmann.replenishment.services.salesbychannel.SalesByChannelBulkLoader;
+import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannelProcessResult;
+import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannelProcessor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -62,7 +64,7 @@ class SalesByChannelControllerTest {
         private String filePath;
 
         private FakeLoader(DWHExcelLoadResult result) {
-            super(null, new SalesByChannelExcelLoadDefinition());
+            super(null, new SalesByChannelExcelLoadDefinition(), new NoOpProcessor());
             this.result = result;
         }
 
@@ -71,6 +73,17 @@ class SalesByChannelControllerTest {
             calls++;
             this.filePath = filePath;
             return result;
+        }
+    }
+
+    private static final class NoOpProcessor extends SalesByChannelProcessor {
+        private NoOpProcessor() {
+            super(null, null, null, null, null, null, null, 1_000);
+        }
+
+        @Override
+        public SalesByChannelProcessResult process(long loadSessionId) {
+            throw new AssertionError("Controller must not invoke processor directly");
         }
     }
 
