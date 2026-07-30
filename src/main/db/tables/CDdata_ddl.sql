@@ -214,3 +214,7 @@ GO
 CREATE INDEX IX_CD_data_stage_LoadSessionId
     ON dbo.CD_data_stage(LoadSessionId);
 GO
+
+CREATE NONCLUSTERED INDEX IX_CD_data_god_sezon
+    ON dbo.CD_data(god, sezon);
+GO

@@ -11,6 +11,7 @@ import ru.stockmann.replenishment.services.dwhexcelload.definitions.WeeklyDataEx
 import ru.stockmann.replenishment.services.weeklydata.process.WeeklyDataRawRow;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -126,6 +127,31 @@ class DWHServiceSchemaContractTest {
     }
 
     @Test
+    void targetTablesHavePeriodCompositeNonclusteredIndexesInKeyOrder() throws Exception {
+        assertNonclusteredIndex(
+                WEEKLY_DDL,
+                "IX_Weekly_data_Year_Week",
+                "dbo.Weekly_data",
+                "Year",
+                "Week"
+        );
+        assertNonclusteredIndex(
+                CD_DATA_DDL,
+                "IX_CD_data_god_sezon",
+                "dbo.CD_data",
+                "god",
+                "sezon"
+        );
+        assertNonclusteredIndex(
+                CD_ECOM_DDL,
+                "IX_CD_ecom_year_season",
+                "dbo.CD_ecom",
+                "year",
+                "season"
+        );
+    }
+
+    @Test
     void migrationsMatchCurrentDdlEndStateForAuditedChanges() throws Exception {
         String weeklyDdl = normalizeSql(read(WEEKLY_DDL));
         String weeklyTextMigration = normalizeSql(read("src/main/db/tables/Weekly_data_raw_text_migration.sql"));
@@ -200,6 +226,31 @@ class DWHServiceSchemaContractTest {
                 .findFirst()
                 .orElseThrow();
         assertTrue(column.contains(expectedDefinitionPart), name + " should contain " + expectedDefinitionPart);
+    }
+
+    private static void assertNonclusteredIndex(
+            String ddlPath,
+            String indexName,
+            String tableName,
+            String firstKey,
+            String secondKey
+    ) throws Exception {
+        String ddl = normalizeSql(read(ddlPath));
+        String identifier = "\\[?" + Pattern.quote(indexName.toLowerCase()) + "\\]?";
+        String table = Pattern.quote(tableName.toLowerCase());
+        String first = "\\[?" + Pattern.quote(firstKey.toLowerCase()) + "\\]?";
+        String second = "\\[?" + Pattern.quote(secondKey.toLowerCase()) + "\\]?";
+        Pattern index = Pattern.compile(
+                "create\\s+(?:nonclustered\\s+)?index\\s+" + identifier
+                        + "\\s+on\\s+" + table
+                        + "\\s*\\(\\s*" + first + "\\s*,\\s*" + second + "\\s*\\)"
+        );
+
+        assertTrue(index.matcher(ddl).find(),
+                indexName + " should be a nonclustered index on " + tableName
+                        + "(" + firstKey + ", " + secondKey + ")");
+        assertFalse(ddl.matches("(?s).*create\\s+clustered\\s+index\\s+" + identifier + ".*"),
+                indexName + " must not be clustered");
     }
 
     private static List<String> withInfrastructure(

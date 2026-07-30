@@ -171,22 +171,10 @@ CREATE INDEX IX_CD_ecom_LoadSessionId
     ON dbo.CD_ecom(LoadSessionId);
 GO
 
-CREATE INDEX IX_CD_ecom_data
-    ON dbo.CD_ecom([data]);
-GO
-
-CREATE INDEX IX_CD_ecom_storeRus
-    ON dbo.CD_ecom(storeRus);
-GO
-
-CREATE INDEX IX_CD_ecom_skuTm
-    ON dbo.CD_ecom(skuTm);
-GO
-
-CREATE INDEX IX_CD_ecom_section
-    ON dbo.CD_ecom(section);
-GO
-
 CREATE INDEX IX_CD_ecom_stage_LoadSessionId
     ON dbo.CD_ecom_stage(LoadSessionId);
+GO
+
+CREATE NONCLUSTERED INDEX IX_CD_ecom_year_season
+    ON dbo.CD_ecom([year], season);
 GO

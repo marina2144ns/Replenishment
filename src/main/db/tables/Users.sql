@@ -42,14 +42,12 @@ IF NOT EXISTS (
     END;
 GO
 
-
-
 /* ============================================================
    2. DATABASE USERS
    Выполнять в рабочей базе
    ============================================================ */
 
-USE ReplenishmentDWH;
+USE [ReplenishmentDWH];
 GO
 
 IF NOT EXISTS (
@@ -191,6 +189,8 @@ GO
 GRANT ADMINISTER BULK OPERATIONS TO [ReplenishmentREAD];
 GO
 
+GRANT SHOWPLAN TO [ReplenishmentREAD];
+GO
 
 /* ============================================================
    4. RIGHTS FOR BUSINESS READ-ONLY USER: replenishment_reader
@@ -221,7 +221,6 @@ GO
 GRANT SELECT ON OBJECT::dbo.DWH_Excel_Load_Error TO [replenishment_reader];
 GO
 
-
 /* ============================================================
    5. RIGHTS FOR ADDITIONAL READ-ONLY USER: repl
    ============================================================ */
@@ -249,31 +248,4 @@ GRANT SELECT ON OBJECT::dbo.DWH_Excel_Load_Session TO [repl];
 GO
 
 GRANT SELECT ON OBJECT::dbo.DWH_Excel_Load_Error TO [repl];
-GO
-
-
-/* ============================================================
-   6. EXECUTE RIGHTS FOR JAVA SERVICE USER: ReplenishmentREAD
-   ============================================================ */
-
-USE ReplenishmentDWH;
-GO
-
-GRANT EXECUTE ON OBJECT::dbo.usp_WeeklyData_ProcessLoadSession
-    TO [ReplenishmentREAD];
-GO
-
-IF OBJECT_ID(N'dbo.usp_CDData_ProcessLoadSession', N'P') IS NOT NULL
-    GRANT EXECUTE ON OBJECT::dbo.usp_CDData_ProcessLoadSession
-        TO [ReplenishmentREAD];
-GO
-
-IF OBJECT_ID(N'dbo.usp_ABCData_Merge', N'P') IS NOT NULL
-    GRANT EXECUTE ON OBJECT::dbo.usp_ABCData_Merge
-        TO [ReplenishmentREAD];
-GO
-
-IF OBJECT_ID(N'dbo.LoadStoreTurnoverFromCSV', N'P') IS NOT NULL
-    GRANT EXECUTE ON OBJECT::dbo.LoadStoreTurnoverFromCSV
-        TO [ReplenishmentREAD];
 GO
