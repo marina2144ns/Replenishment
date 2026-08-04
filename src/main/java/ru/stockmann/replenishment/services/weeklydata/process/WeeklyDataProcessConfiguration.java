@@ -29,6 +29,19 @@ public class WeeklyDataProcessConfiguration {
     }
 
     @Bean
+    public WeeklyDataDeletionRepository weeklyDataDeletionRepository() {
+        return new WeeklyDataDeletionRepository();
+    }
+
+    @Bean
+    public WeeklyDataDeletionService weeklyDataDeletionService(
+            DataSource dataSource,
+            WeeklyDataDeletionRepository repository
+    ) {
+        return new WeeklyDataDeletionService(dataSource, repository);
+    }
+
+    @Bean
     public WeeklyDataStageRepository weeklyDataStageRepository(DataSource dataSource) {
         return new WeeklyDataStageRepository(dataSource);
     }

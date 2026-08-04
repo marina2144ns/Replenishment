@@ -5,9 +5,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import ru.stockmann.replenishment.services.CDEcomBulkLoader;
+import ru.stockmann.replenishment.services.cdecom.process.CDEcomDeletionService;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDataDeleteResult;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelAsyncLoadService;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadRequest;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadResult;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/cdecom/v1.0")
@@ -15,13 +19,16 @@ public class CDEcomController {
 
     private final CDEcomBulkLoader bulkLoader;
     private final DWHExcelAsyncLoadService asyncLoadService;
+    private final CDEcomDeletionService deletionService;
 
     public CDEcomController(
             CDEcomBulkLoader bulkLoader,
-            DWHExcelAsyncLoadService asyncLoadService
+            DWHExcelAsyncLoadService asyncLoadService,
+            CDEcomDeletionService deletionService
     ) {
         this.bulkLoader = bulkLoader;
         this.asyncLoadService = asyncLoadService;
+        this.deletionService = deletionService;
     }
 
     @PostMapping("/bulk")
@@ -48,5 +55,25 @@ public class CDEcomController {
                 : HttpStatus.INTERNAL_SERVER_ERROR;
 
         return new ResponseEntity<>(result, status);
+    }
+
+    @DeleteMapping("/data")
+    public ResponseEntity<?> deleteByPeriod(
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer week
+    ) {
+        if (year == null || week == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "year and week are required"));
+        }
+        return ResponseEntity.ok(deletionService.deleteByPeriod(year, week));
+    }
+
+    @DeleteMapping("/data/load-session/{loadSessionId}")
+    public ResponseEntity<?> deleteByLoadSessionId(@PathVariable Long loadSessionId) {
+        if (loadSessionId == null || loadSessionId <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("error", "loadSessionId must be positive"));
+        }
+        DWHDataDeleteResult result = deletionService.deleteByLoadSessionId(loadSessionId);
+        return ResponseEntity.ok(result);
     }
 }

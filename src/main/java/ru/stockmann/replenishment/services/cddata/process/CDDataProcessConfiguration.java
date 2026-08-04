@@ -24,6 +24,19 @@ public class CDDataProcessConfiguration {
     }
 
     @Bean
+    public CDDataDeletionRepository cdDataDeletionRepository() {
+        return new CDDataDeletionRepository();
+    }
+
+    @Bean
+    public CDDataDeletionService cdDataDeletionService(
+            DataSource dataSource,
+            CDDataDeletionRepository repository
+    ) {
+        return new CDDataDeletionService(dataSource, repository);
+    }
+
+    @Bean
     public CDDataErrorRepository cdDataErrorRepository(DataSource dataSource) {
         return new CDDataErrorRepository(dataSource);
     }

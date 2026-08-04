@@ -24,6 +24,19 @@ public class CDEcomProcessConfiguration {
     }
 
     @Bean
+    public CDEcomDeletionRepository cdecomDeletionRepository() {
+        return new CDEcomDeletionRepository();
+    }
+
+    @Bean
+    public CDEcomDeletionService cdecomDeletionService(
+            DataSource dataSource,
+            CDEcomDeletionRepository repository
+    ) {
+        return new CDEcomDeletionService(dataSource, repository);
+    }
+
+    @Bean
     public CDEcomErrorRepository cdecomErrorRepository(DataSource dataSource) {
         return new CDEcomErrorRepository(dataSource);
     }

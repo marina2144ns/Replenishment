@@ -5,8 +5,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.stockmann.replenishment.services.WeeklyDataBulkLoader;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelAsyncLoadService;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDataDeleteResult;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadRequest;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadResult;
+import ru.stockmann.replenishment.services.weeklydata.process.WeeklyDataDeletionService;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/weeklydata/v1.0")
@@ -14,13 +18,16 @@ public class WeeklyDataController {
 
     private final WeeklyDataBulkLoader bulkLoader;
     private final DWHExcelAsyncLoadService asyncLoadService;
+    private final WeeklyDataDeletionService deletionService;
 
     public WeeklyDataController(
             WeeklyDataBulkLoader bulkLoader,
-            DWHExcelAsyncLoadService asyncLoadService
+            DWHExcelAsyncLoadService asyncLoadService,
+            WeeklyDataDeletionService deletionService
     ) {
         this.bulkLoader = bulkLoader;
         this.asyncLoadService = asyncLoadService;
+        this.deletionService = deletionService;
     }
 
     @PostMapping("/bulk")
@@ -47,5 +54,25 @@ public class WeeklyDataController {
                 : HttpStatus.INTERNAL_SERVER_ERROR;
 
         return new ResponseEntity<>(result, status);
+    }
+
+    @DeleteMapping("/data")
+    public ResponseEntity<?> deleteByPeriod(
+            @RequestParam(required = false) Short year,
+            @RequestParam(required = false) Short week
+    ) {
+        if (year == null || week == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "year and week are required"));
+        }
+        return ResponseEntity.ok(deletionService.deleteByPeriod(year, week));
+    }
+
+    @DeleteMapping("/data/load-session/{loadSessionId}")
+    public ResponseEntity<?> deleteByLoadSessionId(@PathVariable Long loadSessionId) {
+        if (loadSessionId == null || loadSessionId <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("error", "loadSessionId must be positive"));
+        }
+        DWHDataDeleteResult result = deletionService.deleteByLoadSessionId(loadSessionId);
+        return ResponseEntity.ok(result);
     }
 }

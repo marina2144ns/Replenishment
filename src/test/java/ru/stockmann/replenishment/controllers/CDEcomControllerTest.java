@@ -21,7 +21,7 @@ class CDEcomControllerTest {
                 DWHExcelLoadResult.ok(10L, "CD ecom file accepted for processing")
         );
         FakeAsyncLoadService asyncLoadService = new FakeAsyncLoadService();
-        CDEcomController controller = new CDEcomController(loader, asyncLoadService);
+        CDEcomController controller = new CDEcomController(loader, asyncLoadService, null);
         DWHExcelLoadRequest request = new DWHExcelLoadRequest();
         request.setFilePath("/tmp/cdecom.xlsx");
 
@@ -40,7 +40,7 @@ class CDEcomControllerTest {
         FakeCDEcomBulkLoader loader = new FakeCDEcomBulkLoader(
                 DWHExcelLoadResult.ok(10L, "not used")
         );
-        CDEcomController controller = new CDEcomController(loader, new FakeAsyncLoadService());
+        CDEcomController controller = new CDEcomController(loader, new FakeAsyncLoadService(), null);
 
         ResponseEntity<?> response = controller.bulk(new DWHExcelLoadRequest());
 
