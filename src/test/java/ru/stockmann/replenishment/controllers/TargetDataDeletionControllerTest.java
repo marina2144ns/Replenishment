@@ -22,10 +22,10 @@ class TargetDataDeletionControllerTest {
                 .standaloneSetup(new WeeklyDataController(null, null, service))
                 .build();
 
-        mvc.perform(delete("/weeklydata/v1.0/data").param("year", "2026").param("week", "31"))
+        mvc.perform(delete("/weeklydata/v1.0/year-week").param("year", "2026").param("week", "31"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deletedRows").value(1250));
-        mvc.perform(delete("/weeklydata/v1.0/data/load-session/42"))
+        mvc.perform(delete("/weeklydata/v1.0/session").param("loadSessionId", "42"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deletedRows").value(17));
 
@@ -41,7 +41,7 @@ class TargetDataDeletionControllerTest {
                 .standaloneSetup(new WeeklyDataController(null, null, service))
                 .build();
 
-        assertMissingPeriodRejected(mvc, "/weeklydata/v1.0/data");
+        assertMissingPeriodRejected(mvc, "/weeklydata/v1.0/year-week");
         assertEquals(0, service.calls);
     }
 
@@ -52,10 +52,10 @@ class TargetDataDeletionControllerTest {
                 .standaloneSetup(new CDDataController(null, null, service))
                 .build();
 
-        mvc.perform(delete("/cddata/v1.0/data").param("year", "2026").param("week", "2"))
+        mvc.perform(delete("/cddata/v1.0/year-week").param("year", "2026").param("week", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deletedRows").value(25));
-        mvc.perform(delete("/cddata/v1.0/data/load-session/43"))
+        mvc.perform(delete("/cddata/v1.0/session").param("loadSessionId", "43"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deletedRows").value(0));
 
@@ -71,7 +71,7 @@ class TargetDataDeletionControllerTest {
                 .standaloneSetup(new CDDataController(null, null, service))
                 .build();
 
-        assertMissingPeriodRejected(mvc, "/cddata/v1.0/data");
+        assertMissingPeriodRejected(mvc, "/cddata/v1.0/year-week");
         assertEquals(0, service.calls);
     }
 
@@ -82,10 +82,10 @@ class TargetDataDeletionControllerTest {
                 .standaloneSetup(new CDEcomController(null, null, service))
                 .build();
 
-        mvc.perform(delete("/cdecom/v1.0/data").param("year", "2026").param("week", "2"))
+        mvc.perform(delete("/cdecom/v1.0/year-week").param("year", "2026").param("week", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deletedRows").value(30));
-        mvc.perform(delete("/cdecom/v1.0/data/load-session/44"))
+        mvc.perform(delete("/cdecom/v1.0/session").param("loadSessionId", "44"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deletedRows").value(5));
 
@@ -101,10 +101,10 @@ class TargetDataDeletionControllerTest {
                 .standaloneSetup(new CDEcomController(null, null, service))
                 .build();
 
-        assertMissingPeriodRejected(mvc, "/cdecom/v1.0/data");
-        mvc.perform(delete("/cdecom/v1.0/data/load-session/0"))
+        assertMissingPeriodRejected(mvc, "/cdecom/v1.0/year-week");
+        mvc.perform(delete("/cdecom/v1.0/session").param("loadSessionId", "0"))
                 .andExpect(status().isBadRequest());
-        mvc.perform(delete("/cdecom/v1.0/data/load-session/not-a-number"))
+        mvc.perform(delete("/cdecom/v1.0/session").param("loadSessionId", "not-a-number"))
                 .andExpect(status().isBadRequest());
         assertEquals(0, service.calls);
     }

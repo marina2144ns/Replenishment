@@ -37,8 +37,8 @@ class SalesByChannelControllerTest {
         DeleteMapping loadSession = SalesByChannelController.class
                 .getDeclaredMethod("deleteByLoadSessionId", Long.class)
                 .getAnnotation(DeleteMapping.class);
-        assertEquals("/data", period.value()[0]);
-        assertEquals("/data/load-session/{loadSessionId}", loadSession.value()[0]);
+        assertEquals("/year-week", period.value()[0]);
+        assertEquals("/session", loadSession.value()[0]);
     }
 
     @Test
