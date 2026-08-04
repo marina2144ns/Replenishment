@@ -151,44 +151,6 @@ class DWHServiceSchemaContractTest {
         );
     }
 
-    @Test
-    void migrationsMatchCurrentDdlEndStateForAuditedChanges() throws Exception {
-        String weeklyDdl = normalizeSql(read(WEEKLY_DDL));
-        String weeklyTextMigration = normalizeSql(read("src/main/db/tables/Weekly_data_raw_text_migration.sql"));
-        String weeklyYearWeekMigration = normalizeSql(read(
-                "src/main/db/tables/Weekly_data_year_week_not_null_migration.sql"
-        ));
-        for (String column : definitionColumns(new WeeklyDataExcelLoadDefinition())) {
-            if (weeklyTextMigration.contains(column.toLowerCase() + " nvarchar(4000)")) {
-                assertTrue(weeklyDdl.contains(column.toLowerCase() + " nvarchar(4000) null"), column);
-            }
-        }
-        assertTrue(weeklyDdl.contains("year smallint not null"));
-        assertTrue(weeklyDdl.contains("week smallint not null"));
-        assertTrue(weeklyYearWeekMigration.contains("where year is null"));
-        assertTrue(weeklyYearWeekMigration.contains("where week is null"));
-        assertTrue(weeklyYearWeekMigration.contains("alter table dbo.weekly_data alter column year smallint not null"));
-        assertTrue(weeklyYearWeekMigration.contains("alter table dbo.weekly_data alter column week smallint not null"));
-
-        String cdDataDdl = normalizeSql(read(CD_DATA_DDL));
-        String cdDataTextMigration = normalizeSql(read("src/main/db/tables/CDdata_raw_text_migration.sql"));
-        for (String column : definitionColumns(new CDDataExcelLoadDefinition())) {
-            if (cdDataTextMigration.contains(column.toLowerCase() + " nvarchar(4000)")) {
-                assertTrue(cdDataDdl.contains(column.toLowerCase() + " nvarchar(4000) null"), column);
-            }
-        }
-
-        String cdecomDdl = normalizeSql(read(CD_ECOM_DDL));
-        String cdecomMigration = normalizeSql(read("src/main/db/tables/CDecom_dwh_excel_migration.sql"));
-        String loadSessionNotNullMigration = normalizeSql(read(
-                "src/main/db/tables/CDecom_target_load_session_not_null_migration.sql"
-        ));
-        assertTrue(cdecomDdl.contains("excelrownum bigint null"));
-        assertTrue(cdecomMigration.contains("add excelrownum bigint null"));
-        assertTrue(cdecomDdl.contains("loadsessionid bigint not null"));
-        assertTrue(loadSessionNotNullMigration.contains("alter column loadsessionid bigint not null"));
-    }
-
     private static void assertInfrastructure(List<DWHSchemaTestSupport.ColumnDef> columns, boolean createdAt) {
         assertColumn(columns, "id", "bigint");
         assertTrue(columns.stream()

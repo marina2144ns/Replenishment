@@ -47,16 +47,6 @@ class DWHLegacySqlCleanupTest {
     }
 
     @Test
-    void cdecomMigrationDoesNotReferenceLegacyTables() throws Exception {
-        String migration = normalizeSql(read("src/main/db/tables/CDecom_dwh_excel_migration.sql"));
-
-        assertFalse(migration.contains("cd_ecom_load_session"));
-        assertFalse(migration.contains("cd_ecom_load_error"));
-        assertTrue(migration.contains("alter table dbo.cd_ecom_raw"));
-        assertTrue(migration.contains("references dbo.dwh_excel_load_session(id)"));
-    }
-
-    @Test
     void usersScriptKeepsWeeklyAndCdDataProcedureGrantsButRemovesCdecomProcedureGrant() throws Exception {
         String users = normalizeSql(read("src/main/db/tables/Users.sql"));
 

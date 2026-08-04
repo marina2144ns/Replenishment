@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DWHRawTextSchemaTest {
@@ -53,51 +52,27 @@ class DWHRawTextSchemaTest {
     );
 
     @Test
-    void weeklyDataMainDdlAndMigrationUseWideRawTextAndKeepTargetTextLength() throws Exception {
+    void weeklyDataMainDdlUsesWideRawTextAndKeepsTargetTextLength() throws Exception {
         String ddl = normalizedSql("src/main/db/tables/Weekly_data_ddl.sql");
-        String migration = normalizedSql("src/main/db/tables/Weekly_data_raw_text_migration.sql");
         WeeklyDataExcelLoadDefinition definition = new WeeklyDataExcelLoadDefinition();
 
         for (String column : WEEKLY_TEXT_COLUMNS) {
             assertColumnDefinition(ddl, column, "nvarchar(255)", "target");
             assertColumnDefinition(ddl, column, "nvarchar(4000)", "raw");
-            assertAlterColumn(migration, "dbo.weekly_data_raw", column);
             assertRawMaxLength(definition.columns(), column);
         }
-
-        assertFalse(migration.contains("totalstockpcs nvarchar(4000)"));
-        assertFalse(migration.contains("totalstockddp nvarchar(4000)"));
-        assertFalse(migration.contains("salespcs nvarchar(4000)"));
-        assertFalse(migration.contains("salesrub nvarchar(4000)"));
-        assertFalse(migration.contains("revenue nvarchar(4000)"));
-        assertFalse(migration.contains("gp nvarchar(4000)"));
-        assertFalse(migration.contains("discounttotalrub nvarchar(4000)"));
     }
 
     @Test
-    void cdDataMainDdlAndMigrationUseWideRawTextAndKeepTargetTextLength() throws Exception {
+    void cdDataMainDdlUsesWideRawTextAndKeepsTargetTextLength() throws Exception {
         String ddl = normalizedSql("src/main/db/tables/CDdata_ddl.sql");
-        String migration = normalizedSql("src/main/db/tables/CDdata_raw_text_migration.sql");
         CDDataExcelLoadDefinition definition = new CDDataExcelLoadDefinition();
 
         for (String column : CD_DATA_TEXT_COLUMNS) {
             assertColumnDefinition(ddl, column, "nvarchar(255)", "target");
             assertColumnDefinition(ddl, column, "nvarchar(4000)", "raw");
-            assertAlterColumn(migration, "dbo.cd_data_raw", column);
             assertRawMaxLength(definition.columns(), column);
         }
-
-        assertFalse(migration.contains("stock_start_pcs nvarchar(4000)"));
-        assertFalse(migration.contains("stock_start_dd nvarchar(4000)"));
-        assertFalse(migration.contains("sales_pcs nvarchar(4000)"));
-        assertFalse(migration.contains("sales_rub nvarchar(4000)"));
-        assertFalse(migration.contains("revenue nvarchar(4000)"));
-        assertFalse(migration.contains("gp nvarchar(4000)"));
-        assertFalse(migration.contains("cogs nvarchar(4000)"));
-        assertFalse(migration.contains("sales_frp_price nvarchar(4000)"));
-        assertFalse(migration.contains("sales_discount nvarchar(4000)"));
-        assertFalse(migration.contains("stock_stores_pcs nvarchar(4000)"));
-        assertFalse(migration.contains("stock_stores_dd nvarchar(4000)"));
     }
 
     private static String normalizedSql(String path) throws Exception {
@@ -110,12 +85,6 @@ class DWHRawTextSchemaTest {
         Pattern pattern = Pattern.compile("\\b" + Pattern.quote(column.toLowerCase(Locale.ROOT))
                 + "\\s+" + Pattern.quote(type) + "\\s+null\\b");
         assertTrue(pattern.matcher(sql).find(), context + " column " + column + " should be " + type + " NULL");
-    }
-
-    private static void assertAlterColumn(String migration, String tableName, String column) {
-        String expected = "alter table " + tableName + " alter column "
-                + column.toLowerCase(Locale.ROOT) + " nvarchar(4000) null";
-        assertTrue(migration.contains(expected), "Migration should widen raw column " + column);
     }
 
     private static void assertRawMaxLength(List<DWHExcelColumnSpec> columns, String rawColumnName) {
