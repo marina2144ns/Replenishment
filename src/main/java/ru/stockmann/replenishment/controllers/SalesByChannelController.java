@@ -3,7 +3,6 @@ package ru.stockmann.replenishment.controllers;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -59,7 +58,7 @@ public class SalesByChannelController {
         return new ResponseEntity<>(result, status);
     }
 
-    @DeleteMapping("/data")
+    @DeleteMapping("/year-week")
     public ResponseEntity<?> deleteByPeriod(
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer week
@@ -70,8 +69,8 @@ public class SalesByChannelController {
         return ResponseEntity.ok(deletionService.deleteByPeriod(year, week));
     }
 
-    @DeleteMapping("/data/load-session/{loadSessionId}")
-    public ResponseEntity<?> deleteByLoadSessionId(@PathVariable Long loadSessionId) {
+    @DeleteMapping("/session")
+    public ResponseEntity<?> deleteByLoadSessionId(@RequestParam Long loadSessionId) {
         if (loadSessionId == null || loadSessionId <= 0) {
             return ResponseEntity.badRequest().body(
                     Map.of("error", "loadSessionId must be positive")

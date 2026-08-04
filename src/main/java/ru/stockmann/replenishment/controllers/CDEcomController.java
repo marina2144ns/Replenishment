@@ -57,7 +57,7 @@ public class CDEcomController {
         return new ResponseEntity<>(result, status);
     }
 
-    @DeleteMapping("/data")
+    @DeleteMapping("/year-week")
     public ResponseEntity<?> deleteByPeriod(
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer week
@@ -68,8 +68,8 @@ public class CDEcomController {
         return ResponseEntity.ok(deletionService.deleteByPeriod(year, week));
     }
 
-    @DeleteMapping("/data/load-session/{loadSessionId}")
-    public ResponseEntity<?> deleteByLoadSessionId(@PathVariable Long loadSessionId) {
+    @DeleteMapping("/session")
+    public ResponseEntity<?> deleteByLoadSessionId(@RequestParam Long loadSessionId) {
         if (loadSessionId == null || loadSessionId <= 0) {
             return ResponseEntity.badRequest().body(Map.of("error", "loadSessionId must be positive"));
         }
