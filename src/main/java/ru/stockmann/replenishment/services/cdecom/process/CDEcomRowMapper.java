@@ -58,7 +58,8 @@ public class CDEcomRowMapper {
                 parser.cleanText(row.skuColorRussian()),
                 parser.cleanText(row.skuName()),
                 parser.cleanText(row.skuCommentBuyer()),
-                parser.cleanText(row.skuCollection())
+                parser.cleanText(row.skuCollection()),
+                row.id()
         );
     }
 

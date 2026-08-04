@@ -43,6 +43,7 @@ public record CDEcomStageRow(
         String skuColorRussian,
         String skuName,
         String skuCommentBuyer,
-        String skuCollection
+        String skuCollection,
+        Long rawRowId
 ) {
 }

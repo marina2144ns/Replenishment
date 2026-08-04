@@ -41,6 +41,7 @@ CREATE TABLE dbo.Weekly_data (
                                  Seasonality NVARCHAR(255) NULL,
 
     -- Технические поля
+                                 RawRowId BIGINT NULL,
                                  CreatedAt DATETIME2(0) NOT NULL
                                      CONSTRAINT DF_Weekly_data_CreatedAt DEFAULT SYSDATETIME(),
 
@@ -140,6 +141,7 @@ CREATE TABLE dbo.Weekly_data_stage (
                                        Month NVARCHAR(255) NULL,
                                        Bundle NVARCHAR(255) NULL,
                                        Seasonality NVARCHAR(255) NULL,
+                                       RawRowId BIGINT NULL,
 
                                        CONSTRAINT FK_Weekly_data_stage_Load_session
                                            FOREIGN KEY (LoadSessionId)

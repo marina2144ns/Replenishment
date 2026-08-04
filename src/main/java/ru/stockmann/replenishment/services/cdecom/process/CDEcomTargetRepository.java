@@ -77,7 +77,8 @@ public class CDEcomTargetRepository {
                     skuColorRussian,
                     skuName,
                     skuCommentBuyer,
-                    skuCollection
+                    skuCollection,
+                    RawRowId
                 )
                 SELECT
                     LoadSessionId,
@@ -118,7 +119,8 @@ public class CDEcomTargetRepository {
                     skuColorRussian,
                     skuName,
                     skuCommentBuyer,
-                    skuCollection
+                    skuCollection,
+                    RawRowId
                 FROM dbo.CD_ecom_stage
                 WHERE LoadSessionId = ?
                 """;

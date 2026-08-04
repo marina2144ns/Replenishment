@@ -78,9 +78,10 @@ public class CDEcomStageRepository {
                     skuColorRussian,
                     skuName,
                     skuCommentBuyer,
-                    skuCollection
+                    skuCollection,
+                    RawRowId
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         long startedAt = System.nanoTime();
@@ -149,6 +150,7 @@ public class CDEcomStageRepository {
         setNullableString(ps, 38, row.skuName());
         setNullableString(ps, 39, row.skuCommentBuyer());
         setNullableString(ps, 40, row.skuCollection());
+        setNullableLong(ps, 41, row.rawRowId());
     }
 
     private void validateUpdateCounts(int[] updateCounts, int expected, long loadSessionId) {

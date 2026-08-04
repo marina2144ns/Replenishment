@@ -93,7 +93,8 @@ public class WeeklyDataValidator {
                 season,
                 month,
                 bundle,
-                seasonality
+                seasonality,
+                row.rawId()
         );
         return new WeeklyDataRowValidationResult(stageRow, List.of());
     }

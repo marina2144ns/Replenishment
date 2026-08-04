@@ -31,6 +31,7 @@ class CDEcomRowMapperTest {
         assertEquals(456L, row.stockStoresPcs());
         assertEquals(789L, row.stockStoresDdp());
         assertEquals("Collection", row.skuCollection());
+        assertEquals(10L, row.rawRowId());
     }
 
     @Test

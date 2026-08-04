@@ -58,6 +58,7 @@ CREATE TABLE dbo.CD_data (
                              sku_comment             NVARCHAR(255)        NULL,
 
     -- Технические поля
+                             RawRowId BIGINT NULL,
                              CreatedAt DATETIME2(0) NOT NULL
                                  CONSTRAINT DF_CD_data_CreatedAt DEFAULT SYSDATETIME(),
 
@@ -194,6 +195,7 @@ CREATE TABLE dbo.CD_data_stage (
                                    sku_name                NVARCHAR(255)        NULL,
                                    sku_collection          NVARCHAR(255)        NULL,
                                    sku_comment             NVARCHAR(255)        NULL,
+                                   RawRowId                 BIGINT               NULL,
 
                                    CONSTRAINT FK_CD_data_stage_Load_session
                                        FOREIGN KEY (LoadSessionId)

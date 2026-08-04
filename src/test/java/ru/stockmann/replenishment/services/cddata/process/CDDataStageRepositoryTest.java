@@ -28,13 +28,14 @@ class CDDataStageRepositoryTest {
 
         assertTrue(jdbc.sql.contains("INSERT INTO dbo.CD_data_stage"));
         assertFalse(jdbc.sql.contains("SELECT *"));
-        assertEquals(39, jdbc.calls.size());
+        assertEquals(40, jdbc.calls.size());
         assertEquals("setLong:1:10", jdbc.calls.get(0));
         assertEquals("setLong:2:25", jdbc.calls.get(1));
         assertEquals("setInt:4:2025", jdbc.calls.get(3));
         assertEquals("setDate:7:2025-01-31", jdbc.calls.get(6));
         assertEquals("setLong:19:123", jdbc.calls.get(18));
         assertEquals("setBigDecimal:21:1.25", jdbc.calls.get(20));
+        assertEquals("setLong:40:99", jdbc.calls.get(39));
         assertEquals(1, jdbc.addBatchCalls);
         assertEquals(1, jdbc.executeBatchCalls);
         assertEquals(1, jdbc.clearBatchCalls);
@@ -82,7 +83,7 @@ class CDDataStageRepositoryTest {
                 "node", "section", "group", "campaign", 123L, "phase",
                 decimal, decimal, decimal, decimal, decimal, decimal, decimal, decimal, decimal,
                 decimal, decimal, 100, "drivers", "color", "composition", "supplier", "sku",
-                "collection", "comment"
+                "collection", "comment", 99L
         );
     }
 

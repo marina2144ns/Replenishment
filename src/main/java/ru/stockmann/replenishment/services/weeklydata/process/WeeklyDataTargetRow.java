@@ -28,6 +28,7 @@ public record WeeklyDataTargetRow(
         String season,
         String month,
         String bundle,
-        String seasonality
+        String seasonality,
+        Long rawRowId
 ) {
 }

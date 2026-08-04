@@ -280,6 +280,7 @@ class CDDataValidatorTest {
                 .build();
 
         CDDataRowValidationResult result = typedValidator.validateAndMap(row);
+        assertEquals(10L, result.stageRow().rawRowId());
 
         assertTrue(result.valid());
         assertEquals(4, parser.integerCalls);

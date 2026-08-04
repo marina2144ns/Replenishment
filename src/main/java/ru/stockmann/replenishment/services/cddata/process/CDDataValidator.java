@@ -125,7 +125,8 @@ public class CDDataValidator {
                 skuSupplier,
                 skuName,
                 skuCollection,
-                skuComment
+                skuComment,
+                row.id()
         );
         return new CDDataRowValidationResult(stageRow, List.of());
     }

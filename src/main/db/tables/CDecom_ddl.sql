@@ -107,6 +107,7 @@ CREATE TABLE dbo.CD_ecom
     skuName                     NVARCHAR(255)         NULL,
     skuCommentBuyer             NVARCHAR(255)         NULL,
     skuCollection               NVARCHAR(255)         NULL,
+    RawRowId                    BIGINT                NULL,
 
     CreatedAt                   DATETIME2             NOT NULL CONSTRAINT DF_CD_ecom_CreatedAt DEFAULT SYSUTCDATETIME(),
 
@@ -161,6 +162,7 @@ CREATE TABLE dbo.CD_ecom_stage
     skuName                     NVARCHAR(255)         NULL,
     skuCommentBuyer             NVARCHAR(255)         NULL,
     skuCollection               NVARCHAR(255)         NULL,
+    RawRowId                    BIGINT                NULL,
 
     CONSTRAINT FK_CD_ecom_stage_LoadSession
         FOREIGN KEY (LoadSessionId) REFERENCES dbo.DWH_Excel_Load_Session(Id)

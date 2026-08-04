@@ -41,6 +41,7 @@ public record CDDataTargetRow(
         String skuSupplier,
         String skuName,
         String skuCollection,
-        String skuComment
+        String skuComment,
+        Long rawRowId
 ) {
 }

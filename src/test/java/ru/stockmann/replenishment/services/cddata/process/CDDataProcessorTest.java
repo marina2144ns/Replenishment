@@ -237,7 +237,8 @@ class CDDataProcessorTest {
                 null, null, null, null, null, null, null, null, null, null, null,
                 null, null,
                 null, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null
+                null, null, null, null, null, null, null, null,
+                row.id()
         );
     }
 

@@ -24,6 +24,7 @@ class CDEcomValidatorTest {
     @Test
     void fullyValidRowIsValid() {
         assertTrue(validator.validate(validRow()).valid());
+        assertEquals(10L, validator.validateAndMap(validRow()).stageRow().rawRowId());
     }
 
     @Test

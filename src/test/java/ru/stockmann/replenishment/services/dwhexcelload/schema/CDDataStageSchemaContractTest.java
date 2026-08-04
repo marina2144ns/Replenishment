@@ -63,7 +63,8 @@ class CDDataStageSchemaContractTest {
             "sku_supplier",
             "sku_name",
             "sku_collection",
-            "sku_comment"
+            "sku_comment",
+            "rawrowid"
     );
 
     @Test
@@ -79,6 +80,7 @@ class CDDataStageSchemaContractTest {
         }
         assertColumn(columns, "data", "date", true);
         assertColumn(columns, "sku_style_color", "bigint", true);
+        assertColumn(columns, "rawrowid", "bigint", true);
 
         for (String name : List.of(
                 "stock_start_pcs",

@@ -68,9 +68,10 @@ public class WeeklyDataStageRepository {
                     Season,
                     Month,
                     Bundle,
-                    Seasonality
+                    Seasonality,
+                    RawRowId
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         long startedAt = System.nanoTime();
@@ -123,6 +124,7 @@ public class WeeklyDataStageRepository {
         ps.setString(25, row.month());
         ps.setString(26, row.bundle());
         ps.setString(27, row.seasonality());
+        setNullableBigint(ps, 28, row.rawRowId());
     }
 
     private void validateUpdateCounts(int[] updateCounts, int expected, long loadSessionId) {

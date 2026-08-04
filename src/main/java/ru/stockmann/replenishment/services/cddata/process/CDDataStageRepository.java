@@ -78,9 +78,10 @@ public class CDDataStageRepository {
                     sku_supplier,
                     sku_name,
                     sku_collection,
-                    sku_comment
+                    sku_comment,
+                    RawRowId
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         long startedAt = System.nanoTime();
@@ -149,6 +150,7 @@ public class CDDataStageRepository {
         setNullableString(ps, 37, row.skuName());
         setNullableString(ps, 38, row.skuCollection());
         setNullableString(ps, 39, row.skuComment());
+        setNullableLong(ps, 40, row.rawRowId());
     }
 
     private void validateUpdateCounts(int[] updateCounts, int expected, long loadSessionId) {

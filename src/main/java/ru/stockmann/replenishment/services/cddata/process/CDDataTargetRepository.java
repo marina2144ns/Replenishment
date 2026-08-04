@@ -77,7 +77,8 @@ public class CDDataTargetRepository {
                     sku_supplier,
                     sku_name,
                     sku_collection,
-                    sku_comment
+                    sku_comment,
+                    RawRowId
                 )
                 SELECT
                     LoadSessionId,
@@ -117,7 +118,8 @@ public class CDDataTargetRepository {
                     sku_supplier,
                     sku_name,
                     sku_collection,
-                    sku_comment
+                    sku_comment,
+                    RawRowId
                 FROM dbo.CD_data_stage
                 WHERE LoadSessionId = ?
                 """;

@@ -262,13 +262,15 @@ class CDEcomRepositoryTest {
                 "Color",
                 "Sku Name",
                 "Comment",
-                "Collection"
+                "Collection",
+                99L
         );
     }
 
     private static CDEcomTargetRow emptyTargetRow() {
         return new CDEcomTargetRow(
                 20L,
+                null,
                 null,
                 null,
                 null,

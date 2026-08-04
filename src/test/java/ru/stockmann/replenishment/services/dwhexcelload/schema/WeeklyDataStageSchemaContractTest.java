@@ -53,7 +53,8 @@ class WeeklyDataStageSchemaContractTest {
                 "season",
                 "month",
                 "bundle",
-                "seasonality"
+                "seasonality",
+                "rawrowid"
         ), names(columns));
 
         assertColumn(columns, "loadsessionid", "bigint", false);
@@ -64,6 +65,7 @@ class WeeklyDataStageSchemaContractTest {
         assertColumn(columns, "weekcorr", "smallint", true);
         assertColumn(columns, "year", "smallint", false);
         assertColumn(columns, "week", "smallint", false);
+        assertColumn(columns, "rawrowid", "bigint", true);
 
         for (String name : List.of(
                 "saleschannelbpo",

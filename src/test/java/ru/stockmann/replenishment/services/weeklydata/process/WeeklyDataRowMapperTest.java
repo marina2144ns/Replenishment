@@ -20,6 +20,7 @@ class WeeklyDataRowMapperTest {
 
         assertEquals((short) 2025, target.year());
         assertEquals((short) 10, target.week());
+        assertEquals(2L, target.rawRowId());
     }
 
     @Test

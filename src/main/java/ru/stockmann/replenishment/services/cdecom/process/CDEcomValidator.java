@@ -93,7 +93,7 @@ public class CDEcomValidator {
                 foundRub.value(), salesPcs.value(), salesRub.value(), revenue.value(), gp.value(),
                 cogs.value(), salesDiscount.value(), planRub.value(), stockStoresPcs.value(),
                 stockStoresDdp.value(), cdDrivers, skuSupplierModel, skuComposition, skuColorRussian,
-                skuName, skuCommentBuyer, skuCollection
+                skuName, skuCommentBuyer, skuCollection, row.id()
         ), List.of());
     }
 

@@ -55,7 +55,8 @@ public class WeeklyDataRowMapper {
                 parser.cleanText(row.season()),
                 parser.cleanText(row.month()),
                 parser.cleanText(row.bundle()),
-                parser.cleanText(row.seasonality())
+                parser.cleanText(row.seasonality()),
+                row.rawId()
         );
     }
 

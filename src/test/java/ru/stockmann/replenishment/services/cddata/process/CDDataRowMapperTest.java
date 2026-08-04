@@ -56,6 +56,7 @@ class CDDataRowMapperTest {
         assertEquals("Sku Name", target.skuName());
         assertEquals("Collection", target.skuCollection());
         assertEquals("Comment", target.skuComment());
+        assertEquals(10L, target.rawRowId());
     }
 
     @Test

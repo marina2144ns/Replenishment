@@ -29,6 +29,7 @@ public record WeeklyDataStageRow(
         String season,
         String month,
         String bundle,
-        String seasonality
+        String seasonality,
+        Long rawRowId
 ) {
 }

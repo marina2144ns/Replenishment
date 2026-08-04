@@ -42,6 +42,7 @@ public record CDDataStageRow(
         String skuSupplier,
         String skuName,
         String skuCollection,
-        String skuComment
+        String skuComment,
+        Long rawRowId
 ) {
 }

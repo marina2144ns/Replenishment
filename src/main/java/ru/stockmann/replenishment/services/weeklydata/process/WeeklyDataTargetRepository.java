@@ -65,7 +65,8 @@ public class WeeklyDataTargetRepository {
                     Season,
                     Month,
                     Bundle,
-                    Seasonality
+                    Seasonality,
+                    RawRowId
                 )
                 SELECT
                     LoadSessionId,
@@ -93,7 +94,8 @@ public class WeeklyDataTargetRepository {
                     Season,
                     Month,
                     Bundle,
-                    Seasonality
+                    Seasonality,
+                    RawRowId
                 FROM dbo.Weekly_data_stage
                 WHERE LoadSessionId = ?
                 """;

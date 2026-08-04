@@ -25,11 +25,12 @@ class WeeklyDataStageRepositoryTest {
         new WeeklyDataStageRepository(null).insertBatch(jdbc.connection(), 10L, List.of(stageRow()));
 
         assertTrue(jdbc.sql.contains("INSERT INTO dbo.Weekly_data_stage"));
-        assertEquals(27, jdbc.calls.size());
+        assertEquals(28, jdbc.calls.size());
         assertEquals("setLong:1:10", jdbc.calls.get(0));
         assertEquals("setLong:2:25", jdbc.calls.get(1));
         assertEquals("setShort:7:2025", jdbc.calls.get(6));
         assertEquals("setShort:8:10", jdbc.calls.get(7));
+        assertEquals("setLong:28:99", jdbc.calls.get(27));
         assertEquals(1, jdbc.addBatchCalls);
         assertEquals(1, jdbc.executeBatchCalls);
         assertEquals(1, jdbc.clearBatchCalls);
@@ -66,7 +67,7 @@ class WeeklyDataStageRepositoryTest {
                 10L, 25L, null, null, null, null, (short) 2025, (short) 10,
                 "channel", "storeBpo", "store", "divisionNew", "department", "seasonBudget", "type",
                 value, value, value, value, value, value, value,
-                "division", "season", "month", "bundle", "seasonality"
+                "division", "season", "month", "bundle", "seasonality", 99L
         );
     }
 
@@ -77,7 +78,7 @@ class WeeklyDataStageRepositoryTest {
                 row.mfpDivisionNew(), row.mfpDepartment(), row.skuSeasonBudget(), row.typeOfSales(),
                 row.totalStockPcs(), row.totalStockDdp(), row.salesPcs(), row.salesRub(), row.revenue(),
                 row.gp(), row.discountTotalRub(), row.mfpDivision(), row.season(), row.month(),
-                row.bundle(), row.seasonality()
+                row.bundle(), row.seasonality(), row.rawRowId()
         );
     }
 

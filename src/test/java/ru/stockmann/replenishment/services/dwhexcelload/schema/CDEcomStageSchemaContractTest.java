@@ -58,7 +58,8 @@ class CDEcomStageSchemaContractTest {
             "skucolorrussian",
             "skuname",
             "skucommentbuyer",
-            "skucollection"
+            "skucollection",
+            "rawrowid"
     );
 
     @Test
@@ -73,6 +74,7 @@ class CDEcomStageSchemaContractTest {
             assertColumn(columns, name, "int", true);
         }
         assertColumn(columns, "data", "date", true);
+        assertColumn(columns, "rawrowid", "bigint", true);
 
         for (String name : List.of(
                 "skustylecolor", "planrub", "stockstorespcs", "stockstoresddp"

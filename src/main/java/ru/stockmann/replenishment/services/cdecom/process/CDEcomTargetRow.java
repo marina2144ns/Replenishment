@@ -42,6 +42,7 @@ public record CDEcomTargetRow(
         String skuColorRussian,
         String skuName,
         String skuCommentBuyer,
-        String skuCollection
+        String skuCollection,
+        Long rawRowId
 ) {
 }

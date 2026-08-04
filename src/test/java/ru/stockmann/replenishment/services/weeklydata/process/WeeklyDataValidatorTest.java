@@ -186,6 +186,7 @@ class WeeklyDataValidatorTest {
         assertEquals(6, parser.smallintCalls);
         assertEquals(7, parser.decimalCalls);
         assertEquals(3L, result.stageRow().excelRowNum());
+        assertEquals(2L, result.stageRow().rawRowId());
         assertEquals(new BigDecimal("12.50"), result.stageRow().salesRub());
     }
 

@@ -61,7 +61,8 @@ public class CDDataRowMapper {
                 parser.cleanText(row.skuSupplier()),
                 parser.cleanText(row.skuName()),
                 parser.cleanText(row.skuCollection()),
-                parser.cleanText(row.skuComment())
+                parser.cleanText(row.skuComment()),
+                row.id()
         );
     }
 
