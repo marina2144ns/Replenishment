@@ -6,6 +6,8 @@ import ru.stockmann.replenishment.services.cddata.process.CDDataDeletionService;
 import ru.stockmann.replenishment.services.cdecom.process.CDEcomDeletionRepository;
 import ru.stockmann.replenishment.services.cdecom.process.CDEcomDeletionService;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDataDeleteResult;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDeletionSession;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDeletionSessionRepository;
 import ru.stockmann.replenishment.services.weeklydata.process.WeeklyDataDeletionRepository;
 import ru.stockmann.replenishment.services.weeklydata.process.WeeklyDataDeletionService;
 
@@ -29,7 +31,8 @@ class TargetDataDeletionTransactionTest {
             }
         };
 
-        DWHDataDeleteResult result = new WeeklyDataDeletionService(transaction.dataSource(), repository)
+        DWHDataDeleteResult result = new WeeklyDataDeletionService(
+                transaction.dataSource(), repository, sessionRepository())
                 .deleteByPeriod((short) 2026, (short) 31);
 
         assertEquals(0, result.deletedRows());
@@ -47,7 +50,8 @@ class TargetDataDeletionTransactionTest {
         };
 
         DWHDataDeleteResult result =
-                new CDDataDeletionService(transaction.dataSource(), repository).deleteByPeriod(2026, 2);
+                new CDDataDeletionService(transaction.dataSource(), repository, sessionRepository())
+                        .deleteByPeriod(2026, 2);
 
         assertEquals(12, result.deletedRows());
         transaction.assertCommitted();
@@ -64,10 +68,24 @@ class TargetDataDeletionTransactionTest {
         };
 
         DWHDataDeleteResult result =
-                new CDEcomDeletionService(transaction.dataSource(), repository).deleteByLoadSessionId(44L);
+                new CDEcomDeletionService(transaction.dataSource(), repository, sessionRepository())
+                        .deleteByLoadSessionId(44L);
 
         assertEquals(9, result.deletedRows());
         transaction.assertCommitted();
+    }
+
+    private static DWHDeletionSessionRepository sessionRepository() {
+        return new DWHDeletionSessionRepository(null) {
+            @Override
+            public long create(DWHDeletionSession session) {
+                return 1000L;
+            }
+
+            @Override
+            public void completeSuccess(Connection connection, long sessionId, long deletedRows) {
+            }
+        };
     }
 
     private static final class TransactionRecording {

@@ -10,6 +10,14 @@ CREATE TABLE dbo.DWH_Excel_Load_Session
     FileName        NVARCHAR(500) NULL,
     FilePath        NVARCHAR(1000) NULL,
 
+    OperationType   NVARCHAR(30) NOT NULL
+        CONSTRAINT DF_DWH_Excel_Load_Session_OperationType DEFAULT ('LOAD'),
+    OperationMode   NVARCHAR(30) NULL,
+    DeleteYear      INT NULL,
+    DeleteWeek      INT NULL,
+    SourceLoadSessionId BIGINT NULL,
+    DeletedRows     BIGINT NULL,
+
     Status          NVARCHAR(30) NOT NULL
         CONSTRAINT DF_DWH_Excel_Load_Session_Status DEFAULT ('RUNNING'),
 

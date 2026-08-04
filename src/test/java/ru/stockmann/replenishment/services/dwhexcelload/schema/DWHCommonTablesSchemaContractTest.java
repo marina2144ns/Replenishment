@@ -24,6 +24,12 @@ class DWHCommonTablesSchemaContractTest {
                 "servicename",
                 "filename",
                 "filepath",
+                "operationtype",
+                "operationmode",
+                "deleteyear",
+                "deleteweek",
+                "sourceloadsessionid",
+                "deletedrows",
                 "status",
                 "startedat",
                 "finishedat",
@@ -34,6 +40,12 @@ class DWHCommonTablesSchemaContractTest {
         assertColumn(columns, "servicename", "nvarchar(200)", "not null");
         assertColumn(columns, "filename", "nvarchar(500)", "null");
         assertColumn(columns, "filepath", "nvarchar(1000)", "null");
+        assertColumn(columns, "operationtype", "nvarchar(30)", "not null", "default ('load')");
+        assertColumn(columns, "operationmode", "nvarchar(30)", "null");
+        assertColumn(columns, "deleteyear", "int", "null");
+        assertColumn(columns, "deleteweek", "int", "null");
+        assertColumn(columns, "sourceloadsessionid", "bigint", "null");
+        assertColumn(columns, "deletedrows", "bigint", "null");
         assertColumn(columns, "status", "nvarchar(30)", "not null");
         assertColumn(columns, "startedat", "datetime2(0)", "not null");
         assertColumn(columns, "finishedat", "datetime2(0)", "null");

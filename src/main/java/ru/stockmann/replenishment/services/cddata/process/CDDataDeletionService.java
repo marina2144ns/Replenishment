@@ -1,6 +1,9 @@
 package ru.stockmann.replenishment.services.cddata.process;
 
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDataDeleteResult;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDeletionSession;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDeletionSessionRepository;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadType;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -10,41 +13,75 @@ public class CDDataDeletionService {
 
     private final DataSource dataSource;
     private final CDDataDeletionRepository repository;
+    private final DWHDeletionSessionRepository sessionRepository;
 
     public CDDataDeletionService(DataSource dataSource, CDDataDeletionRepository repository) {
+        this(dataSource, repository, new DWHDeletionSessionRepository(dataSource));
+    }
+
+    public CDDataDeletionService(
+            DataSource dataSource,
+            CDDataDeletionRepository repository,
+            DWHDeletionSessionRepository sessionRepository
+    ) {
         this.dataSource = dataSource;
         this.repository = repository;
+        this.sessionRepository = sessionRepository;
     }
 
     public DWHDataDeleteResult deleteByPeriod(int year, int week) {
-        return delete(connection -> repository.deleteByPeriod(connection, year, week));
+        return delete(
+                DWHDeletionSession.byPeriod(DWHExcelLoadType.CD_DATA, year, week),
+                connection -> repository.deleteByPeriod(connection, year, week)
+        );
     }
 
     public DWHDataDeleteResult deleteByLoadSessionId(long loadSessionId) {
         if (loadSessionId <= 0) {
             throw new IllegalArgumentException("loadSessionId must be positive");
         }
-        return delete(connection -> repository.deleteByLoadSessionId(connection, loadSessionId));
+        return delete(
+                DWHDeletionSession.byLoadSession(DWHExcelLoadType.CD_DATA, loadSessionId),
+                connection -> repository.deleteByLoadSessionId(connection, loadSessionId)
+        );
     }
 
-    private DWHDataDeleteResult delete(DeleteOperation operation) {
+    private DWHDataDeleteResult delete(
+            DWHDeletionSession session,
+            DeleteOperation operation
+    ) {
+        long deletionSessionId = sessionRepository.create(session);
         try (Connection connection = dataSource.getConnection()) {
             boolean oldAutoCommit = connection.getAutoCommit();
             try {
                 connection.setAutoCommit(false);
                 int deletedRows = operation.execute(connection);
+                sessionRepository.completeSuccess(connection, deletionSessionId, deletedRows);
                 connection.commit();
                 return new DWHDataDeleteResult(deletedRows);
             } catch (RuntimeException | SQLException e) {
                 rollbackQuietly(connection);
-                throw e instanceof RuntimeException runtimeException
+                RuntimeException failure = e instanceof RuntimeException runtimeException
                         ? runtimeException
                         : new RuntimeException("Failed to delete CDData target rows", e);
+                completeError(deletionSessionId, failure);
+                throw failure;
             } finally {
                 restoreAutoCommitQuietly(connection, oldAutoCommit);
             }
         } catch (SQLException e) {
-            throw new RuntimeException("Failed to open CDData delete transaction", e);
+            RuntimeException failure =
+                    new RuntimeException("Failed to open CDData delete transaction", e);
+            completeError(deletionSessionId, failure);
+            throw failure;
+        }
+    }
+
+    private void completeError(long deletionSessionId, RuntimeException failure) {
+        try {
+            sessionRepository.completeError(deletionSessionId, failure.getMessage());
+        } catch (RuntimeException loggingFailure) {
+            failure.addSuppressed(loggingFailure);
         }
     }
 
