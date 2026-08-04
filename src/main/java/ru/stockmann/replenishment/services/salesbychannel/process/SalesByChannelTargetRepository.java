@@ -76,7 +76,8 @@ public class SalesByChannelTargetRepository {
                     section,
                     merchandiseSubGroup,
                     skuPhase,
-                    skuProductClass
+                    skuProductClass,
+                    RawRowId
                 )
                 SELECT
                     LoadSessionId,
@@ -108,7 +109,8 @@ public class SalesByChannelTargetRepository {
                     section,
                     merchandiseSubGroup,
                     skuPhase,
-                    skuProductClass
+                    skuProductClass,
+                    RawRowId
                 FROM dbo.SalesByChannel_stage
                 WHERE LoadSessionId = ?
                 """;

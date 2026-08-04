@@ -44,7 +44,7 @@ class SalesByChannelTargetRepositoryTest {
     }
 
     @Test
-    void insertAndSelectHaveExactlyTheSameThirtyColumnsInOrder() {
+    void insertAndSelectHaveExactlyTheSameThirtyOneColumnsInOrder() {
         RecordingJdbc jdbc = new RecordingJdbc(0, 1);
         new SalesByChannelTargetRepository().publishFromStage(jdbc.connection(), 10L);
         String sql = jdbc.sql.get(1).replaceAll("\\s+", " ").trim();
@@ -60,7 +60,7 @@ class SalesByChannelTargetRepositoryTest {
                 "skuBrandType", "salesQuantity", "salesCurr", "gm", "discountTtl",
                 "turnoverCurr", "skuSeasonBudget", "storeRusBpo", "salesChannelBpo",
                 "mfpSubDepartment", "skuTm", "mfpNode", "section", "merchandiseSubGroup",
-                "skuPhase", "skuProductClass"
+                "skuPhase", "skuProductClass", "RawRowId"
         ), columns(insertColumns));
 
         int storeRus = columns(insertColumns).indexOf("storeRus");

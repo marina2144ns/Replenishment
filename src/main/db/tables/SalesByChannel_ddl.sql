@@ -31,6 +31,7 @@ CREATE TABLE dbo.SalesByChannel (
     merchandiseSubGroup NVARCHAR(100) NULL,
     skuPhase NVARCHAR(100) NULL,
     skuProductClass NVARCHAR(100) NULL,
+    RawRowId BIGINT NULL,
 
     CreatedAt DATETIME2(0) NOT NULL
         CONSTRAINT DF_SalesByChannel_CreatedAt DEFAULT SYSDATETIME(),
@@ -118,6 +119,7 @@ CREATE TABLE dbo.SalesByChannel_stage (
     merchandiseSubGroup NVARCHAR(100) NULL,
     skuPhase NVARCHAR(100) NULL,
     skuProductClass NVARCHAR(100) NULL,
+    RawRowId BIGINT NULL,
 
     CONSTRAINT FK_SalesByChannel_stage_Load_session
         FOREIGN KEY (LoadSessionId)
@@ -127,6 +129,10 @@ GO
 
 CREATE INDEX IX_SalesByChannel_LoadSessionId
     ON dbo.SalesByChannel(LoadSessionId);
+GO
+
+CREATE INDEX IX_SalesByChannel_year_month
+    ON dbo.SalesByChannel([year], [month]);
 GO
 
 CREATE INDEX IX_SalesByChannel_raw_LoadSessionId

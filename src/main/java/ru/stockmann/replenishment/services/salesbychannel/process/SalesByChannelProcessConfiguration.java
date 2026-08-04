@@ -36,6 +36,19 @@ public class SalesByChannelProcessConfiguration {
     }
 
     @Bean
+    public SalesByChannelDeletionRepository salesByChannelDeletionRepository() {
+        return new SalesByChannelDeletionRepository();
+    }
+
+    @Bean
+    public SalesByChannelDeletionService salesByChannelDeletionService(
+            DataSource dataSource,
+            SalesByChannelDeletionRepository repository
+    ) {
+        return new SalesByChannelDeletionService(dataSource, repository);
+    }
+
+    @Bean
     public SalesByChannelValidator salesByChannelValidator() {
         return new SalesByChannelValidator();
     }

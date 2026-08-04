@@ -19,20 +19,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SalesByChannelStageRepositoryTest {
 
     @Test
-    void bindsAllThirtyOneParametersInDdlOrder() {
+    void bindsAllThirtyTwoParametersInDdlOrder() {
         Jdbc jdbc = new Jdbc(new int[]{1});
         new SalesByChannelStageRepository().insertBatch(jdbc.connection(), 10L, List.of(row()));
 
         assertTrue(jdbc.sql.contains("INSERT INTO dbo.SalesByChannel_stage"));
         assertTrue(jdbc.sql.contains("[year], [month]"));
         assertFalse(jdbc.sql.contains("SELECT *"));
-        assertEquals(31, jdbc.calls.size());
+        assertEquals(32, jdbc.calls.size());
         assertEquals("setLong:1:10", jdbc.calls.get(0));
         assertEquals("setLong:2:17", jdbc.calls.get(1));
         assertEquals("setString:7:2025", jdbc.calls.get(6));
         assertEquals("setInt:17:3", jdbc.calls.get(16));
         assertEquals("setBigDecimal:18:1.25", jdbc.calls.get(17));
         assertEquals("setString:31:product", jdbc.calls.get(30));
+        assertEquals("setLong:32:99", jdbc.calls.get(31));
         assertEquals(1, jdbc.addBatch);
         assertEquals(1, jdbc.executeBatch);
     }
@@ -53,7 +54,7 @@ class SalesByChannelStageRepositoryTest {
                 "channel", "store", "type", "division", "department", "campaign",
                 "seasonality", "brand", 3, decimal, decimal, decimal, decimal,
                 "budget", "storeBpo", "channelBpo", "sub", "tm", "node", "section",
-                "group", "phase", "product"
+                "group", "phase", "product", 99L
         );
     }
 

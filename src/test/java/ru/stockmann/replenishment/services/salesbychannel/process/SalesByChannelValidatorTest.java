@@ -40,6 +40,7 @@ class SalesByChannelValidatorTest {
                 row.mfpSubDepartment(), row.skuTm(), row.mfpNode(), row.section(),
                 row.merchandiseSubGroup(), row.skuPhase(), row.skuProductClass()));
         assertEquals(17L, row.excelRowNum());
+        assertEquals(8L, row.rawRowId());
     }
 
     @Test

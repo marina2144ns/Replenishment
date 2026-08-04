@@ -33,6 +33,7 @@ public record SalesByChannelStageRow(
         String section,
         String merchandiseSubGroup,
         String skuPhase,
-        String skuProductClass
+        String skuProductClass,
+        Long rawRowId
 ) {
 }

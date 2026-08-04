@@ -77,7 +77,7 @@ public class SalesByChannelValidator {
                 campaignSalesType, seasonality, skuBrandType, salesQuantity,
                 salesCurr, gm, discountTtl, turnoverCurr, skuSeasonBudget,
                 storeRusBpo, salesChannelBpo, mfpSubDepartment, skuTm, mfpNode,
-                section, merchandiseSubGroup, skuPhase, skuProductClass
+                section, merchandiseSubGroup, skuPhase, skuProductClass, row.id()
         ), List.of());
     }
 

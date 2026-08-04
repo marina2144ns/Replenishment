@@ -56,15 +56,17 @@ class SalesByChannelSchemaContractTest {
         List<DWHSchemaTestSupport.ColumnDef> stage = tableColumns(DDL, STAGE);
         List<DWHSchemaTestSupport.ColumnDef> target = tableColumns(DDL, TARGET);
 
-        assertEquals(concat(List.of("loadsessionid", "excelrownum"), BUSINESS_COLUMNS, List.of()),
+        List<String> publishedColumns = concat(BUSINESS_COLUMNS, List.of("rawrowid"), List.of());
+        assertEquals(concat(List.of("loadsessionid", "excelrownum"), publishedColumns, List.of()),
                 names(stage));
-        assertEquals(concat(List.of("id", "loadsessionid"), BUSINESS_COLUMNS, List.of("createdat")),
+        assertEquals(concat(List.of("id", "loadsessionid"), publishedColumns, List.of("createdat")),
                 names(target));
-        assertEquals(BUSINESS_COLUMNS, businessColumns(stage));
-        assertEquals(BUSINESS_COLUMNS, businessColumns(target));
+        assertEquals(publishedColumns, businessColumns(stage));
+        assertEquals(publishedColumns, businessColumns(target));
 
         assertColumn(stage, "loadsessionid", "bigint", false);
         assertColumn(stage, "excelrownum", "bigint", true);
+        assertColumn(stage, "rawrowid", "bigint", true);
         assertFalse(names(stage).contains("id"));
         assertFalse(names(stage).contains("createdat"));
 
@@ -73,6 +75,7 @@ class SalesByChannelSchemaContractTest {
         assertTrue(column(target, "id").contains("not null"));
         assertTrue(column(target, "id").contains("primary key"));
         assertColumn(target, "loadsessionid", "bigint", false);
+        assertColumn(target, "rawrowid", "bigint", true);
         assertCreatedAt(target, "df_salesbychannel_createdat");
 
         for (String name : BUSINESS_COLUMNS) {
@@ -109,6 +112,21 @@ class SalesByChannelSchemaContractTest {
         for (String name : List.of("salescurr", "gm", "discountttl", "turnovercurr")) {
             assertColumn(stage, name, "decimal(18,2)", false);
         }
+    }
+
+    @Test
+    void targetHasPeriodAndLoadSessionIndexesWithoutRawRowIndex() throws Exception {
+        String ddl = normalizeSql(read(DDL));
+
+        assertTrue(ddl.contains(
+                "create index ix_salesbychannel_year_month "
+                        + "on dbo.salesbychannel( year , month )"
+        ));
+        assertTrue(ddl.contains(
+                "create index ix_salesbychannel_loadsessionid "
+                        + "on dbo.salesbychannel(loadsessionid)"
+        ));
+        assertFalse(ddl.contains("index ix_salesbychannel_rawrowid"));
     }
 
     @Test

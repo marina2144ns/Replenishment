@@ -43,9 +43,9 @@ public class SalesByChannelStageRepository {
                     campaignSalesType, seasonality, skuBrandType, salesQuantity, salesCurr,
                     gm, discountTtl, turnoverCurr, skuSeasonBudget, storeRusBpo,
                     salesChannelBpo, mfpSubDepartment, skuTm, mfpNode, section,
-                    merchandiseSubGroup, skuPhase, skuProductClass
+                    merchandiseSubGroup, skuPhase, skuProductClass, RawRowId
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         long startedAt = System.nanoTime();
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -104,6 +104,7 @@ public class SalesByChannelStageRepository {
         nullableString(ps, 29, row.merchandiseSubGroup());
         nullableString(ps, 30, row.skuPhase());
         nullableString(ps, 31, row.skuProductClass());
+        nullableLong(ps, 32, row.rawRowId());
     }
 
     private void validateCounts(int[] counts, int expected, long loadSessionId) {

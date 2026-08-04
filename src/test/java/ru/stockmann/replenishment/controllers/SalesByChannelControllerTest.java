@@ -3,6 +3,7 @@ package ru.stockmann.replenishment.controllers;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import ru.stockmann.replenishment.services.dwhexcelload.core.AbstractDWHExcelLoader;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelAsyncLoadService;
@@ -12,6 +13,8 @@ import ru.stockmann.replenishment.services.dwhexcelload.definitions.SalesByChann
 import ru.stockmann.replenishment.services.salesbychannel.SalesByChannelBulkLoader;
 import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannelProcessResult;
 import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannelProcessor;
+import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannelDeletionService;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDataDeleteResult;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -27,13 +30,42 @@ class SalesByChannelControllerTest {
 
         assertEquals("/salesbychannel/v1.0", classMapping.value()[0]);
         assertEquals("/bulk", methodMapping.value()[0]);
+
+        DeleteMapping period = SalesByChannelController.class
+                .getDeclaredMethod("deleteByPeriod", Integer.class, Integer.class)
+                .getAnnotation(DeleteMapping.class);
+        DeleteMapping loadSession = SalesByChannelController.class
+                .getDeclaredMethod("deleteByLoadSessionId", Long.class)
+                .getAnnotation(DeleteMapping.class);
+        assertEquals("/data", period.value()[0]);
+        assertEquals("/data/load-session/{loadSessionId}", loadSession.value()[0]);
+    }
+
+    @Test
+    void deleteEndpointsUseEstablishedResponseAndValidation() {
+        FakeDeletionService deletion = new FakeDeletionService();
+        SalesByChannelController controller =
+                new SalesByChannelController(null, null, deletion);
+
+        assertEquals(new DWHDataDeleteResult(12),
+                controller.deleteByPeriod(2026, 31).getBody());
+        assertEquals(2026, deletion.year);
+        assertEquals(31, deletion.week);
+
+        assertEquals(new DWHDataDeleteResult(7),
+                controller.deleteByLoadSessionId(10521L).getBody());
+        assertEquals(10521L, deletion.loadSessionId);
+
+        assertEquals(400, controller.deleteByPeriod(null, 31).getStatusCode().value());
+        assertEquals(400, controller.deleteByPeriod(2026, null).getStatusCode().value());
+        assertEquals(400, controller.deleteByLoadSessionId(0L).getStatusCode().value());
     }
 
     @Test
     void uploadUsesCommonResponseAndStartsAsyncRawLoad() {
         FakeLoader loader = new FakeLoader(DWHExcelLoadResult.ok(31L, "accepted"));
         FakeAsyncLoadService async = new FakeAsyncLoadService();
-        SalesByChannelController controller = new SalesByChannelController(loader, async);
+        SalesByChannelController controller = new SalesByChannelController(loader, async, null);
         DWHExcelLoadRequest request = new DWHExcelLoadRequest();
         request.setFilePath("/tmp/sales-by-channel.xlsx");
 
@@ -49,7 +81,8 @@ class SalesByChannelControllerTest {
     @Test
     void blankPathReturnsCommonBadRequest() {
         FakeLoader loader = new FakeLoader(DWHExcelLoadResult.ok(31L, "unused"));
-        SalesByChannelController controller = new SalesByChannelController(loader, new FakeAsyncLoadService());
+        SalesByChannelController controller =
+                new SalesByChannelController(loader, new FakeAsyncLoadService(), null);
 
         ResponseEntity<?> response = controller.bulk(new DWHExcelLoadRequest());
 
@@ -95,6 +128,29 @@ class SalesByChannelControllerTest {
         public void startAsync(AbstractDWHExcelLoader loader, Long loadSessionId, String filePath) {
             this.loader = loader;
             this.loadSessionId = loadSessionId;
+        }
+    }
+
+    private static final class FakeDeletionService extends SalesByChannelDeletionService {
+        private int year;
+        private int week;
+        private long loadSessionId;
+
+        private FakeDeletionService() {
+            super(null, null);
+        }
+
+        @Override
+        public DWHDataDeleteResult deleteByPeriod(int year, int week) {
+            this.year = year;
+            this.week = week;
+            return new DWHDataDeleteResult(12);
+        }
+
+        @Override
+        public DWHDataDeleteResult deleteByLoadSessionId(long loadSessionId) {
+            this.loadSessionId = loadSessionId;
+            return new DWHDataDeleteResult(7);
         }
     }
 }
