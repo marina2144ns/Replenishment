@@ -30,15 +30,6 @@ CREATE TABLE dbo.DWH_Excel_Load_Session
 );
 GO
 
-CREATE INDEX IX_DWH_Excel_Load_Session_LoadTypeCode_StartedAt
-    ON dbo.DWH_Excel_Load_Session (LoadTypeCode, StartedAt DESC);
-GO
-
-CREATE INDEX IX_DWH_Excel_Load_Session_Status_StartedAt
-    ON dbo.DWH_Excel_Load_Session (Status, StartedAt DESC);
-GO
-
-
 
 
 CREATE TABLE dbo.DWH_Excel_Load_Error
@@ -76,15 +67,3 @@ CREATE INDEX IX_DWH_Excel_Load_Error_LoadSessionId
     ON dbo.DWH_Excel_Load_Error (LoadSessionId);
 GO
 
-CREATE INDEX IX_DWH_Excel_Load_Error_LoadTypeCode_CreatedAt
-    ON dbo.DWH_Excel_Load_Error (LoadTypeCode, CreatedAt DESC);
-GO
-
-CREATE INDEX IX_DWH_Excel_Load_Error_ErrorLayer_CreatedAt
-    ON dbo.DWH_Excel_Load_Error (ErrorLayer, CreatedAt DESC);
-GO
-
-CREATE INDEX IX_DWH_Excel_Load_Error_ExcelRowNum
-    ON dbo.DWH_Excel_Load_Error (ExcelRowNum)
-    WHERE ExcelRowNum IS NOT NULL;
-GO
