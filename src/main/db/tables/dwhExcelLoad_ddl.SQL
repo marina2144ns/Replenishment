@@ -66,4 +66,3 @@ GO
 CREATE INDEX IX_DWH_Excel_Load_Error_LoadSessionId
     ON dbo.DWH_Excel_Load_Error (LoadSessionId);
 GO
-
