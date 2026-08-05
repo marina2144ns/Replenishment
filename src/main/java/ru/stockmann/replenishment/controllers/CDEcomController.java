@@ -57,15 +57,15 @@ public class CDEcomController {
         return new ResponseEntity<>(result, status);
     }
 
-    @DeleteMapping("/year-week")
+    @DeleteMapping("/year-season")
     public ResponseEntity<?> deleteByPeriod(
             @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer week
+            @RequestParam(required = false) Integer season
     ) {
-        if (year == null || week == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "year and week are required"));
+        if (year == null || season == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "year and season are required"));
         }
-        return ResponseEntity.ok(deletionService.deleteByPeriod(year, week));
+        return ResponseEntity.ok(deletionService.deleteByPeriod(year, season));
     }
 
     @DeleteMapping("/session")

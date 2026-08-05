@@ -82,7 +82,7 @@ class TargetDataDeletionControllerTest {
                 .standaloneSetup(new CDEcomController(null, null, service))
                 .build();
 
-        mvc.perform(delete("/cdecom/v1.0/year-week").param("year", "2026").param("week", "2"))
+        mvc.perform(delete("/cdecom/v1.0/year-season").param("year", "2026").param("season", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deletedRows").value(30));
         mvc.perform(delete("/cdecom/v1.0/session").param("loadSessionId", "44"))
@@ -90,7 +90,7 @@ class TargetDataDeletionControllerTest {
                 .andExpect(jsonPath("$.deletedRows").value(5));
 
         assertEquals(2026, service.year);
-        assertEquals(2, service.week);
+        assertEquals(2, service.season);
         assertEquals(44L, service.loadSessionId);
     }
 
@@ -101,7 +101,7 @@ class TargetDataDeletionControllerTest {
                 .standaloneSetup(new CDEcomController(null, null, service))
                 .build();
 
-        assertMissingPeriodRejected(mvc, "/cdecom/v1.0/year-week");
+        assertMissingCDEcomPeriodRejected(mvc);
         mvc.perform(delete("/cdecom/v1.0/session").param("loadSessionId", "0"))
                 .andExpect(status().isBadRequest());
         mvc.perform(delete("/cdecom/v1.0/session").param("loadSessionId", "not-a-number"))
@@ -120,6 +120,13 @@ class TargetDataDeletionControllerTest {
         mvc.perform(delete("/cddata/v1.0/god-sezon").param("god", "2026"))
                 .andExpect(status().isBadRequest());
         mvc.perform(delete("/cddata/v1.0/god-sezon").param("sezon", "2"))
+                .andExpect(status().isBadRequest());
+    }
+
+    private static void assertMissingCDEcomPeriodRejected(MockMvc mvc) throws Exception {
+        mvc.perform(delete("/cdecom/v1.0/year-season").param("year", "2026"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(delete("/cdecom/v1.0/year-season").param("season", "2"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -187,7 +194,7 @@ class TargetDataDeletionControllerTest {
         private final long periodRows;
         private final long sessionRows;
         private int year;
-        private int week;
+        private int season;
         private long loadSessionId;
         private int calls;
 
@@ -198,10 +205,10 @@ class TargetDataDeletionControllerTest {
         }
 
         @Override
-        public DWHDataDeleteResult deleteByPeriod(int year, int week) {
+        public DWHDataDeleteResult deleteByPeriod(int year, int season) {
             calls++;
             this.year = year;
-            this.week = week;
+            this.season = season;
             return new DWHDataDeleteResult(periodRows);
         }
 
