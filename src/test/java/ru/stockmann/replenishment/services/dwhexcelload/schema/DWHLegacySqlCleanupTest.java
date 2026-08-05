@@ -66,10 +66,6 @@ class DWHLegacySqlCleanupTest {
 
         assertTrue(users.contains("grant select on schema::dbo to replenishmentread"));
         assertTrue(users.contains("grant showplan to replenishmentread"));
-        assertTrue(users.contains(
-                "revoke administer bulk operations to replenishmentread"));
-        assertTrue(users.contains(
-                "revoke select, insert, update, delete on object::dbo.weekly_data from replenishmentread"));
         assertFalse(users.contains(
                 "grant select, insert, update, delete on object::dbo.weekly_data to replenishmentread"));
         assertFalse(users.contains(
@@ -77,14 +73,10 @@ class DWHLegacySqlCleanupTest {
     }
 
     @Test
-    void retiredReplenishmentReaderIsRemoved() throws Exception {
+    void retiredReplenishmentReaderIsNotProvisioned() throws Exception {
         String users = normalizeSql(read("src/main/db/tables/Users.example.sql"));
 
-        assertFalse(users.contains("create login replenishment_reader"));
-        assertFalse(users.contains("create user replenishment_reader"));
-        assertFalse(users.contains("grant select on object::dbo.weekly_data to replenishment_reader"));
-        assertTrue(users.contains("drop user if exists replenishment_reader"));
-        assertTrue(users.contains("drop login if exists replenishment_reader"));
+        assertFalse(users.contains("replenishment_reader"));
     }
 
     @Test
@@ -102,8 +94,16 @@ class DWHLegacySqlCleanupTest {
                 "dwh_excel_load_error"
         )) {
             assertFalse(users.contains("grant select on object::dbo." + excluded + " to repl"), excluded);
-            assertTrue(users.contains("revoke select on object::dbo." + excluded + " from repl"), excluded);
         }
+    }
+
+    @Test
+    void usersScriptDoesNotContainPermissionMigrations() throws Exception {
+        String users = normalizeSql(read("src/main/db/tables/Users.example.sql"));
+
+        assertFalse(users.contains("revoke "));
+        assertFalse(users.contains("drop user"));
+        assertFalse(users.contains("drop login"));
     }
 
     @Test
