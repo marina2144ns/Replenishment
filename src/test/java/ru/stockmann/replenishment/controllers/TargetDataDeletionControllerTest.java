@@ -52,7 +52,7 @@ class TargetDataDeletionControllerTest {
                 .standaloneSetup(new CDDataController(null, null, service))
                 .build();
 
-        mvc.perform(delete("/cddata/v1.0/year-week").param("year", "2026").param("week", "2"))
+        mvc.perform(delete("/cddata/v1.0/god-sezon").param("god", "2026").param("sezon", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deletedRows").value(25));
         mvc.perform(delete("/cddata/v1.0/session").param("loadSessionId", "43"))
@@ -71,7 +71,7 @@ class TargetDataDeletionControllerTest {
                 .standaloneSetup(new CDDataController(null, null, service))
                 .build();
 
-        assertMissingPeriodRejected(mvc, "/cddata/v1.0/year-week");
+        assertMissingCDDataPeriodRejected(mvc);
         assertEquals(0, service.calls);
     }
 
@@ -113,6 +113,13 @@ class TargetDataDeletionControllerTest {
         mvc.perform(delete(url).param("year", "2026"))
                 .andExpect(status().isBadRequest());
         mvc.perform(delete(url).param("week", "2"))
+                .andExpect(status().isBadRequest());
+    }
+
+    private static void assertMissingCDDataPeriodRejected(MockMvc mvc) throws Exception {
+        mvc.perform(delete("/cddata/v1.0/god-sezon").param("god", "2026"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(delete("/cddata/v1.0/god-sezon").param("sezon", "2"))
                 .andExpect(status().isBadRequest());
     }
 

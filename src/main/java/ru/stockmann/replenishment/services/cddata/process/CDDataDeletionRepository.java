@@ -6,7 +6,7 @@ import java.sql.SQLException;
 
 public class CDDataDeletionRepository {
 
-    public int deleteByPeriod(Connection connection, int year, int week) {
+    public int deleteByPeriod(Connection connection, int god, int sezon) {
         String sql = """
                 DELETE FROM dbo.CD_data
                 WHERE god = ?
@@ -14,8 +14,8 @@ public class CDDataDeletionRepository {
                 """;
 
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setInt(1, year);
-            ps.setInt(2, week);
+            ps.setInt(1, god);
+            ps.setInt(2, sezon);
             return ps.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to delete CD_data rows by period", e);

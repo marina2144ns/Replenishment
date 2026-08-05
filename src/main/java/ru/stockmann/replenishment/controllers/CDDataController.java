@@ -56,15 +56,15 @@ public class CDDataController {
         return new ResponseEntity<>(result, status);
     }
 
-    @DeleteMapping("/year-week")
+    @DeleteMapping("/god-sezon")
     public ResponseEntity<?> deleteByPeriod(
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer week
+            @RequestParam(required = false) Integer god,
+            @RequestParam(required = false) Integer sezon
     ) {
-        if (year == null || week == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "year and week are required"));
+        if (god == null || sezon == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "god and sezon are required"));
         }
-        return ResponseEntity.ok(deletionService.deleteByPeriod(year, week));
+        return ResponseEntity.ok(deletionService.deleteByPeriod(god, sezon));
     }
 
     @DeleteMapping("/session")

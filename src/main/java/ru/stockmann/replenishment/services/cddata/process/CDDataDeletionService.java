@@ -29,10 +29,10 @@ public class CDDataDeletionService {
         this.sessionRepository = sessionRepository;
     }
 
-    public DWHDataDeleteResult deleteByPeriod(int year, int week) {
+    public DWHDataDeleteResult deleteByPeriod(int god, int sezon) {
         return delete(
-                DWHDeletionSession.byPeriod(DWHExcelLoadType.CD_DATA, year, week),
-                connection -> repository.deleteByPeriod(connection, year, week)
+                DWHDeletionSession.byPeriod(DWHExcelLoadType.CD_DATA, god, sezon),
+                connection -> repository.deleteByPeriod(connection, god, sezon)
         );
     }
 
