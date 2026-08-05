@@ -17,7 +17,7 @@ import static ru.stockmann.replenishment.services.dwhexcelload.schema.DWHSchemaT
 class WeeklyDataStageSchemaContractTest {
 
     private static final String WEEKLY_DDL = "src/main/db/tables/Weekly_data_ddl.sql";
-    private static final String USERS_DDL = "src/main/db/tables/Users.sql";
+    private static final String USERS_DDL = "src/main/db/tables/Users.example.sql";
     private static final String STAGE_REPOSITORY =
             "src/main/java/ru/stockmann/replenishment/services/weeklydata/process/WeeklyDataStageRepository.java";
     private static final String STAGE_TABLE = "dbo.Weekly_data_stage";

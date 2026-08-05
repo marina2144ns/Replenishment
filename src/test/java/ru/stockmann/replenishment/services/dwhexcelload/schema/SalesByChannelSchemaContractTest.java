@@ -22,7 +22,7 @@ class SalesByChannelSchemaContractTest {
     private static final String RAW = "dbo.SalesByChannel_raw";
     private static final String STAGE = "dbo.SalesByChannel_stage";
     private static final String TARGET = "dbo.SalesByChannel";
-    private static final String USERS_DDL = "src/main/db/tables/Users.sql";
+    private static final String USERS_DDL = "src/main/db/tables/Users.example.sql";
 
     private static final List<String> BUSINESS_COLUMNS = List.of(
             "seasonyear", "season6m", "yearmonth", "yearseason", "year", "month",

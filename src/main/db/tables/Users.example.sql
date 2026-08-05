@@ -14,7 +14,7 @@ IF NOT EXISTS (
     )
     BEGIN
         CREATE LOGIN [Repl_Service]
-            WITH PASSWORD = 'kD0rNQsPDAq3qHjus2PkB061INnuF7iaZPhvy3p/xUX3vCkb';
+            WITH PASSWORD = '<REPL_SERVICE_PASSWORD>';
     END;
 GO
 
@@ -26,7 +26,7 @@ IF NOT EXISTS (
     )
     BEGIN
         CREATE LOGIN [ReplenishmentREAD]
-            WITH PASSWORD = '9W_G94wLpU';
+            WITH PASSWORD = '<REPLENISHMENT_READ_PASSWORD>';
     END;
 GO
 
@@ -42,7 +42,7 @@ IF NOT EXISTS (
     )
     BEGIN
         CREATE LOGIN [repl]
-            WITH PASSWORD = '333', CHECK_POLICY = OFF;
+            WITH PASSWORD = '<REPL_PASSWORD>', CHECK_POLICY = OFF;
     END;
 GO
 

@@ -18,7 +18,7 @@ import static ru.stockmann.replenishment.services.dwhexcelload.schema.DWHSchemaT
 class CDDataStageSchemaContractTest {
 
     private static final String CD_DATA_DDL = "src/main/db/tables/CDdata_ddl.sql";
-    private static final String USERS_DDL = "src/main/db/tables/Users.sql";
+    private static final String USERS_DDL = "src/main/db/tables/Users.example.sql";
     private static final String TARGET_TABLE = "dbo.CD_data";
     private static final String STAGE_TABLE = "dbo.CD_data_stage";
     private static final String STAGE_REPOSITORY =

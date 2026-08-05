@@ -48,7 +48,7 @@ class DWHLegacySqlCleanupTest {
 
     @Test
     void usersScriptKeepsWeeklyAndCdDataProcedureGrantsButRemovesCdecomProcedureGrant() throws Exception {
-        String users = normalizeSql(read("src/main/db/tables/Users.sql"));
+        String users = normalizeSql(read("src/main/db/tables/Users.example.sql"));
 
         assertTrue(users.contains("grant execute on object::dbo.usp_weeklydata_processloadsession"));
         assertTrue(users.contains("grant execute on object::dbo.usp_cddata_processloadsession"));
@@ -62,7 +62,7 @@ class DWHLegacySqlCleanupTest {
 
     @Test
     void replenishmentReadIsProjectWideReadOnlyAndKeepsShowplan() throws Exception {
-        String users = normalizeSql(read("src/main/db/tables/Users.sql"));
+        String users = normalizeSql(read("src/main/db/tables/Users.example.sql"));
 
         assertTrue(users.contains("grant select on schema::dbo to replenishmentread"));
         assertTrue(users.contains("grant showplan to replenishmentread"));
@@ -78,7 +78,7 @@ class DWHLegacySqlCleanupTest {
 
     @Test
     void retiredReplenishmentReaderIsRemoved() throws Exception {
-        String users = normalizeSql(read("src/main/db/tables/Users.sql"));
+        String users = normalizeSql(read("src/main/db/tables/Users.example.sql"));
 
         assertFalse(users.contains("create login replenishment_reader"));
         assertFalse(users.contains("create user replenishment_reader"));
@@ -89,7 +89,7 @@ class DWHLegacySqlCleanupTest {
 
     @Test
     void replCanReadOnlyReadyServiceTargetTables() throws Exception {
-        String users = normalizeSql(read("src/main/db/tables/Users.sql"));
+        String users = normalizeSql(read("src/main/db/tables/Users.example.sql"));
 
         for (String target : Set.of("weekly_data", "cd_data", "cd_ecom", "salesbychannel")) {
             assertTrue(users.contains("grant select on object::dbo." + target + " to repl"), target);

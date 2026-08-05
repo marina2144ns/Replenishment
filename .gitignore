@@ -46,3 +46,7 @@ Thumbs.db
 
 # Env
 .env
+
+# Local database users and credentials
+/src/main/db/tables/Users.sql
+/src/main/resources/application.properties
