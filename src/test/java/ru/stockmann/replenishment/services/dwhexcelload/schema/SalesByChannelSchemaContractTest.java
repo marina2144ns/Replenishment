@@ -178,20 +178,19 @@ class SalesByChannelSchemaContractTest {
                 grantedPermissions(permissions, "salesbychannel"));
 
         assertFalse(Pattern.compile(
-                "grant .*? on schema::dbo to replenishmentread"
+                "grant .*? on schema::dbo to repl_service"
         ).matcher(permissions).find());
     }
 
     private static Set<String> grantedPermissions(String sql, String objectName) {
         Pattern grant = Pattern.compile(
                 "grant ([a-z]+(?:\\s*,\\s*[a-z]+)*) on object::dbo\\."
-                        + Pattern.quote(objectName) + " to ([a-z0-9_]+)"
+                        + Pattern.quote(objectName) + " to repl_service"
         );
         Matcher matcher = grant.matcher(sql);
-        assertTrue(matcher.find(), "GRANT not found for dbo." + objectName);
+        assertTrue(matcher.find(), "Repl_Service GRANT not found for dbo." + objectName);
         String grantedPermissions = matcher.group(1);
-        assertEquals("replenishmentread", matcher.group(2), objectName);
-        assertFalse(matcher.find(), "Multiple GRANT statements found for dbo." + objectName);
+        assertFalse(matcher.find(), "Multiple Repl_Service GRANT statements found for dbo." + objectName);
         return java.util.Arrays.stream(grantedPermissions.split(","))
                 .map(String::trim)
                 .collect(java.util.stream.Collectors.toSet());

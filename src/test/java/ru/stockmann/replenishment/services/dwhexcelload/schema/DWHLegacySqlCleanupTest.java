@@ -61,6 +61,52 @@ class DWHLegacySqlCleanupTest {
     }
 
     @Test
+    void replenishmentReadIsProjectWideReadOnlyAndKeepsShowplan() throws Exception {
+        String users = normalizeSql(read("src/main/db/tables/Users.sql"));
+
+        assertTrue(users.contains("grant select on schema::dbo to replenishmentread"));
+        assertTrue(users.contains("grant showplan to replenishmentread"));
+        assertTrue(users.contains(
+                "revoke administer bulk operations to replenishmentread"));
+        assertTrue(users.contains(
+                "revoke select, insert, update, delete on object::dbo.weekly_data from replenishmentread"));
+        assertFalse(users.contains(
+                "grant select, insert, update, delete on object::dbo.weekly_data to replenishmentread"));
+        assertFalse(users.contains(
+                "grant execute on object::dbo.usp_weeklydata_processloadsession to replenishmentread"));
+    }
+
+    @Test
+    void retiredReplenishmentReaderIsRemoved() throws Exception {
+        String users = normalizeSql(read("src/main/db/tables/Users.sql"));
+
+        assertFalse(users.contains("create login replenishment_reader"));
+        assertFalse(users.contains("create user replenishment_reader"));
+        assertFalse(users.contains("grant select on object::dbo.weekly_data to replenishment_reader"));
+        assertTrue(users.contains("drop user if exists replenishment_reader"));
+        assertTrue(users.contains("drop login if exists replenishment_reader"));
+    }
+
+    @Test
+    void replCanReadOnlyReadyServiceTargetTables() throws Exception {
+        String users = normalizeSql(read("src/main/db/tables/Users.sql"));
+
+        for (String target : Set.of("weekly_data", "cd_data", "cd_ecom", "salesbychannel")) {
+            assertTrue(users.contains("grant select on object::dbo." + target + " to repl"), target);
+        }
+
+        for (String excluded : Set.of(
+                "abcdata",
+                "storeturnover",
+                "dwh_excel_load_session",
+                "dwh_excel_load_error"
+        )) {
+            assertFalse(users.contains("grant select on object::dbo." + excluded + " to repl"), excluded);
+            assertTrue(users.contains("revoke select on object::dbo." + excluded + " from repl"), excluded);
+        }
+    }
+
+    @Test
     void cleanupMigrationIsNotNeededForCdecomLegacyTables() {
         assertFalse(Files.exists(Path.of("src/main/db/tables/DWH_excel_legacy_cleanup_post_verification.sql")));
     }

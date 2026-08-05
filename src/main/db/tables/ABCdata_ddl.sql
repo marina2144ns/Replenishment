@@ -185,11 +185,11 @@ GO
 
 
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.ABCData_STG TO ReplenishmentREAD;
-GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.ABCData     TO ReplenishmentREAD;
+GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.ABCData_STG TO Repl_Service;
+GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.ABCData     TO Repl_Service;
 
 -- Для TRUNCATE нужно ALTER на таблицу или быть db_owner.
-GRANT ALTER ON OBJECT::dbo.ABCData_STG TO ReplenishmentREAD;
+GRANT ALTER ON OBJECT::dbo.ABCData_STG TO Repl_Service;
 
 -- Для выполнения процедуры MERGE (если используешь usp_ABCData_Merge):
-GRANT EXECUTE ON dbo.usp_ABCData_Merge TO ReplenishmentREAD;
+GRANT EXECUTE ON dbo.usp_ABCData_Merge TO Repl_Service;

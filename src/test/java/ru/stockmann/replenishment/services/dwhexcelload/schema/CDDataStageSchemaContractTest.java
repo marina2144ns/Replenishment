@@ -198,13 +198,13 @@ class CDDataStageSchemaContractTest {
 
         assertTrue(permissions.contains(
                 "grant select, insert, update, delete "
-                        + "on object::dbo.cd_data_stage to replenishmentread"
+                        + "on object::dbo.cd_data_stage to repl_service"
         ));
         assertFalse(permissions.contains(
-                "grant alter on object::dbo.cd_data_stage to replenishmentread"
+                "grant alter on object::dbo.cd_data_stage to repl_service"
         ));
         assertFalse(permissions.contains(
-                "grant control on object::dbo.cd_data_stage to replenishmentread"
+                "grant control on object::dbo.cd_data_stage to repl_service"
         ));
     }
 
