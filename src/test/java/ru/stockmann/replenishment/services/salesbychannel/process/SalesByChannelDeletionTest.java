@@ -53,32 +53,56 @@ class SalesByChannelDeletionTest {
     }
 
     @Test
-    void yearMonthDeletionCreatesTypedAuditSessionWithExactCount() {
+    void textualYearMonthDeletionCreatesLosslessAuditSessionWithExactCount() {
         Transaction transaction = new Transaction();
         Sessions sessions = new Sessions(9001L);
         SalesByChannelDeletionRepository deletion = new SalesByChannelDeletionRepository() {
             @Override
             public int deleteByYearAndMonth(Connection connection, String year, String month) {
-                assertEquals("2026", year);
-                assertEquals("7", month);
+                assertEquals("FY2025", year);
+                assertEquals("April", month);
                 return 1250;
             }
         };
 
         DWHDataDeleteResult result = new SalesByChannelDeletionService(
                 transaction.dataSource(), deletion, sessions
-        ).deleteByYearAndMonth("2026", "7");
+        ).deleteByYearAndMonth("FY2025", "April");
 
         assertEquals(1250, result.deletedRows());
         assertEquals(DWHExcelLoadType.SALES_BY_CHANNEL, sessions.created.loadType());
         assertEquals(DWHDeletionOperationMode.BY_PERIOD, sessions.created.operationMode());
-        assertEquals(2026, sessions.created.deleteYear());
-        assertEquals(7, sessions.created.deleteMonth());
+        assertNull(sessions.created.deleteYear());
+        assertNull(sessions.created.deleteMonth());
         assertNull(sessions.created.deleteWeek());
+        assertEquals("FY2025", sessions.created.deleteYearText());
+        assertEquals("April", sessions.created.deleteMonthText());
         assertNull(sessions.created.sourceLoadSessionId());
         assertEquals(9001L, sessions.completedSessionId);
         assertEquals(1250, sessions.deletedRows);
         assertTrue(transaction.committed);
+    }
+
+    @Test
+    void leadingZeroMonthIsPreservedForAuditAndRepository() {
+        Transaction transaction = new Transaction();
+        Sessions sessions = new Sessions(9004L);
+        SalesByChannelDeletionRepository deletion = new SalesByChannelDeletionRepository() {
+            @Override
+            public int deleteByYearAndMonth(Connection connection, String year, String month) {
+                assertEquals("2026", year);
+                assertEquals("08", month);
+                return 1;
+            }
+        };
+
+        new SalesByChannelDeletionService(transaction.dataSource(), deletion, sessions)
+                .deleteByYearAndMonth("2026", "08");
+
+        assertEquals("2026", sessions.created.deleteYearText());
+        assertEquals("08", sessions.created.deleteMonthText());
+        assertNull(sessions.created.deleteYear());
+        assertNull(sessions.created.deleteMonth());
     }
 
     @Test

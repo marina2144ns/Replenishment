@@ -54,7 +54,11 @@ class SalesByChannelExcelLoadDefinitionTest {
             assertEquals(DWHExcelValueKind.TEXT, column.valueKind());
             assertEquals(4000, column.rawMaxLength());
             assertEquals(DWHExcelNullHandling.KEEP_NULL, column.nullHandling());
-            assertEquals(false, column.required());
+            assertEquals(
+                    "year".equals(column.rawColumnName()) || "month".equals(column.rawColumnName()),
+                    column.required(),
+                    column.rawColumnName()
+            );
         });
     }
 }

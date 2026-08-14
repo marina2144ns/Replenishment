@@ -84,14 +84,6 @@ public class SalesByChannelController {
                     Map.of("error", "year and month must not be blank or longer than 50 characters")
             );
         }
-        try {
-            Integer.parseInt(year);
-            Integer.parseInt(month);
-        } catch (NumberFormatException e) {
-            return ResponseEntity.badRequest().body(
-                    Map.of("error", "year and month must be integers")
-            );
-        }
         return ResponseEntity.ok(deletionService.deleteByYearAndMonth(year, month));
     }
 }

@@ -27,6 +27,8 @@ public class DWHDeletionSessionRepository {
                     DeleteYear,
                     DeleteWeek,
                     DeleteMonth,
+                    DeleteYearText,
+                    DeleteMonthText,
                     SourceLoadSessionId,
                     DeleteCriterion,
                     DeleteParameter1Name,
@@ -36,7 +38,7 @@ public class DWHDeletionSessionRepository {
                     Status
                 )
                 OUTPUT INSERTED.Id
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         try (Connection connection = dataSource.getConnection();
@@ -48,13 +50,15 @@ public class DWHDeletionSessionRepository {
             setNullableInteger(ps, 5, session.deleteYear());
             setNullableInteger(ps, 6, session.deleteWeek());
             setNullableInteger(ps, 7, session.deleteMonth());
-            setNullableLong(ps, 8, session.sourceLoadSessionId());
-            setNullableString(ps, 9, session.deleteCriterion());
-            setNullableString(ps, 10, session.deleteParameter1Name());
-            setNullableString(ps, 11, session.deleteParameter1Value());
-            setNullableString(ps, 12, session.deleteParameter2Name());
-            setNullableString(ps, 13, session.deleteParameter2Value());
-            ps.setString(14, DWHExcelLoadStatus.RUNNING.name());
+            setNullableString(ps, 8, session.deleteYearText());
+            setNullableString(ps, 9, session.deleteMonthText());
+            setNullableLong(ps, 10, session.sourceLoadSessionId());
+            setNullableString(ps, 11, session.deleteCriterion());
+            setNullableString(ps, 12, session.deleteParameter1Name());
+            setNullableString(ps, 13, session.deleteParameter1Value());
+            setNullableString(ps, 14, session.deleteParameter2Name());
+            setNullableString(ps, 15, session.deleteParameter2Value());
+            ps.setString(16, DWHExcelLoadStatus.RUNNING.name());
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {

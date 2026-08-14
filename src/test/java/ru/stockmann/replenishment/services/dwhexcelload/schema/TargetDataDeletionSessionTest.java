@@ -171,7 +171,7 @@ class TargetDataDeletionSessionTest {
     }
 
     @Test
-    void salesYearMonthDeleteRecordsTypedAuditValuesAndExactCount() {
+    void salesYearMonthDeleteRecordsLosslessTextAuditValuesAndExactCount() {
         Transaction transaction = new Transaction();
         RecordingSessionRepository sessions = new RecordingSessionRepository(9012L);
         SalesByChannelDeletionRepository deletion = new SalesByChannelDeletionRepository() {
@@ -186,9 +186,11 @@ class TargetDataDeletionSessionTest {
         assertEquals(4, result.deletedRows());
         assertEquals(DWHExcelLoadType.SALES_BY_CHANNEL, sessions.created.loadType());
         assertEquals(DWHDeletionOperationMode.BY_PERIOD, sessions.created.operationMode());
-        assertEquals(2026, sessions.created.deleteYear());
-        assertEquals(8, sessions.created.deleteMonth());
+        assertNull(sessions.created.deleteYear());
+        assertNull(sessions.created.deleteMonth());
         assertNull(sessions.created.deleteWeek());
+        assertEquals("2026", sessions.created.deleteYearText());
+        assertEquals("08", sessions.created.deleteMonthText());
         assertNull(sessions.created.sourceLoadSessionId());
         assertEquals(4, sessions.deletedRows);
         assertTrue(transaction.committed);

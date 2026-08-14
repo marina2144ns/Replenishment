@@ -50,9 +50,9 @@ class SalesByChannelControllerTest {
                 new SalesByChannelController(null, null, deletion);
 
         assertEquals(new DWHDataDeleteResult(12), controller.deleteByYearAndMonth(
-                Map.of("year", "2026", "month", "7")).getBody());
-        assertEquals("2026", deletion.year);
-        assertEquals("7", deletion.month);
+                Map.of("year", "FY2025", "month", "April")).getBody());
+        assertEquals("FY2025", deletion.year);
+        assertEquals("April", deletion.month);
 
         assertEquals(new DWHDataDeleteResult(7),
                 controller.deleteByLoadSessionId(10521L).getBody());

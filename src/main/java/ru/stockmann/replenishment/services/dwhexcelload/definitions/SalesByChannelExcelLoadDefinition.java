@@ -51,8 +51,8 @@ public class SalesByChannelExcelLoadDefinition implements DWHExcelLoadDefinition
                 text(1, "Сезон (6м)", "season6m"),
                 text(2, "Year_month", "yearMonth"),
                 text(3, "Year_сезон", "yearSeason"),
-                text(4, "Year", "year"),
-                text(5, "Month", "month"),
+                requiredText(4, "Year", "year"),
+                requiredText(5, "Month", "month"),
                 text(6, "Sales Channel type", "salesChannelType"),
                 text(7, "StoreRUS", "storeRus"),
                 text(8, "TypeOfSales", "typeOfSales"),
@@ -80,13 +80,26 @@ public class SalesByChannelExcelLoadDefinition implements DWHExcelLoadDefinition
     }
 
     private static DWHExcelColumnSpec text(int index, String excelHeader, String rawColumn) {
+        return text(index, excelHeader, rawColumn, false);
+    }
+
+    private static DWHExcelColumnSpec requiredText(int index, String excelHeader, String rawColumn) {
+        return text(index, excelHeader, rawColumn, true);
+    }
+
+    private static DWHExcelColumnSpec text(
+            int index,
+            String excelHeader,
+            String rawColumn,
+            boolean required
+    ) {
         return DWHExcelColumns.text(
                 index,
                 excelHeader,
                 rawColumn,
                 rawColumn,
                 RAW_TEXT_LENGTH,
-                false,
+                required,
                 DWHExcelNullHandling.KEEP_NULL
         );
     }

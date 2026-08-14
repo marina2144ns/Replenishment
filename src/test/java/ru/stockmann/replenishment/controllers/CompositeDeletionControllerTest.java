@@ -60,6 +60,12 @@ class CompositeDeletionControllerTest {
         assertEquals("2026", service.year);
         assertEquals("08", service.month);
 
+        mvc.perform(delete("/salesbychannel/v1.0/year-month")
+                        .param("year", "FY2025").param("month", "April"))
+                .andExpect(status().isOk());
+        assertEquals("FY2025", service.year);
+        assertEquals("April", service.month);
+
         mvc.perform(delete("/salesbychannel/v1.0/year-month").param("year", "2026"))
                 .andExpect(status().isBadRequest());
         mvc.perform(delete("/salesbychannel/v1.0/year-month").param("month", "08"))
@@ -69,14 +75,14 @@ class CompositeDeletionControllerTest {
                 .andExpect(status().isBadRequest());
         mvc.perform(delete("/salesbychannel/v1.0/year-month")
                         .param("year", "2026").param("month", "week-31"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk());
         mvc.perform(delete("/salesbychannel/v1.0/year-month")
                         .param("year", "2026").param("month", "08").param("week", "31"))
                 .andExpect(status().isBadRequest());
         mvc.perform(delete("/salesbychannel/v1.0/year-week")
                         .param("year", "2026").param("week", "31"))
                 .andExpect(status().isNotFound());
-        assertEquals(1, service.calls);
+        assertEquals(3, service.calls);
     }
 
     private static void assertInvalidCDRequests(MockMvc mvc, String url) throws Exception {

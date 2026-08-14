@@ -16,6 +16,8 @@ CREATE TABLE dbo.DWH_Excel_Load_Session
     DeleteYear      INT NULL,
     DeleteWeek      INT NULL,
     DeleteMonth     INT NULL,
+    DeleteYearText  NVARCHAR(50) NULL,
+    DeleteMonthText NVARCHAR(50) NULL,
     SourceLoadSessionId BIGINT NULL,
     DeleteCriterion NVARCHAR(50) NULL,
     DeleteParameter1Name NVARCHAR(50) NULL,

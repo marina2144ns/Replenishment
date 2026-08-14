@@ -50,21 +50,13 @@ public class SalesByChannelDeletionService {
         requireMaxLength(year, "year", 50);
         requireMaxLength(month, "month", 50);
         return delete(
-                DWHDeletionSession.byYearAndMonth(
+                DWHDeletionSession.byTextYearAndMonth(
                         DWHExcelLoadType.SALES_BY_CHANNEL,
-                        parseInteger(year, "year"),
-                        parseInteger(month, "month")
+                        year,
+                        month
                 ),
                 connection -> repository.deleteByYearAndMonth(connection, year, month)
         );
-    }
-
-    private int parseInteger(String value, String name) {
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(name + " must be an integer", e);
-        }
     }
 
     private void requireText(String value, String name) {
