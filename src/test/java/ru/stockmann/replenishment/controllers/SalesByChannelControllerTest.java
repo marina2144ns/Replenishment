@@ -16,6 +16,8 @@ import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannel
 import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannelDeletionService;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDataDeleteResult;
 
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
@@ -31,13 +33,13 @@ class SalesByChannelControllerTest {
         assertEquals("/salesbychannel/v1.0", classMapping.value()[0]);
         assertEquals("/bulk", methodMapping.value()[0]);
 
-        DeleteMapping period = SalesByChannelController.class
-                .getDeclaredMethod("deleteByPeriod", Integer.class, Integer.class)
+        DeleteMapping yearMonth = SalesByChannelController.class
+                .getDeclaredMethod("deleteByYearAndMonth", Map.class)
                 .getAnnotation(DeleteMapping.class);
         DeleteMapping loadSession = SalesByChannelController.class
                 .getDeclaredMethod("deleteByLoadSessionId", Long.class)
                 .getAnnotation(DeleteMapping.class);
-        assertEquals("/year-week", period.value()[0]);
+        assertEquals("/year-month", yearMonth.value()[0]);
         assertEquals("/session", loadSession.value()[0]);
     }
 
@@ -47,17 +49,15 @@ class SalesByChannelControllerTest {
         SalesByChannelController controller =
                 new SalesByChannelController(null, null, deletion);
 
-        assertEquals(new DWHDataDeleteResult(12),
-                controller.deleteByPeriod(2026, 31).getBody());
-        assertEquals(2026, deletion.year);
-        assertEquals(31, deletion.week);
+        assertEquals(new DWHDataDeleteResult(12), controller.deleteByYearAndMonth(
+                Map.of("year", "2026", "month", "7")).getBody());
+        assertEquals("2026", deletion.year);
+        assertEquals("7", deletion.month);
 
         assertEquals(new DWHDataDeleteResult(7),
                 controller.deleteByLoadSessionId(10521L).getBody());
         assertEquals(10521L, deletion.loadSessionId);
 
-        assertEquals(400, controller.deleteByPeriod(null, 31).getStatusCode().value());
-        assertEquals(400, controller.deleteByPeriod(2026, null).getStatusCode().value());
         assertEquals(400, controller.deleteByLoadSessionId(0L).getStatusCode().value());
     }
 
@@ -132,8 +132,8 @@ class SalesByChannelControllerTest {
     }
 
     private static final class FakeDeletionService extends SalesByChannelDeletionService {
-        private int year;
-        private int week;
+        private String year;
+        private String month;
         private long loadSessionId;
 
         private FakeDeletionService() {
@@ -141,9 +141,9 @@ class SalesByChannelControllerTest {
         }
 
         @Override
-        public DWHDataDeleteResult deleteByPeriod(int year, int week) {
+        public DWHDataDeleteResult deleteByYearAndMonth(String year, String month) {
             this.year = year;
-            this.week = week;
+            this.month = month;
             return new DWHDataDeleteResult(12);
         }
 

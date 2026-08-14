@@ -27,7 +27,7 @@ class SalesByChannelDeletionTest {
         Jdbc jdbc = new Jdbc(12);
 
         int deleted = new SalesByChannelDeletionRepository()
-                .deleteByPeriod(jdbc.connection(), 2026, 31);
+                .deleteByYearAndMonth(jdbc.connection(), "2026", "7");
 
         assertEquals(12, deleted);
         assertTrue(jdbc.sql.contains("DELETE FROM dbo.SalesByChannel"));
@@ -36,7 +36,7 @@ class SalesByChannelDeletionTest {
         assertFalse(jdbc.sql.contains("SalesByChannel_raw"));
         assertFalse(jdbc.sql.contains("SalesByChannel_stage"));
         assertFalse(jdbc.sql.contains("DWH_Excel_Load_Error"));
-        assertEquals(List.of("setString:1:2026", "setString:2:31"), jdbc.calls);
+        assertEquals(List.of("setString:1:2026", "setString:2:7"), jdbc.calls);
     }
 
     @Test
@@ -53,27 +53,28 @@ class SalesByChannelDeletionTest {
     }
 
     @Test
-    void periodDeletionCreatesIndependentSuccessfulSessionWithExactCount() {
+    void yearMonthDeletionCreatesTypedAuditSessionWithExactCount() {
         Transaction transaction = new Transaction();
         Sessions sessions = new Sessions(9001L);
         SalesByChannelDeletionRepository deletion = new SalesByChannelDeletionRepository() {
             @Override
-            public int deleteByPeriod(Connection connection, int year, int week) {
-                assertEquals(2026, year);
-                assertEquals(31, week);
+            public int deleteByYearAndMonth(Connection connection, String year, String month) {
+                assertEquals("2026", year);
+                assertEquals("7", month);
                 return 1250;
             }
         };
 
         DWHDataDeleteResult result = new SalesByChannelDeletionService(
                 transaction.dataSource(), deletion, sessions
-        ).deleteByPeriod(2026, 31);
+        ).deleteByYearAndMonth("2026", "7");
 
         assertEquals(1250, result.deletedRows());
         assertEquals(DWHExcelLoadType.SALES_BY_CHANNEL, sessions.created.loadType());
         assertEquals(DWHDeletionOperationMode.BY_PERIOD, sessions.created.operationMode());
         assertEquals(2026, sessions.created.deleteYear());
-        assertEquals(31, sessions.created.deleteWeek());
+        assertEquals(7, sessions.created.deleteMonth());
+        assertNull(sessions.created.deleteWeek());
         assertNull(sessions.created.sourceLoadSessionId());
         assertEquals(9001L, sessions.completedSessionId);
         assertEquals(1250, sessions.deletedRows);
@@ -107,19 +108,19 @@ class SalesByChannelDeletionTest {
     }
 
     @Test
-    void failedDeletionRollsBackAndFinishesNewSessionAsError() {
+    void failedYearMonthDeletionRollsBackAndFinishesNewSessionAsError() {
         Transaction transaction = new Transaction();
         Sessions sessions = new Sessions(9003L);
         SalesByChannelDeletionRepository deletion = new SalesByChannelDeletionRepository() {
             @Override
-            public int deleteByPeriod(Connection connection, int year, int week) {
+            public int deleteByYearAndMonth(Connection connection, String year, String month) {
                 throw new RuntimeException("delete failed");
             }
         };
 
         RuntimeException failure = assertThrows(RuntimeException.class, () ->
                 new SalesByChannelDeletionService(transaction.dataSource(), deletion, sessions)
-                        .deleteByPeriod(2026, 31)
+                        .deleteByYearAndMonth("2026", "7")
         );
 
         assertEquals("delete failed", failure.getMessage());

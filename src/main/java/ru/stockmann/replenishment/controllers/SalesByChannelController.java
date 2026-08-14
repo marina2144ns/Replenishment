@@ -58,17 +58,6 @@ public class SalesByChannelController {
         return new ResponseEntity<>(result, status);
     }
 
-    @DeleteMapping("/year-week")
-    public ResponseEntity<?> deleteByPeriod(
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer week
-    ) {
-        if (year == null || week == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "year and week are required"));
-        }
-        return ResponseEntity.ok(deletionService.deleteByPeriod(year, week));
-    }
-
     @DeleteMapping("/session")
     public ResponseEntity<?> deleteByLoadSessionId(@RequestParam Long loadSessionId) {
         if (loadSessionId == null || loadSessionId <= 0) {
@@ -93,6 +82,14 @@ public class SalesByChannelController {
                 || month == null || month.isBlank() || month.length() > 50) {
             return ResponseEntity.badRequest().body(
                     Map.of("error", "year and month must not be blank or longer than 50 characters")
+            );
+        }
+        try {
+            Integer.parseInt(year);
+            Integer.parseInt(month);
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("error", "year and month must be integers")
             );
         }
         return ResponseEntity.ok(deletionService.deleteByYearAndMonth(year, month));

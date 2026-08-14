@@ -47,6 +47,7 @@ class TargetDataDeletionSessionTest {
         assertEquals(DWHDeletionOperationMode.BY_PERIOD, sessions.created.operationMode());
         assertEquals(2026, sessions.created.deleteYear());
         assertEquals(31, sessions.created.deleteWeek());
+        assertNull(sessions.created.deleteMonth());
         assertNull(sessions.created.sourceLoadSessionId());
         assertEquals(9001L, sessions.completedSessionId);
         assertEquals(1250, sessions.deletedRows);
@@ -76,6 +77,7 @@ class TargetDataDeletionSessionTest {
         assertEquals(DWHDeletionOperationMode.BY_LOAD_SESSION, sessions.created.operationMode());
         assertNull(sessions.created.deleteYear());
         assertNull(sessions.created.deleteWeek());
+        assertNull(sessions.created.deleteMonth());
         assertEquals(sourceLoadSessionId, sessions.created.sourceLoadSessionId());
         assertEquals(deletionSessionId, sessions.completedSessionId);
         assertTrue(deletionSessionId != sourceLoadSessionId);
@@ -169,7 +171,7 @@ class TargetDataDeletionSessionTest {
     }
 
     @Test
-    void salesCriteriaDeleteRecordsBothStringValuesAndExactCount() {
+    void salesYearMonthDeleteRecordsTypedAuditValuesAndExactCount() {
         Transaction transaction = new Transaction();
         RecordingSessionRepository sessions = new RecordingSessionRepository(9012L);
         SalesByChannelDeletionRepository deletion = new SalesByChannelDeletionRepository() {
@@ -182,8 +184,12 @@ class TargetDataDeletionSessionTest {
                 transaction.dataSource(), deletion, sessions).deleteByYearAndMonth("2026", "08");
 
         assertEquals(4, result.deletedRows());
-        assertCriteria(sessions.created, DWHExcelLoadType.SALES_BY_CHANNEL,
-                "YEAR_MONTH", "year", "2026", "month", "08");
+        assertEquals(DWHExcelLoadType.SALES_BY_CHANNEL, sessions.created.loadType());
+        assertEquals(DWHDeletionOperationMode.BY_PERIOD, sessions.created.operationMode());
+        assertEquals(2026, sessions.created.deleteYear());
+        assertEquals(8, sessions.created.deleteMonth());
+        assertNull(sessions.created.deleteWeek());
+        assertNull(sessions.created.sourceLoadSessionId());
         assertEquals(4, sessions.deletedRows);
         assertTrue(transaction.committed);
     }
@@ -220,6 +226,7 @@ class TargetDataDeletionSessionTest {
         assertEquals(value2, session.deleteParameter2Value());
         assertNull(session.deleteYear());
         assertNull(session.deleteWeek());
+        assertNull(session.deleteMonth());
         assertNull(session.sourceLoadSessionId());
     }
 

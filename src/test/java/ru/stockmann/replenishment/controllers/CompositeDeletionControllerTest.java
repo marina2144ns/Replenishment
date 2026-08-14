@@ -68,8 +68,14 @@ class CompositeDeletionControllerTest {
                         .param("year", " ").param("month", "08"))
                 .andExpect(status().isBadRequest());
         mvc.perform(delete("/salesbychannel/v1.0/year-month")
+                        .param("year", "2026").param("month", "week-31"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(delete("/salesbychannel/v1.0/year-month")
                         .param("year", "2026").param("month", "08").param("week", "31"))
                 .andExpect(status().isBadRequest());
+        mvc.perform(delete("/salesbychannel/v1.0/year-week")
+                        .param("year", "2026").param("week", "31"))
+                .andExpect(status().isNotFound());
         assertEquals(1, service.calls);
     }
 

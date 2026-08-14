@@ -32,15 +32,6 @@ public class SalesByChannelDeletionService {
         this.sessionRepository = sessionRepository;
     }
 
-    public DWHDataDeleteResult deleteByPeriod(int year, int week) {
-        return delete(
-                DWHDeletionSession.byPeriod(
-                        DWHExcelLoadType.SALES_BY_CHANNEL, year, week
-                ),
-                connection -> repository.deleteByPeriod(connection, year, week)
-        );
-    }
-
     public DWHDataDeleteResult deleteByLoadSessionId(long loadSessionId) {
         if (loadSessionId <= 0) {
             throw new IllegalArgumentException("loadSessionId must be positive");
@@ -59,10 +50,21 @@ public class SalesByChannelDeletionService {
         requireMaxLength(year, "year", 50);
         requireMaxLength(month, "month", 50);
         return delete(
-                DWHDeletionSession.byCriteria(DWHExcelLoadType.SALES_BY_CHANNEL,
-                        "YEAR_MONTH", "year", year, "month", month),
+                DWHDeletionSession.byYearAndMonth(
+                        DWHExcelLoadType.SALES_BY_CHANNEL,
+                        parseInteger(year, "year"),
+                        parseInteger(month, "month")
+                ),
                 connection -> repository.deleteByYearAndMonth(connection, year, month)
         );
+    }
+
+    private int parseInteger(String value, String name) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(name + " must be an integer", e);
+        }
     }
 
     private void requireText(String value, String name) {
