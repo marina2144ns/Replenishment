@@ -16,11 +16,40 @@ class CDDataValidatorTest {
     private final CDDataValidator validator = new CDDataValidator();
 
     @Test
-    void fullyEmptyRowIsValid() {
+    void fullyEmptyRowIsInvalid() {
         CDDataValidationResult result = validator.validate(emptyRow());
 
-        assertTrue(result.valid());
-        assertTrue(result.errors().isEmpty());
+        assertEquals(List.of("god", "sezon", "den", "nazvanie"),
+                result.errors().stream().map(CDDataValidationError::fieldName).toList());
+        assertTrue(result.errors().stream()
+                .allMatch(error -> "REQUIRED_FIELD_EMPTY".equals(error.errorCode())));
+        assertTrue(validator.validateAndMap(emptyRow()).stageRow() == null);
+    }
+
+    @Test
+    void requiredIntegersRejectNullBlankWhitespaceSpecialNullAndInvalidValues() {
+        for (String field : List.of("god", "sezon", "den")) {
+            for (String value : new String[]{null, "", " ", "   ", "N/A", "NULL", "-"}) {
+                CDDataValidationResult result = validator.validate(requiredInteger(field, value));
+                assertSingleError(result, field, "REQUIRED_FIELD_EMPTY");
+            }
+
+            assertSingleError(validator.validate(requiredInteger(field, "invalid")),
+                    field, "INVALID_INTEGER");
+            assertTrue(validator.validate(requiredInteger(field, "123")).valid(), field);
+        }
+    }
+
+    @Test
+    void nazvanieRejectsAllSupportedBlankRepresentationsAndAcceptsNonblankText() {
+        for (String value : new String[]{
+                null, "", " ", "   ", "\u00A0", "\u00A0\u00A0", "\u202F", "\u202F\u202F"
+        }) {
+            assertSingleError(validator.validate(rowBuilder().nazvanie(value).build()),
+                    "nazvanie", "REQUIRED_FIELD_EMPTY");
+        }
+
+        assertTrue(validator.validate(rowBuilder().nazvanie("Name").build()).valid());
     }
 
     @Test
@@ -178,7 +207,7 @@ class CDDataValidatorTest {
     @Test
     void specialNullIsValidForNullableField() {
         CDDataValidationResult result = validator.validate(rowBuilder()
-                .god("N/A")
+                .planRub("N/A")
                 .stockStartPcs("-")
                 .data("NULL")
                 .build());
@@ -294,7 +323,22 @@ class CDDataValidatorTest {
     }
 
     private static CDDataRawRow emptyRow() {
-        return rowBuilder().build();
+        return rowBuilder()
+                .nazvanie(null)
+                .god(null)
+                .sezon(null)
+                .den(null)
+                .build();
+    }
+
+    private static CDDataRawRow requiredInteger(String field, String value) {
+        CDDataRawRowBuilder builder = rowBuilder();
+        return switch (field) {
+            case "god" -> builder.god(value).build();
+            case "sezon" -> builder.sezon(value).build();
+            case "den" -> builder.den(value).build();
+            default -> throw new IllegalArgumentException(field);
+        };
     }
 
     private static final class CountingParser extends DWHValueParser {
@@ -362,10 +406,10 @@ class CDDataValidatorTest {
                 10L,
                 20L,
                 30L,
-                "nazvanie".equals(fieldName) ? value : null,
-                null,
-                null,
-                null,
+                "nazvanie".equals(fieldName) ? value : "Name",
+                "2025",
+                "1",
+                "1",
                 null,
                 "salesChannel".equals(fieldName) ? value : null,
                 "storeRus".equals(fieldName) ? value : null,
@@ -425,10 +469,10 @@ class CDDataValidatorTest {
     }
 
     private static final class CDDataRawRowBuilder {
-        private String nazvanie;
-        private String god;
-        private String sezon;
-        private String den;
+        private String nazvanie = "Name";
+        private String god = "2025";
+        private String sezon = "1";
+        private String den = "1";
         private String data;
         private String salesChannel;
         private String storeRus;

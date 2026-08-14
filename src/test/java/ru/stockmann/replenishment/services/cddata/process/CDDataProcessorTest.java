@@ -64,6 +64,20 @@ class CDDataProcessorTest {
     }
 
     @Test
+    void missingRequiredDeleteKeyPersistsErrorAndPreventsTargetPublish() {
+        TestContext context = TestContext.withChunks(List.of(row(1)));
+        context.validator.errorFields.put(1L, List.of("god"));
+
+        CDDataProcessResult result = context.processor().process(100L);
+
+        assertFalse(result.success());
+        assertEquals(1, result.errorRows());
+        assertEquals(List.of(List.of(1L)), context.errorRepository.insertedRawIds);
+        assertTrue(context.stageRepository.insertedRawIds.stream().allMatch(List::isEmpty));
+        assertEquals(0, context.targetRepository.publishCalls);
+    }
+
+    @Test
     void missingOrWrongLoadTypeDoesNotOpenTransactions() {
         TestContext context = TestContext.withChunks(List.of(row(1)));
         context.loadSessionRepository.exists = false;

@@ -69,7 +69,11 @@ class DWHRawTextSchemaTest {
         CDDataExcelLoadDefinition definition = new CDDataExcelLoadDefinition();
 
         for (String column : CD_DATA_TEXT_COLUMNS) {
-            assertColumnDefinition(ddl, column, "nvarchar(255)", "target");
+            if ("nazvanie".equals(column)) {
+                assertNotNullColumnDefinition(ddl, column, "nvarchar(255)", "target");
+            } else {
+                assertColumnDefinition(ddl, column, "nvarchar(255)", "target");
+            }
             assertColumnDefinition(ddl, column, "nvarchar(4000)", "raw");
             assertRawMaxLength(definition.columns(), column);
         }
@@ -85,6 +89,18 @@ class DWHRawTextSchemaTest {
         Pattern pattern = Pattern.compile("\\b" + Pattern.quote(column.toLowerCase(Locale.ROOT))
                 + "\\s+" + Pattern.quote(type) + "\\s+null\\b");
         assertTrue(pattern.matcher(sql).find(), context + " column " + column + " should be " + type + " NULL");
+    }
+
+    private static void assertNotNullColumnDefinition(
+            String sql,
+            String column,
+            String type,
+            String context
+    ) {
+        Pattern pattern = Pattern.compile("\\b" + Pattern.quote(column.toLowerCase(Locale.ROOT))
+                + "\\s+" + Pattern.quote(type) + "\\s+not null\\b");
+        assertTrue(pattern.matcher(sql).find(),
+                context + " column " + column + " should be " + type + " NOT NULL");
     }
 
     private static void assertRawMaxLength(List<DWHExcelColumnSpec> columns, String rawColumnName) {

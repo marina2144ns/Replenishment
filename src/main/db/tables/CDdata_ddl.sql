@@ -3,10 +3,10 @@ CREATE TABLE dbo.CD_data (
                              LoadSessionId BIGINT NOT NULL,
 
     -- Основные данные
-                             nazvanie                NVARCHAR(255)        NULL,
-                             god                     INT                  NULL,
-                             sezon                   INT                  NULL,
-                             den                     INT                  NULL,
+                             nazvanie                NVARCHAR(255)        NOT NULL,
+                             god                     INT                  NOT NULL,
+                             sezon                   INT                  NOT NULL,
+                             den                     INT                  NOT NULL,
                              data                    DATE                 NULL,
 
     -- Организационные признаки
@@ -142,10 +142,10 @@ CREATE TABLE dbo.CD_data_stage (
                                    ExcelRowNum BIGINT NULL,
 
     -- Основные данные
-                                   nazvanie                NVARCHAR(255)        NULL,
-                                   god                     INT                  NULL,
-                                   sezon                   INT                  NULL,
-                                   den                     INT                  NULL,
+                                   nazvanie                NVARCHAR(255)        NOT NULL,
+                                   god                     INT                  NOT NULL,
+                                   sezon                   INT                  NOT NULL,
+                                   den                     INT                  NOT NULL,
                                    data                    DATE                 NULL,
 
     -- Организационные признаки

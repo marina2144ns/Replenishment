@@ -25,6 +25,8 @@ class CDDataStageSchemaContractTest {
             "src/main/java/ru/stockmann/replenishment/services/cddata/process/CDDataStageRepository.java";
     private static final String PROCESSOR =
             "src/main/java/ru/stockmann/replenishment/services/cddata/process/CDDataProcessor.java";
+    private static final String REQUIRED_FIELDS_MIGRATION =
+            "src/main/db/tables/cddata_required_delete_fields_migration.sql";
 
     private static final List<String> BUSINESS_COLUMNS = List.of(
             "nazvanie",
@@ -75,9 +77,11 @@ class CDDataStageSchemaContractTest {
         assertColumn(columns, "loadsessionid", "bigint", false);
         assertColumn(columns, "excelrownum", "bigint", true);
 
-        for (String name : List.of("god", "sezon", "den", "plan_rub")) {
-            assertColumn(columns, name, "int", true);
+        for (String name : List.of("god", "sezon", "den")) {
+            assertColumn(columns, name, "int", false);
         }
+        assertColumn(columns, "nazvanie", "nvarchar(255)", false);
+        assertColumn(columns, "plan_rub", "int", true);
         assertColumn(columns, "data", "date", true);
         assertColumn(columns, "sku_style_color", "bigint", true);
         assertColumn(columns, "rawrowid", "bigint", true);
@@ -99,7 +103,6 @@ class CDDataStageSchemaContractTest {
         }
 
         for (String name : List.of(
-                "nazvanie",
                 "sales_channel",
                 "store_rus",
                 "mfp_division",
@@ -122,6 +125,16 @@ class CDDataStageSchemaContractTest {
         )) {
             assertColumn(columns, name, "nvarchar(255)", true);
         }
+    }
+
+    @Test
+    void targetDeleteFieldsAreNotNullable() throws Exception {
+        List<DWHSchemaTestSupport.ColumnDef> target = tableColumns(CD_DATA_DDL, TARGET_TABLE);
+
+        assertColumn(target, "nazvanie", "nvarchar(255)", false);
+        assertColumn(target, "god", "int", false);
+        assertColumn(target, "sezon", "int", false);
+        assertColumn(target, "den", "int", false);
     }
 
     @Test
@@ -228,8 +241,44 @@ class CDDataStageSchemaContractTest {
         assertFalse(processor.contains("processprocedurename"));
     }
 
+    @Test
+    void requiredDeleteFieldsMigrationIsGuardedIdempotentAndNonDestructive() throws Exception {
+        String migration = normalizeSql(read(REQUIRED_FIELDS_MIGRATION));
+
+        assertTrue(migration.contains("from dbo.cd_data where god is null"));
+        assertTrue(migration.contains("from dbo.cd_data_stage where god is null"));
+        assertTrue(migration.contains("nazvanie is null"));
+        assertTrue(migration.contains("nchar(160)"));
+        assertTrue(migration.contains("nchar(8239)"));
+        assertTrue(migration.contains("throw 50001"));
+        assertTrue(migration.contains("legacy target or stage rows violate the required-field contract"));
+
+        for (String table : List.of("dbo.cd_data", "dbo.cd_data_stage")) {
+            assertTrue(migration.contains(
+                    "alter table " + table + " alter column nazvanie nvarchar(255) not null"
+            ));
+            for (String field : List.of("god", "sezon", "den")) {
+                assertTrue(migration.contains(
+                        "alter table " + table + " alter column " + field + " int not null"
+                ));
+            }
+        }
+
+        assertEquals(8, occurrences(migration, "alter table dbo.cd_data"));
+        assertEquals(8, occurrences(migration, "is_nullable = 1"));
+        assertFalse(migration.contains("drop table"));
+        assertFalse(migration.contains("delete from"));
+        assertFalse(migration.contains("update "));
+        assertFalse(migration.contains("truncate"));
+        assertFalse(migration.contains("default"));
+    }
+
     private static List<String> concat(List<String> first, List<String> second) {
         return java.util.stream.Stream.concat(first.stream(), second.stream()).toList();
+    }
+
+    private static int occurrences(String value, String token) {
+        return (value.length() - value.replace(token, "").length()) / token.length();
     }
 
     private static DWHSchemaTestSupport.ColumnDef column(
