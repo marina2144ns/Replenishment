@@ -15,22 +15,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SalesByChannelTargetRepositoryTest {
 
     @Test
-    void deletesOnlyDistinctStagePeriodsAndPublishesAllTypedFieldsSetBased() {
+    void reprocessingCurrentSessionDeletesOnlyThatSessionBeforePublishingItsStageRows() {
         RecordingJdbc jdbc = new RecordingJdbc(5, 3);
 
         int published = new SalesByChannelTargetRepository()
-                .publishFromStage(jdbc.connection(), 77L);
+                .publishFromStage(jdbc.connection(), 100L);
 
         assertEquals(3, published);
         assertEquals(2, jdbc.sql.size());
         String delete = normalize(jdbc.sql.get(0));
-        assertTrue(delete.contains("DELETE TARGET FROM DBO.SALESBYCHANNEL AS TARGET"));
-        assertTrue(delete.contains("SELECT DISTINCT [YEAR], [MONTH]"));
-        assertTrue(delete.contains("FROM DBO.SALESBYCHANNEL_STAGE"));
-        assertTrue(delete.contains("WHERE LOADSESSIONID = ?"));
-        assertTrue(delete.contains("SCOPE.[YEAR] = TARGET.[YEAR]"));
-        assertTrue(delete.contains("SCOPE.[MONTH] = TARGET.[MONTH]"));
-        assertFalse(delete.contains("DELETE FROM DBO.SALESBYCHANNEL WHERE LOADSESSIONID"));
+        assertEquals("DELETE FROM DBO.SALESBYCHANNEL WHERE LOADSESSIONID = ?", delete);
 
         String insert = normalize(jdbc.sql.get(1));
         assertTrue(insert.contains("INSERT INTO DBO.SALESBYCHANNEL"));
@@ -40,7 +34,35 @@ class SalesByChannelTargetRepositoryTest {
         assertFalse(insert.contains("EXCELROWNUM"));
         assertFalse(insert.contains("CREATEDAT"));
         assertFalse(insert.contains("VALUES ("));
-        assertEquals(List.of(77L, 77L), jdbc.parameters);
+        assertEquals(List.of(100L, 100L), jdbc.parameters);
+    }
+
+    @Test
+    void publishingAnotherSessionForSameYearMonthDoesNotDeletePreviousSession() {
+        RecordingJdbc jdbc = new RecordingJdbc(0, 1);
+
+        new SalesByChannelTargetRepository().publishFromStage(jdbc.connection(), 101L);
+
+        String delete = normalize(jdbc.sql.get(0));
+        assertEquals("DELETE FROM DBO.SALESBYCHANNEL WHERE LOADSESSIONID = ?", delete);
+        assertFalse(delete.contains("[YEAR]"));
+        assertFalse(delete.contains("[MONTH]"));
+        assertFalse(delete.contains("SALESBYCHANNEL_STAGE"));
+        assertEquals(List.of(101L, 101L), jdbc.parameters);
+    }
+
+    @Test
+    void publishingSessionCannotDeleteOtherSessionsOrBusinessPeriods() {
+        RecordingJdbc jdbc = new RecordingJdbc(0, 2);
+
+        new SalesByChannelTargetRepository().publishFromStage(jdbc.connection(), 101L);
+
+        String delete = normalize(jdbc.sql.get(0));
+        assertTrue(delete.contains("WHERE LOADSESSIONID = ?"));
+        assertFalse(delete.contains("JOIN"));
+        assertFalse(delete.contains("SELECT DISTINCT"));
+        assertFalse(delete.contains("[YEAR]"));
+        assertFalse(delete.contains("[MONTH]"));
     }
 
     @Test

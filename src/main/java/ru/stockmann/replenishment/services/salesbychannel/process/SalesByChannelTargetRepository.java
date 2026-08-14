@@ -12,33 +12,25 @@ public class SalesByChannelTargetRepository {
     private static final Logger log = LoggerFactory.getLogger(SalesByChannelTargetRepository.class);
 
     int publishFromStage(Connection connection, long loadSessionId) {
-        deletePublicationScope(connection, loadSessionId);
+        deleteTargetRows(connection, loadSessionId);
         return insertFromStage(connection, loadSessionId);
     }
 
-    private void deletePublicationScope(Connection connection, long loadSessionId) {
+    private void deleteTargetRows(Connection connection, long loadSessionId) {
         String sql = """
-                DELETE target
-                FROM dbo.SalesByChannel AS target
-                INNER JOIN
-                (
-                    SELECT DISTINCT [year], [month]
-                    FROM dbo.SalesByChannel_stage
-                    WHERE LoadSessionId = ?
-                ) AS scope
-                    ON scope.[year] = target.[year]
-                   AND scope.[month] = target.[month]
+                DELETE FROM dbo.SalesByChannel
+                WHERE LoadSessionId = ?
                 """;
         long startedAt = System.nanoTime();
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setLong(1, loadSessionId);
             int affectedRows = ps.executeUpdate();
-            log.info("SalesByChannel target scope delete completed. loadSessionId={}, affectedRows={}, "
+            log.info("SalesByChannel target delete completed. loadSessionId={}, affectedRows={}, "
                             + "elapsedMs={}",
                     loadSessionId, affectedRows, elapsedMs(startedAt));
         } catch (SQLException e) {
             throw new RuntimeException(
-                    "Failed to delete SalesByChannel publication scope. loadSessionId=" + loadSessionId, e
+                    "Failed to delete SalesByChannel rows. loadSessionId=" + loadSessionId, e
             );
         }
     }
