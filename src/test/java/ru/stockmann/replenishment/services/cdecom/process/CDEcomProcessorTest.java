@@ -56,6 +56,19 @@ class CDEcomProcessorTest {
     }
 
     @Test
+    void missingRequiredDeleteKeyPersistsErrorAndPreventsTargetPublish() {
+        TestContext context = TestContext.withChunks(List.of(rowWithoutName(1)));
+
+        CDEcomProcessResult result = context.processor().process(100L);
+
+        assertFalse(result.success());
+        assertEquals(1, result.errorRows());
+        assertEquals(List.of(List.of(1L)), context.errors.insertedExcelRows);
+        assertTrue(context.stage.insertedExcelRows.stream().allMatch(List::isEmpty));
+        assertEquals(0, context.target.publishCalls);
+    }
+
+    @Test
     void missingOrWrongLoadTypeDoesNotOpenProcessingTransaction() {
         TestContext context = TestContext.withChunks(List.of(row(1, "1")));
         context.session.exists = false;
@@ -194,7 +207,16 @@ class CDEcomProcessorTest {
 
     private static CDEcomRawRow row(long id, String year) {
         return new CDEcomRawRow(
-                id, 100L, id, "name", year, null, null, "31.01.2025",
+                id, 100L, id, "name", year, "1", "31", "31.01.2025",
+                null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null
+        );
+    }
+
+    private static CDEcomRawRow rowWithoutName(long id) {
+        return new CDEcomRawRow(
+                id, 100L, id, null, "2025", "1", "31", "31.01.2025",
                 null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null

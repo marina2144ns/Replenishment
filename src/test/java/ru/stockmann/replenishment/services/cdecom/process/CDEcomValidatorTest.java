@@ -17,8 +17,42 @@ class CDEcomValidatorTest {
     private final CDEcomValidator validator = new CDEcomValidator();
 
     @Test
-    void emptyRowIsValid() {
-        assertTrue(validator.validate(row().build()).valid());
+    void emptyRowIsInvalid() {
+        CDEcomValidationResult result = validator.validate(new RowBuilder().build());
+
+        assertEquals(List.of("name", "year", "season", "day"), fields(result));
+        assertTrue(result.errors().stream()
+                .allMatch(error -> "REQUIRED_FIELD_EMPTY".equals(error.errorCode())));
+        assertTrue(validator.validateAndMap(new RowBuilder().build()).stageRow() == null);
+    }
+
+    @Test
+    void requiredIntegersRejectNullBlankWhitespaceSpecialNullAndInvalidValues() {
+        for (String field : List.of("year", "season", "day")) {
+            for (String value : new String[]{null, "", " ", "   ", "N/A", "NULL", "-"}) {
+                CDEcomValidationResult result = validator.validate(requiredInteger(field, value));
+                assertEquals(List.of(field), fields(result), field + "=" + value);
+                assertEquals(List.of("REQUIRED_FIELD_EMPTY"), codes(result), field + "=" + value);
+            }
+
+            CDEcomValidationResult invalid = validator.validate(requiredInteger(field, "invalid"));
+            assertEquals(List.of(field), fields(invalid));
+            assertEquals(List.of("INVALID_INTEGER"), codes(invalid));
+            assertTrue(validator.validate(requiredInteger(field, "123")).valid(), field);
+        }
+    }
+
+    @Test
+    void nameRejectsSupportedBlankRepresentationsAndAcceptsNonblankText() {
+        for (String value : new String[]{
+                null, "", " ", "   ", "\u00A0", "\u00A0\u00A0", "\u202F", "\u202F\u202F"
+        }) {
+            CDEcomValidationResult result = validator.validate(row().withName(value).build());
+            assertEquals(List.of("name"), fields(result), "name=" + value);
+            assertEquals(List.of("REQUIRED_FIELD_EMPTY"), codes(result), "name=" + value);
+        }
+
+        assertTrue(validator.validate(row().withName("Name").build()).valid());
     }
 
     @Test
@@ -179,7 +213,21 @@ class CDEcomValidatorTest {
     }
 
     private static RowBuilder row() {
-        return new RowBuilder();
+        return new RowBuilder()
+                .withName("Name")
+                .withYear("2026")
+                .withSeason("1")
+                .withDay("31");
+    }
+
+    private static CDEcomRawRow requiredInteger(String field, String value) {
+        RowBuilder builder = row();
+        return switch (field) {
+            case "year" -> builder.withYear(value).build();
+            case "season" -> builder.withSeason(value).build();
+            case "day" -> builder.withDay(value).build();
+            default -> throw new IllegalArgumentException(field);
+        };
     }
 
     private static String normalizeExcelDate(String value) {

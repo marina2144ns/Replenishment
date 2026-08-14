@@ -19,6 +19,8 @@ class CDEcomStageSchemaContractTest {
     private static final String USERS_DDL = "src/main/db/tables/Users.example.sql";
     private static final String TARGET_TABLE = "dbo.CD_ecom";
     private static final String STAGE_TABLE = "dbo.CD_ecom_stage";
+    private static final String REQUIRED_FIELDS_MIGRATION =
+            "src/main/db/tables/cdecom_required_delete_fields_migration.sql";
 
     private static final List<String> BUSINESS_COLUMNS = List.of(
             "name",
@@ -71,8 +73,9 @@ class CDEcomStageSchemaContractTest {
         assertColumn(columns, "excelrownum", "bigint", true);
 
         for (String name : List.of("year", "season", "day")) {
-            assertColumn(columns, name, "int", true);
+            assertColumn(columns, name, "int", false);
         }
+        assertColumn(columns, "name", "nvarchar(255)", false);
         assertColumn(columns, "data", "date", true);
         assertColumn(columns, "rawrowid", "bigint", true);
 
@@ -90,7 +93,7 @@ class CDEcomStageSchemaContractTest {
         }
 
         for (String name : List.of(
-                "name", "saleschannelbpo", "storerus", "mfpdivision", "mfpdepartment",
+                "saleschannelbpo", "storerus", "mfpdivision", "mfpdepartment",
                 "mfpsubdepartment", "skubrandtype", "skutm", "mfpnode", "section",
                 "merchandisesubgroup", "campaignsalestype", "skuphase", "cddrivers",
                 "skusuppliermodel", "skucomposition", "skucolorrussian", "skuname",
@@ -98,6 +101,16 @@ class CDEcomStageSchemaContractTest {
         )) {
             assertColumn(columns, name, "nvarchar(255)", true);
         }
+    }
+
+    @Test
+    void targetDeleteFieldsAreNotNullable() throws Exception {
+        List<DWHSchemaTestSupport.ColumnDef> target = tableColumns(DDL, TARGET_TABLE);
+
+        assertColumn(target, "name", "nvarchar(255)", false);
+        assertColumn(target, "year", "int", false);
+        assertColumn(target, "season", "int", false);
+        assertColumn(target, "day", "int", false);
     }
 
     @Test
@@ -180,8 +193,48 @@ class CDEcomStageSchemaContractTest {
         ));
     }
 
+    @Test
+    void requiredDeleteFieldsMigrationIsGuardedIdempotentAndNonDestructive() throws Exception {
+        String migration = normalizeSql(read(REQUIRED_FIELDS_MIGRATION));
+
+        assertTrue(migration.contains("from dbo.cd_ecom where year is null"));
+        assertTrue(migration.contains("from dbo.cd_ecom_stage where year is null"));
+        assertTrue(migration.contains("name is null"));
+        assertTrue(migration.contains("nchar(160)"));
+        assertTrue(migration.contains("nchar(8239)"));
+        assertTrue(migration.contains("throw 50001"));
+        assertTrue(migration.contains("legacy target or stage rows violate the required-field contract"));
+
+        for (String table : List.of("dbo.cd_ecom", "dbo.cd_ecom_stage")) {
+            assertTrue(migration.contains(
+                    "alter table " + table + " alter column name nvarchar(255) not null"
+            ));
+            assertTrue(migration.contains(
+                    "alter table " + table + " alter column year int not null"
+            ));
+            assertTrue(migration.contains(
+                    "alter table " + table + " alter column season int not null"
+            ));
+            assertTrue(migration.contains(
+                    "alter table " + table + " alter column day int not null"
+            ));
+        }
+
+        assertEquals(8, occurrences(migration, "alter table dbo.cd_ecom"));
+        assertEquals(8, occurrences(migration, "is_nullable = 1"));
+        assertFalse(migration.contains("drop table"));
+        assertFalse(migration.contains("delete from"));
+        assertFalse(migration.contains("update "));
+        assertFalse(migration.contains("truncate"));
+        assertFalse(migration.contains("default"));
+    }
+
     private static List<String> concat(List<String> first, List<String> second) {
         return java.util.stream.Stream.concat(first.stream(), second.stream()).toList();
+    }
+
+    private static int occurrences(String value, String token) {
+        return (value.length() - value.replace(token, "").length()) / token.length();
     }
 
     private static DWHSchemaTestSupport.ColumnDef column(

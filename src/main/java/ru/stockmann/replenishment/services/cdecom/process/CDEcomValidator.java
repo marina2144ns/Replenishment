@@ -33,27 +33,27 @@ public class CDEcomValidator {
     public CDEcomRowValidationResult validateAndMap(CDEcomRawRow row) {
         List<CDEcomValidationError> errors = new ArrayList<>();
 
-        String name = cleanText(errors, row, "name", row.name());
-        DWHParseResult<Integer> year = parseInteger(errors, row, "year", row.year());
-        DWHParseResult<Integer> season = parseInteger(errors, row, "season", row.season());
-        DWHParseResult<Integer> day = parseInteger(errors, row, "day", row.day());
+        String name = cleanText(errors, row, "name", row.name(), true);
+        DWHParseResult<Integer> year = parseInteger(errors, row, "year", row.year(), true);
+        DWHParseResult<Integer> season = parseInteger(errors, row, "season", row.season(), true);
+        DWHParseResult<Integer> day = parseInteger(errors, row, "day", row.day(), true);
         DWHParseResult<LocalDate> data = parseDate(errors, row, "data", row.data());
-        String salesChannelBpo = cleanText(errors, row, "salesChannelBpo", row.salesChannelBpo());
-        String storeRus = cleanText(errors, row, "storeRus", row.storeRus());
-        String mfpDivision = cleanText(errors, row, "mfpDivision", row.mfpDivision());
-        String mfpDepartment = cleanText(errors, row, "mfpDepartment", row.mfpDepartment());
-        String mfpSubDepartment = cleanText(errors, row, "mfpSubDepartment", row.mfpSubDepartment());
-        String skuBrandType = cleanText(errors, row, "skuBrandType", row.skuBrandType());
-        String skuTm = cleanText(errors, row, "skuTm", row.skuTm());
-        String mfpNode = cleanText(errors, row, "mfpNode", row.mfpNode());
-        String section = cleanText(errors, row, "section", row.section());
+        String salesChannelBpo = cleanText(errors, row, "salesChannelBpo", row.salesChannelBpo(), false);
+        String storeRus = cleanText(errors, row, "storeRus", row.storeRus(), false);
+        String mfpDivision = cleanText(errors, row, "mfpDivision", row.mfpDivision(), false);
+        String mfpDepartment = cleanText(errors, row, "mfpDepartment", row.mfpDepartment(), false);
+        String mfpSubDepartment = cleanText(errors, row, "mfpSubDepartment", row.mfpSubDepartment(), false);
+        String skuBrandType = cleanText(errors, row, "skuBrandType", row.skuBrandType(), false);
+        String skuTm = cleanText(errors, row, "skuTm", row.skuTm(), false);
+        String mfpNode = cleanText(errors, row, "mfpNode", row.mfpNode(), false);
+        String section = cleanText(errors, row, "section", row.section(), false);
         String merchandiseSubGroup =
-                cleanText(errors, row, "merchandiseSubGroup", row.merchandiseSubGroup());
+                cleanText(errors, row, "merchandiseSubGroup", row.merchandiseSubGroup(), false);
         String campaignSalesType =
-                cleanText(errors, row, "campaignSalesType", row.campaignSalesType());
+                cleanText(errors, row, "campaignSalesType", row.campaignSalesType(), false);
         DWHParseResult<Long> skuStyleColor =
                 parseRoundedLong(errors, row, "skuStyleColor", row.skuStyleColor());
-        String skuPhase = cleanText(errors, row, "skuPhase", row.skuPhase());
+        String skuPhase = cleanText(errors, row, "skuPhase", row.skuPhase(), false);
         DWHParseResult<BigDecimal> orderPcs = parseDecimal(errors, row, "orderPcs", row.orderPcs());
         DWHParseResult<BigDecimal> orderRub = parseDecimal(errors, row, "orderRub", row.orderRub());
         DWHParseResult<BigDecimal> foundPcs = parseDecimal(errors, row, "foundPcs", row.foundPcs());
@@ -70,16 +70,16 @@ public class CDEcomValidator {
                 parseDirectLong(errors, row, "stockStoresPcs", row.stockStoresPcs());
         DWHParseResult<Long> stockStoresDdp =
                 parseDirectLong(errors, row, "stockStoresDdp", row.stockStoresDdp());
-        String cdDrivers = cleanText(errors, row, "cdDrivers", row.cdDrivers());
+        String cdDrivers = cleanText(errors, row, "cdDrivers", row.cdDrivers(), false);
         String skuSupplierModel =
-                cleanText(errors, row, "skuSupplierModel", row.skuSupplierModel());
-        String skuComposition = cleanText(errors, row, "skuComposition", row.skuComposition());
+                cleanText(errors, row, "skuSupplierModel", row.skuSupplierModel(), false);
+        String skuComposition = cleanText(errors, row, "skuComposition", row.skuComposition(), false);
         String skuColorRussian =
-                cleanText(errors, row, "skuColorRussian", row.skuColorRussian());
-        String skuName = cleanText(errors, row, "skuName", row.skuName());
+                cleanText(errors, row, "skuColorRussian", row.skuColorRussian(), false);
+        String skuName = cleanText(errors, row, "skuName", row.skuName(), false);
         String skuCommentBuyer =
-                cleanText(errors, row, "skuCommentBuyer", row.skuCommentBuyer());
-        String skuCollection = cleanText(errors, row, "skuCollection", row.skuCollection());
+                cleanText(errors, row, "skuCommentBuyer", row.skuCommentBuyer(), false);
+        String skuCollection = cleanText(errors, row, "skuCollection", row.skuCollection(), false);
 
         if (!errors.isEmpty()) {
             return new CDEcomRowValidationResult(null, errors);
@@ -98,10 +98,18 @@ public class CDEcomValidator {
     }
 
     private DWHParseResult<Integer> parseInteger(
-            List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value
+            List<CDEcomValidationError> errors,
+            CDEcomRawRow row,
+            String fieldName,
+            String value,
+            boolean required
     ) {
         DWHParseResult<Integer> result = parser.parseInteger(value);
-        addParseError(errors, row, fieldName, value, result);
+        if (required && result.success() && result.value() == null) {
+            errors.add(requiredError(row, fieldName));
+        } else {
+            addParseError(errors, row, fieldName, value, result);
+        }
         return result;
     }
 
@@ -150,7 +158,11 @@ public class CDEcomValidator {
     }
 
     private String cleanText(
-            List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value
+            List<CDEcomValidationError> errors,
+            CDEcomRawRow row,
+            String fieldName,
+            String value,
+            boolean required
     ) {
         if (!fieldValidator.isTextLengthValid(value, TEXT_MAX_LENGTH)) {
             errors.add(error(
@@ -161,7 +173,21 @@ public class CDEcomValidator {
                     "RawId=" + row.id() + ". Value in [" + fieldName + "] exceeds target length 255: [" + value + "]"
             ));
         }
-        return parser.cleanText(value);
+        String cleaned = parser.cleanText(value);
+        if (required && cleaned == null) {
+            errors.add(requiredError(row, fieldName));
+        }
+        return cleaned;
+    }
+
+    private CDEcomValidationError requiredError(CDEcomRawRow row, String fieldName) {
+        return error(
+                row,
+                fieldName,
+                "REQUIRED_FIELD_EMPTY",
+                "Required value is empty",
+                "Required value is empty in field [" + fieldName + "]."
+        );
     }
 
     private CDEcomValidationError parseError(
