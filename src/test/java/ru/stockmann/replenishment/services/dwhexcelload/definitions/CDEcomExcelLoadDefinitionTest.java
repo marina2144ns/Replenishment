@@ -4,14 +4,22 @@ import org.junit.jupiter.api.Test;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelColumnSpec;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadType;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelNullHandling;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelValueKind;
 
 import java.util.List;
+import java.util.Set;
 import java.util.TimeZone;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CDEcomExcelLoadDefinitionTest {
+
+    private static final Set<String> ZERO_METRICS = Set.of(
+            "orderPcs", "orderRub", "foundPcs", "foundRub", "salesPcs", "salesRub",
+            "revenue", "gp", "cogs", "salesDiscount", "planRub", "stockStoresPcs",
+            "stockStoresDdp"
+    );
 
     @Test
     void definitionUsesCdecomLoadTypeAndTables() {
@@ -94,9 +102,43 @@ class CDEcomExcelLoadDefinitionTest {
         assertEquals(100, definition.columns().get(16).rawMaxLength());
         assertEquals(100, definition.columns().get(30).rawMaxLength());
         assertEquals(4000, definition.columns().get(37).rawMaxLength());
-        definition.columns().forEach(column ->
-                assertEquals(DWHExcelNullHandling.KEEP_NULL, column.nullHandling())
-        );
+    }
+
+    @Test
+    void declaresRequiredKeysOptionalZeroMetricsAndNullableIdentifierExplicitly() {
+        CDEcomExcelLoadDefinition definition = new CDEcomExcelLoadDefinition();
+
+        definition.columns().stream()
+                .filter(column -> ZERO_METRICS.contains(column.rawColumnName()))
+                .forEach(column -> {
+                    DWHExcelValueKind expected = Set.of("planRub", "stockStoresPcs", "stockStoresDdp")
+                            .contains(column.rawColumnName())
+                            ? DWHExcelValueKind.INT
+                            : DWHExcelValueKind.DECIMAL;
+                    assertEquals(expected, column.valueKind(), column.rawColumnName());
+                    assertEquals(false, column.required(), column.rawColumnName());
+                    assertEquals(DWHExcelNullHandling.ZERO, column.nullHandling(), column.rawColumnName());
+                });
+        assertEquals(13, definition.columns().stream()
+                .filter(column -> ZERO_METRICS.contains(column.rawColumnName()))
+                .count());
+
+        for (String name : List.of("name", "year", "season", "day")) {
+            DWHExcelColumnSpec column = definition.columns().stream()
+                    .filter(candidate -> name.equals(candidate.rawColumnName()))
+                    .findFirst()
+                    .orElseThrow();
+            assertEquals(true, column.required(), name);
+            assertEquals(DWHExcelNullHandling.KEEP_NULL, column.nullHandling(), name);
+        }
+
+        DWHExcelColumnSpec identifier = definition.columns().stream()
+                .filter(column -> "skuStyleColor".equals(column.rawColumnName()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(DWHExcelValueKind.DECIMAL, identifier.valueKind());
+        assertEquals(false, identifier.required());
+        assertEquals(DWHExcelNullHandling.KEEP_NULL, identifier.nullHandling());
     }
 
     @Test

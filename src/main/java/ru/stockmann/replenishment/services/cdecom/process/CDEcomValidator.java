@@ -89,10 +89,12 @@ public class CDEcomValidator {
                 row.loadSessionId(), row.excelRowNum(), name, year.value(), season.value(), day.value(),
                 data.value(), salesChannelBpo, storeRus, mfpDivision, mfpDepartment, mfpSubDepartment,
                 skuBrandType, skuTm, mfpNode, section, merchandiseSubGroup, campaignSalesType,
-                skuStyleColor.value(), skuPhase, orderPcs.value(), orderRub.value(), foundPcs.value(),
-                foundRub.value(), salesPcs.value(), salesRub.value(), revenue.value(), gp.value(),
-                cogs.value(), salesDiscount.value(), planRub.value(), stockStoresPcs.value(),
-                stockStoresDdp.value(), cdDrivers, skuSupplierModel, skuComposition, skuColorRussian,
+                skuStyleColor.value(), skuPhase, decimalValueOrZero(orderPcs), decimalValueOrZero(orderRub),
+                decimalValueOrZero(foundPcs), decimalValueOrZero(foundRub), decimalValueOrZero(salesPcs),
+                decimalValueOrZero(salesRub), decimalValueOrZero(revenue), decimalValueOrZero(gp),
+                decimalValueOrZero(cogs), decimalValueOrZero(salesDiscount), longValueOrZero(planRub),
+                longValueOrZero(stockStoresPcs), longValueOrZero(stockStoresDdp),
+                cdDrivers, skuSupplierModel, skuComposition, skuColorRussian,
                 skuName, skuCommentBuyer, skuCollection, row.id()
         ), List.of());
     }
@@ -188,6 +190,14 @@ public class CDEcomValidator {
                 "Required value is empty",
                 "Required value is empty in field [" + fieldName + "]."
         );
+    }
+
+    private BigDecimal decimalValueOrZero(DWHParseResult<BigDecimal> result) {
+        return result.value() != null ? result.value() : BigDecimal.ZERO;
+    }
+
+    private Long longValueOrZero(DWHParseResult<Long> result) {
+        return result.value() != null ? result.value() : 0L;
     }
 
     private CDEcomValidationError parseError(

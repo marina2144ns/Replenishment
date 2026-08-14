@@ -5,6 +5,7 @@ import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDEcomExcelL
 import ru.stockmann.replenishment.services.dwhexcelload.validation.DWHParseResult;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.TimeZone;
 
@@ -190,6 +191,63 @@ class CDEcomValidatorTest {
     }
 
     @Test
+    void everyNumericMetricMapsMissingAndRealZeroToTypedZero() {
+        for (String field : metricFields()) {
+            for (String value : new String[]{null, "", " ", "   ", "N/A", "NULL", "-", "0", "0.0"}) {
+                CDEcomRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
+
+                assertTrue(result.valid(), field + "=" + value + ": " + result.errors());
+                if (bigintMetrics().contains(field)) {
+                    assertEquals(0L, bigintMetricValue(result.stageRow(), field), field + "=" + value);
+                } else {
+                    assertEquals(0, decimalMetricValue(result.stageRow(), field).compareTo(BigDecimal.ZERO),
+                            field + "=" + value);
+                }
+            }
+        }
+    }
+
+    @Test
+    void everyNumericMetricParsesPositiveAndNegativeValues() {
+        for (String field : metricFields()) {
+            for (String value : List.of("12", "-12")) {
+                CDEcomRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
+
+                assertTrue(result.valid(), field + "=" + value + ": " + result.errors());
+                if (bigintMetrics().contains(field)) {
+                    assertEquals(Long.valueOf(value), bigintMetricValue(result.stageRow(), field), field);
+                } else {
+                    assertEquals(0,
+                            decimalMetricValue(result.stageRow(), field).compareTo(new BigDecimal(value)), field);
+                }
+            }
+        }
+    }
+
+    @Test
+    void everyNumericMetricRejectsInvalidNonblankInsteadOfDefaultingToZero() {
+        for (String field : metricFields()) {
+            for (String value : List.of("abc", "1x", "12abc")) {
+                CDEcomRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
+
+                assertTrue(result.stageRow() == null, field + "=" + value);
+                String code = bigintMetrics().contains(field) ? "INVALID_BIGINT" : "INVALID_DECIMAL";
+                assertTrue(result.errors().stream().anyMatch(error ->
+                        field.equals(error.fieldName()) && code.equals(error.errorCode())),
+                        field + "=" + value + ": " + result.errors());
+            }
+        }
+    }
+
+    @Test
+    void missingSkuStyleColorRemainsNullInsteadOfBecomingZero() {
+        CDEcomRowValidationResult result = validator.validateAndMap(row().withSkuStyleColor(null).build());
+
+        assertTrue(result.valid());
+        assertEquals(null, result.stageRow().skuStyleColor());
+    }
+
+    @Test
     void collectsMultipleErrorsInStableOrderWithOneErrorPerField() {
         CDEcomValidationResult result = validator.validate(row()
                 .withYear("x")
@@ -234,6 +292,63 @@ class CDEcomValidatorTest {
         return new CDEcomExcelLoadDefinition().columns().get(4).normalizer().normalize(value);
     }
 
+    private static List<String> metricFields() {
+        return List.of(
+                "orderPcs", "orderRub", "foundPcs", "foundRub", "salesPcs", "salesRub",
+                "revenue", "gp", "cogs", "salesDiscount", "planRub", "stockStoresPcs",
+                "stockStoresDdp"
+        );
+    }
+
+    private static List<String> bigintMetrics() {
+        return List.of("planRub", "stockStoresPcs", "stockStoresDdp");
+    }
+
+    private static CDEcomRawRow rowWithMetric(String field, String value) {
+        RowBuilder builder = row();
+        return switch (field) {
+            case "orderPcs" -> builder.withOrderPcs(value).build();
+            case "orderRub" -> builder.withOrderRub(value).build();
+            case "foundPcs" -> builder.withFoundPcs(value).build();
+            case "foundRub" -> builder.withFoundRub(value).build();
+            case "salesPcs" -> builder.withSalesPcs(value).build();
+            case "salesRub" -> builder.withSalesRub(value).build();
+            case "revenue" -> builder.withRevenue(value).build();
+            case "gp" -> builder.withGp(value).build();
+            case "cogs" -> builder.withCogs(value).build();
+            case "salesDiscount" -> builder.withSalesDiscount(value).build();
+            case "planRub" -> builder.withPlanRub(value).build();
+            case "stockStoresPcs" -> builder.withStockStoresPcs(value).build();
+            case "stockStoresDdp" -> builder.withStockStoresDdp(value).build();
+            default -> throw new IllegalArgumentException(field);
+        };
+    }
+
+    private static BigDecimal decimalMetricValue(CDEcomStageRow row, String field) {
+        return switch (field) {
+            case "orderPcs" -> row.orderPcs();
+            case "orderRub" -> row.orderRub();
+            case "foundPcs" -> row.foundPcs();
+            case "foundRub" -> row.foundRub();
+            case "salesPcs" -> row.salesPcs();
+            case "salesRub" -> row.salesRub();
+            case "revenue" -> row.revenue();
+            case "gp" -> row.gp();
+            case "cogs" -> row.cogs();
+            case "salesDiscount" -> row.salesDiscount();
+            default -> throw new IllegalArgumentException(field);
+        };
+    }
+
+    private static Long bigintMetricValue(CDEcomStageRow row, String field) {
+        return switch (field) {
+            case "planRub" -> row.planRub();
+            case "stockStoresPcs" -> row.stockStoresPcs();
+            case "stockStoresDdp" -> row.stockStoresDdp();
+            default -> throw new IllegalArgumentException(field);
+        };
+    }
+
     private static final class CountingParser extends CDEcomValueParser {
         private int dateCalls;
         @Override
@@ -265,6 +380,15 @@ class CDEcomValidatorTest {
         private String data;
         private String skuStyleColor;
         private String orderPcs;
+        private String orderRub;
+        private String foundPcs;
+        private String foundRub;
+        private String salesPcs;
+        private String salesRub;
+        private String revenue;
+        private String gp;
+        private String cogs;
+        private String salesDiscount;
         private String planRub;
         private String stockStoresPcs;
         private String stockStoresDdp;
@@ -276,6 +400,15 @@ class CDEcomValidatorTest {
         private RowBuilder withData(String value) { this.data = value; return this; }
         private RowBuilder withSkuStyleColor(String value) { this.skuStyleColor = value; return this; }
         private RowBuilder withOrderPcs(String value) { this.orderPcs = value; return this; }
+        private RowBuilder withOrderRub(String value) { this.orderRub = value; return this; }
+        private RowBuilder withFoundPcs(String value) { this.foundPcs = value; return this; }
+        private RowBuilder withFoundRub(String value) { this.foundRub = value; return this; }
+        private RowBuilder withSalesPcs(String value) { this.salesPcs = value; return this; }
+        private RowBuilder withSalesRub(String value) { this.salesRub = value; return this; }
+        private RowBuilder withRevenue(String value) { this.revenue = value; return this; }
+        private RowBuilder withGp(String value) { this.gp = value; return this; }
+        private RowBuilder withCogs(String value) { this.cogs = value; return this; }
+        private RowBuilder withSalesDiscount(String value) { this.salesDiscount = value; return this; }
         private RowBuilder withPlanRub(String value) { this.planRub = value; return this; }
         private RowBuilder withStockStoresPcs(String value) { this.stockStoresPcs = value; return this; }
         private RowBuilder withStockStoresDdp(String value) { this.stockStoresDdp = value; return this; }
@@ -286,7 +419,8 @@ class CDEcomValidatorTest {
                     name, year, season, day, data,
                     null, null, null, null, null, null, null, null, null, null, null,
                     skuStyleColor, null,
-                    orderPcs, null, null, null, null, null, null, null, null, null,
+                    orderPcs, orderRub, foundPcs, foundRub, salesPcs, salesRub,
+                    revenue, gp, cogs, salesDiscount,
                     planRub, stockStoresPcs, stockStoresDdp,
                     null, null, null, null, null, null, null
             );

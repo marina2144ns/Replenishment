@@ -55,10 +55,19 @@ public class CDEcomExcelLoadDefinition implements DWHExcelLoadDefinition {
     @Override
     public List<DWHExcelColumnSpec> columns() {
         return List.of(
-                DWHExcelColumns.text(0, "name", RAW_TEXT_LENGTH),
-                DWHExcelColumns.intNumber(1, "year", 50, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.intNumber(2, "season", 50, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.intNumber(3, "day", 50, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(
+                        0, "name", "name", "name", RAW_TEXT_LENGTH,
+                        true, DWHExcelNullHandling.KEEP_NULL
+                ),
+                DWHExcelColumns.intNumber(
+                        1, "year", "year", "year", 50, true, DWHExcelNullHandling.KEEP_NULL
+                ),
+                DWHExcelColumns.intNumber(
+                        2, "season", "season", "season", 50, true, DWHExcelNullHandling.KEEP_NULL
+                ),
+                DWHExcelColumns.intNumber(
+                        3, "day", "day", "day", 50, true, DWHExcelNullHandling.KEEP_NULL
+                ),
                 date(4, "data", 50),
                 DWHExcelColumns.text(5, "salesChannelBpo", RAW_TEXT_LENGTH),
                 DWHExcelColumns.text(6, "storeRus", RAW_TEXT_LENGTH),
@@ -73,19 +82,19 @@ public class CDEcomExcelLoadDefinition implements DWHExcelLoadDefinition {
                 DWHExcelColumns.text(15, "campaignSalesType", RAW_TEXT_LENGTH),
                 DWHExcelColumns.decimal(16, "skuStyleColor", 100, DWHExcelNullHandling.KEEP_NULL),
                 DWHExcelColumns.text(17, "skuPhase", RAW_TEXT_LENGTH),
-                DWHExcelColumns.decimal(18, "orderPcs", 100, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.decimal(19, "orderRub", 100, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.decimal(20, "foundPcs", 100, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.decimal(21, "foundRub", 100, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.decimal(22, "salesPcs", 100, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.decimal(23, "salesRub", 100, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.decimal(24, "revenue", 100, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.decimal(25, "gp", 100, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.decimal(26, "cogs", 100, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.decimal(27, "salesDiscount", 100, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.intNumber(28, "planRub", 100, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.intNumber(29, "stockStoresPcs", 100, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.intNumber(30, "stockStoresDdp", 100, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.decimal(18, "orderPcs", 100, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(19, "orderRub", 100, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(20, "foundPcs", 100, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(21, "foundRub", 100, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(22, "salesPcs", 100, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(23, "salesRub", 100, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(24, "revenue", 100, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(25, "gp", 100, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(26, "cogs", 100, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(27, "salesDiscount", 100, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.intNumber(28, "planRub", 100, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.intNumber(29, "stockStoresPcs", 100, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.intNumber(30, "stockStoresDdp", 100, DWHExcelNullHandling.ZERO),
                 DWHExcelColumns.text(31, "cdDrivers", RAW_TEXT_LENGTH),
                 DWHExcelColumns.text(32, "skuSupplierModel", RAW_TEXT_LENGTH),
                 DWHExcelColumns.text(33, "skuComposition", RAW_TEXT_LENGTH),

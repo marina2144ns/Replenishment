@@ -21,6 +21,8 @@ class CDEcomStageSchemaContractTest {
     private static final String STAGE_TABLE = "dbo.CD_ecom_stage";
     private static final String REQUIRED_FIELDS_MIGRATION =
             "src/main/db/tables/cdecom_required_delete_fields_migration.sql";
+    private static final String ZERO_METRICS_MIGRATION =
+            "src/main/db/tables/cdecom_zero_metrics_migration.sql";
 
     private static final List<String> BUSINESS_COLUMNS = List.of(
             "name",
@@ -79,17 +81,16 @@ class CDEcomStageSchemaContractTest {
         assertColumn(columns, "data", "date", true);
         assertColumn(columns, "rawrowid", "bigint", true);
 
-        for (String name : List.of(
-                "skustylecolor", "planrub", "stockstorespcs", "stockstoresddp"
-        )) {
-            assertColumn(columns, name, "bigint", true);
+        assertColumn(columns, "skustylecolor", "bigint", true);
+        for (String name : List.of("planrub", "stockstorespcs", "stockstoresddp")) {
+            assertColumn(columns, name, "bigint", false);
         }
 
         for (String name : List.of(
                 "orderpcs", "orderrub", "foundpcs", "foundrub", "salespcs",
                 "salesrub", "revenue", "gp", "cogs", "salesdiscount"
         )) {
-            assertColumn(columns, name, "decimal(18,2)", true);
+            assertColumn(columns, name, "decimal(18,2)", false);
         }
 
         for (String name : List.of(
@@ -111,6 +112,23 @@ class CDEcomStageSchemaContractTest {
         assertColumn(target, "year", "int", false);
         assertColumn(target, "season", "int", false);
         assertColumn(target, "day", "int", false);
+    }
+
+    @Test
+    void zeroMetricsAreNotNullableAndIdentifierRemainsNullableInStageAndTarget() throws Exception {
+        List<DWHSchemaTestSupport.ColumnDef> target = tableColumns(DDL, TARGET_TABLE);
+        List<DWHSchemaTestSupport.ColumnDef> stage = tableColumns(DDL, STAGE_TABLE);
+
+        for (String name : decimalMetrics()) {
+            assertColumn(stage, name, "decimal(18,2)", false);
+            assertColumn(target, name, "decimal(18,2)", false);
+        }
+        for (String name : bigintMetrics()) {
+            assertColumn(stage, name, "bigint", false);
+            assertColumn(target, name, "bigint", false);
+        }
+        assertColumn(stage, "skustylecolor", "bigint", true);
+        assertColumn(target, "skustylecolor", "bigint", true);
     }
 
     @Test
@@ -227,6 +245,52 @@ class CDEcomStageSchemaContractTest {
         assertFalse(migration.contains("update "));
         assertFalse(migration.contains("truncate"));
         assertFalse(migration.contains("default"));
+    }
+
+    @Test
+    void zeroMetricsMigrationUpdatesOnlyMetricNullsThenGuardsNotNullAlter() throws Exception {
+        String migration = normalizeSql(read(ZERO_METRICS_MIGRATION));
+
+        for (String table : List.of("dbo.cd_ecom", "dbo.cd_ecom_stage")) {
+            for (String field : decimalMetrics()) {
+                assertTrue(migration.contains(
+                        "update " + table + " set " + field + " = 0 where " + field + " is null"
+                ), table + "." + field);
+                assertTrue(migration.contains(
+                        "alter table " + table + " alter column " + field
+                                + " decimal(18,2) not null"
+                ), table + "." + field);
+            }
+            for (String field : bigintMetrics()) {
+                assertTrue(migration.contains(
+                        "update " + table + " set " + field + " = 0 where " + field + " is null"
+                ), table + "." + field);
+                assertTrue(migration.contains(
+                        "alter table " + table + " alter column " + field + " bigint not null"
+                ), table + "." + field);
+            }
+        }
+
+        assertEquals(26, occurrences(migration, "is_nullable = 1"));
+        assertFalse(migration.contains("cd_ecom_raw"));
+        for (String field : List.of("year", "season", "name", "day", "skustylecolor")) {
+            assertFalse(migration.contains("alter column " + field + " "), field);
+        }
+        assertFalse(migration.contains("delete "));
+        assertFalse(migration.contains("drop "));
+        assertFalse(migration.contains("truncate "));
+        assertFalse(migration.contains("default"));
+    }
+
+    private static List<String> decimalMetrics() {
+        return List.of(
+                "orderpcs", "orderrub", "foundpcs", "foundrub", "salespcs", "salesrub",
+                "revenue", "gp", "cogs", "salesdiscount"
+        );
+    }
+
+    private static List<String> bigintMetrics() {
+        return List.of("planrub", "stockstorespcs", "stockstoresddp");
     }
 
     private static List<String> concat(List<String> first, List<String> second) {

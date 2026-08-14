@@ -8,12 +8,46 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CDEcomProcessorTest {
+
+    @Test
+    void blankNumericMetricsStageAsZeroAndPublish() {
+        TestContext context = TestContext.withChunks(List.of(row(1, "2025")));
+
+        CDEcomProcessResult result = context.processor().process(100L);
+
+        assertTrue(result.success());
+        assertEquals(1, context.target.publishCalls);
+        CDEcomStageRow row = context.stage.insertedRows.get(0);
+        for (BigDecimal value : List.of(
+                row.orderPcs(), row.orderRub(), row.foundPcs(), row.foundRub(), row.salesPcs(),
+                row.salesRub(), row.revenue(), row.gp(), row.cogs(), row.salesDiscount()
+        )) {
+            assertEquals(0, value.compareTo(BigDecimal.ZERO));
+        }
+        assertEquals(0L, row.planRub());
+        assertEquals(0L, row.stockStoresPcs());
+        assertEquals(0L, row.stockStoresDdp());
+        assertEquals(null, row.skuStyleColor());
+    }
+
+    @Test
+    void invalidNumericMetricPersistsErrorAndPreventsTargetPublish() {
+        TestContext context = TestContext.withChunks(List.of(rowWithOrderPcs(1, "abc")));
+
+        CDEcomProcessResult result = context.processor().process(100L);
+
+        assertFalse(result.success());
+        assertEquals(1, result.errorRows());
+        assertEquals(0, context.target.publishCalls);
+        assertTrue(context.stage.insertedRows.isEmpty());
+    }
 
     @Test
     void processesMultipleValidChunksAndPublishesOnce() {
@@ -223,6 +257,15 @@ class CDEcomProcessorTest {
         );
     }
 
+    private static CDEcomRawRow rowWithOrderPcs(long id, String orderPcs) {
+        return new CDEcomRawRow(
+                id, 100L, id, "name", "2025", "1", "31", "31.01.2025",
+                null, null, null, null, null, null, null, null, null, null, null,
+                null, null, orderPcs, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null
+        );
+    }
+
     private static final class TestContext {
         final List<String> events = new ArrayList<>();
         final RecordingConnection connection = new RecordingConnection();
@@ -275,6 +318,7 @@ class CDEcomProcessorTest {
     private static final class FakeStage extends CDEcomStageRepository {
         final List<String> events;
         final List<List<Long>> insertedExcelRows = new ArrayList<>();
+        final List<CDEcomStageRow> insertedRows = new ArrayList<>();
         int deleteCalls;
         int insertCalls;
         int failOnInsertCall;
@@ -302,6 +346,7 @@ class CDEcomProcessorTest {
             insertCalls++;
             if (insertCalls == failOnInsertCall) throw new RuntimeException("stage failed");
             insertedExcelRows.add(rows.stream().map(CDEcomStageRow::excelRowNum).toList());
+            insertedRows.addAll(rows);
             currentRows += rows.size();
         }
     }
