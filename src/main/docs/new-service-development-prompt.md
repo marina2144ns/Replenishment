@@ -1,0 +1,2336 @@
+# Master prompt для Codex: разработка нового DWH-сервиса загрузки данных в Replenishment
+
+Нужно реализовать новый сервис загрузки данных в проекте `Replenishment`.
+
+Сервис должен быть построен **строго по существующей унифицированной DWH-архитектуре проекта**, используемой в современных сервисах:
+
+* `WeeklyData`
+* `CDData`
+* `CDEcom`
+* `SalesByChannel`
+
+Не проектируй новую архитектуру с нуля.
+
+Перед реализацией обязательно изучи перечисленные reference services и используй их реальные patterns, общие компоненты, naming conventions, transaction boundaries, session/error infrastructure и структуру тестов.
+
+---
+
+# 0. Входные данные
+
+## Название сервиса
+
+`<SERVICE_NAME>`
+
+## Структура входных данных
+
+Я передаю таблицу со столбцами примерно следующего вида:
+
+| Column | Source name | SQL type | Java type | Nullable | Required | Length / precision | Notes |
+| ------ | ----------- | -------- | --------- | -------- | -------- | ------------------ | ----- |
+| ...    | ...         | ...      | ...       | ...      | ...      | ...                | ...   |
+
+Используй эту таблицу как основной schema contract.
+
+Если какое-либо свойство явно указано во входной таблице, оно имеет приоритет над предположениями.
+
+---
+
+# 1. Главный архитектурный принцип
+
+Новый сервис должен использовать следующий flow:
+
+```text
+Controller
+    ↓
+BulkLoader / Orchestrator
+    ↓
+DWH Load Session
+    ↓
+Streaming source file reading
+    ↓
+RAW table
+    ↓
+Java Processor
+    ↓
+Java Validator + Mapper
+    ↓
+STAGE table / DWH Error table
+    ↓
+Transactional TARGET publish
+    ↓
+STAGE cleanup
+    ↓
+Session SUCCESS
+```
+
+Архитектурно это означает:
+
+```text
+Controller
+→ typed BulkLoader
+→ shared DWH Excel infrastructure
+→ raw
+→ Java processor
+→ validator
+→ typed stage
+→ target repository
+→ session/status
+```
+
+Основная бизнес-логика преобразования и валидации должна находиться **в Java**.
+
+Не создавать stored procedure для processing/validation.
+
+Не переносить бизнес-логику в SQL без отдельного прямого требования.
+
+---
+
+# 2. Сначала изучить существующую архитектуру
+
+До внесения изменений изучи как минимум:
+
+* `WeeklyDataController`
+* `WeeklyDataBulkLoader`
+* `WeeklyDataExcelLoadDefinition`
+* `WeeklyDataProcessor`
+* `WeeklyDataValidator`
+* `WeeklyDataRowMapper`
+* `WeeklyDataRawRepository`
+* `WeeklyDataStageRepository`
+* `WeeklyDataTargetRepository`
+* `WeeklyDataErrorRepository`
+* deletion classes;
+
+аналогичные классы:
+
+* `CDData`
+* `CDEcom`
+* `SalesByChannel`;
+
+а также общую инфраструктуру:
+
+* `AbstractDWHExcelLoader`
+* `DWHExcelAsyncLoadService`
+* `DWHExcelStatusService`
+* `DWHExcelStatusController`
+* session repository/model;
+* error repository/model;
+* Excel streaming infrastructure;
+* `AsyncConfig`;
+* существующие DDL;
+* `Users.sql`;
+* существующие schema contract tests.
+
+Определи текущий canonical pattern проекта и следуй ему.
+
+Если между reference services остались случайные технические различия, не копируй их автоматически.
+
+Приоритет имеет **унифицированное поведение**, описанное в этом задании.
+
+---
+
+# 3. Не менять общую архитектуру проекта
+
+При реализации нового сервиса не нужно без необходимости менять:
+
+* `AbstractDWHExcelLoader`;
+* общий status API;
+* общую session infrastructure;
+* общую error infrastructure;
+* async executor;
+* другие существующие сервисы;
+* глобальную API architecture.
+
+Если обнаружится, что для нового сервиса действительно требуется изменение shared infrastructure, сначала явно опиши:
+
+1. почему существующего механизма недостаточно;
+2. какие сервисы изменение затронет;
+3. есть ли backward compatibility risk.
+
+Не делай такой рефакторинг молча в рамках реализации нового сервиса.
+
+---
+
+# 4. API
+
+## 4.1 Bulk load endpoint
+
+Создай controller по pattern существующих DWH-сервисов.
+
+Ожидаемый endpoint должен соответствовать naming conventions проекта, например:
+
+```text
+POST /<service>/v1.0/bulk
+```
+
+Используй общий request/response contract проекта, если он применим:
+
+```text
+DWHExcelLoadRequest
+DWHExcelLoadResult
+```
+
+Не создавай новый собственный формат request/result без технической необходимости.
+
+Controller должен быть тонким.
+
+В controller допустимы:
+
+* HTTP-level validation;
+* вызов loader/orchestrator;
+* формирование стандартного HTTP response.
+
+В controller не должно быть:
+
+* чтения Excel/CSV строк;
+* конвертации каждой строки;
+* бизнес-валидации;
+* JDBC;
+* JPA row-by-row save;
+* SQL processing;
+* управления batch;
+* ручного управления транзакциями.
+
+---
+
+# 5. Асинхронная загрузка
+
+Используй существующий shared async mechanism.
+
+Не создавай отдельный executor для нового сервиса.
+
+Загрузка должна использовать общий lifecycle session:
+
+```text
+QUEUED
+→ RUNNING
+→ SUCCESS
+```
+
+или:
+
+```text
+QUEUED
+→ RUNNING
+→ ERROR
+```
+
+Используй существующие значения status и существующий механизм их обновления.
+
+Не вводи новые статусы без отдельной необходимости.
+
+---
+
+# 6. Load Session
+
+Каждая загрузка должна иметь собственный:
+
+```text
+LoadSessionId
+```
+
+и использовать общую:
+
+```text
+DWH_Excel_Load_Session
+```
+
+Не создавать отдельную таблицу сессий для нового сервиса.
+
+Session должна позволять определить как минимум:
+
+* тип/сервис загрузки;
+* исходный файл согласно существующей модели;
+* время запуска;
+* status;
+* сообщение об ошибке;
+* существующие counters, если они поддерживаются текущей infrastructure.
+
+Не дублируй session metadata в собственной таблице сервиса без необходимости.
+
+---
+
+# 7. Чтение исходного файла
+
+Для XLSX использовать существующий streaming mechanism проекта.
+
+Не использовать:
+
+```java
+new XSSFWorkbook(...)
+```
+
+для загрузки всего workbook в память, если shared loader уже использует streaming SAX approach.
+
+Ориентироваться на существующий `AbstractDWHExcelLoader`.
+
+Файл должен обрабатываться потоково.
+
+---
+
+# 8. Header validation
+
+Для нового сервиса header validation является обязательной частью schema contract.
+
+Используй подход `SalesByChannel`, но адаптируй его к новому schema definition.
+
+Проверить:
+
+* количество ожидаемых колонок;
+* порядок колонок;
+* literal header names;
+* отсутствие неожиданного смещения структуры файла.
+
+Имена должны соответствовать переданной мной таблице source columns.
+
+При несовпадении header файл не должен silently загружаться по позициям.
+
+Ошибка должна быть диагностируемой.
+
+Не делать fuzzy matching, автоматическое исправление названий или перестановку колонок, если это отдельно не задано.
+
+---
+
+# 9. RAW layer
+
+Для нового сервиса создать отдельную raw table:
+
+```text
+<SERVICE>_raw
+```
+
+Используй фактический naming style проекта.
+
+## Назначение RAW
+
+RAW должен хранить данные максимально близко к исходному представлению файла.
+
+RAW не является target business table.
+
+На этапе записи raw не нужно выполнять полную business conversion.
+
+Основные преобразования выполняются позже Java processor.
+
+---
+
+# 10. RAW metadata
+
+RAW должен поддерживать traceability.
+
+Следуй pattern современных DWH-сервисов.
+
+Как минимум должны существовать технические идентификаторы, эквивалентные:
+
+```text
+Id
+LoadSessionId
+ExcelRowNum
+```
+
+Используй `BIGINT` для технических row/session identifiers в соответствии с текущей DWH architecture.
+
+`ExcelRowNum` должен позволять точно определить строку исходного файла.
+
+RAW row ID должен быть пригоден для keyset pagination.
+
+---
+
+# 11. RAW business columns
+
+Для входных business values используй representation, соответствующее существующим RAW tables.
+
+Если reference architecture хранит исходные значения как строки (`NVARCHAR(...)`) до Java conversion, следуй этому pattern.
+
+Не выполняй SQL `TRY_CONVERT` как основной механизм валидации.
+
+Не превращай некорректное значение silently в `NULL`.
+
+Некорректное значение должно быть обнаружено validator'ом и зарегистрировано как validation error.
+
+Размер raw string columns выбирай с учётом:
+
+* входного schema contract;
+* существующего project pattern;
+* отсутствия ненужного truncation.
+
+Не обрезай значение silently.
+
+---
+
+# 12. RAW loading
+
+RAW insert должен выполняться batch-порциями.
+
+Не делать:
+
+```text
+1 source row = 1 DB transaction
+```
+
+Используй существующий shared JDBC batching mechanism.
+
+Сохраняй:
+
+```text
+LoadSessionId
+ExcelRowNum
+```
+
+для каждой строки.
+
+---
+
+# 13. Processor
+
+Создай отдельный Java processor:
+
+```text
+<SERVICE>Processor
+```
+
+Его ответственность:
+
+1. подготовить processing текущей session;
+2. читать RAW ограниченными chunks;
+3. валидировать строки;
+4. преобразовывать valid rows в typed stage rows;
+5. сохранять validation errors;
+6. записывать valid rows batch-порциями в stage;
+7. после полной успешной validation выполнить publish;
+8. корректно завершить session.
+
+Processor не должен загружать весь RAW dataset одной session в Java memory.
+
+---
+
+# 14. RAW pagination
+
+Использовать keyset pagination по pattern reference services.
+
+Предпочтительный принцип:
+
+```sql
+WHERE LoadSessionId = ?
+  AND Id > ?
+ORDER BY Id
+```
+
+с ограниченным:
+
+```sql
+TOP (?)
+```
+
+Не использовать OFFSET pagination для больших raw datasets, если проект уже использует keyset approach.
+
+Размер chunk/batch брать из существующего configuration pattern.
+
+Не hardcode arbitrary значения, если аналогичные настройки уже вынесены в configuration.
+
+---
+
+# 15. Initial STAGE cleanup
+
+Перед началом обработки session необходимо удалить возможные leftovers stage той же `LoadSessionId`.
+
+То есть processor должен начинать processing по существующему pattern:
+
+```text
+DELETE stage
+WHERE LoadSessionId = currentLoadSessionId
+```
+
+Это необходимо для безопасного повторного запуска обработки одной session.
+
+Не удалять stage других sessions.
+
+---
+
+# 16. Validator
+
+Создай отдельный:
+
+```text
+<SERVICE>Validator
+```
+
+Business validation должна выполняться в Java.
+
+Validator должен работать исходя из переданного schema contract.
+
+Проверять, где применимо:
+
+* required / nullable;
+* тип;
+* число;
+* integer range;
+* decimal precision/scale;
+* date format;
+* length;
+* допустимость пустой строки;
+* специальные business constraints, только если они явно заданы.
+
+Не придумывать business constraints по названию колонки.
+
+Например, из названия `Year` можно определить ожидаемый тип только если это следует из входной таблицы или existing contract.
+
+Нельзя самостоятельно придумывать диапазон вроде `2000..2100`, если такого требования нет.
+
+---
+
+# 17. NULL и blank semantics
+
+Явно различать:
+
+```text
+NULL
+blank string
+invalid value
+zero
+```
+
+согласно schema contract.
+
+Не заменять автоматически:
+
+```text
+blank → 0
+invalid number → NULL
+NULL → 0
+```
+
+если этого нет в требованиях.
+
+Для nullable fields корректное пустое значение может преобразовываться в `NULL` по существующему project pattern.
+
+Для required fields отсутствие значения должно создавать validation error.
+
+---
+
+# 18. Mapper / Value parser
+
+Если преобразование raw → typed row достаточно сложное, использовать отдельные classes по существующим patterns:
+
+```text
+<SERVICE>RowMapper
+<SERVICE>ValueParser
+```
+
+Не превращать validator в огромный класс, совмещающий:
+
+* parsing;
+* validation;
+* SQL;
+* persistence.
+
+Разделяй ответственности аналогично reference services.
+
+---
+
+# 19. Ошибки валидации
+
+Использовать общую:
+
+```text
+DWH_Excel_Load_Error
+```
+
+Не создавать отдельную error table для сервиса, если общая infrastructure подходит.
+
+Ошибка должна быть traceable до source row.
+
+Использовать существующие поля, включая эквиваленты:
+
+```text
+LoadSessionId
+ExcelRowNum
+RawId
+```
+
+и существующие error metadata.
+
+Сообщение должно позволять понять:
+
+* какая строка;
+* какая колонка;
+* какое значение;
+* какое правило нарушено.
+
+Не использовать только generic:
+
+```text
+Invalid data
+```
+
+если можно вернуть конкретную причину.
+
+---
+
+# 20. Поведение при validation errors
+
+Если хотя бы одна строка не прошла validation, target publish не должен частично изменять production data.
+
+Следовать существующей all-or-nothing policy reference DWH services.
+
+Validation errors сохраняются в общей error infrastructure.
+
+Session должна завершаться согласно существующему error contract.
+
+Не публиковать только «хорошие строки», если текущая архитектура сервиса предполагает запрет publish при наличии ошибок.
+
+---
+
+# 21. STAGE layer
+
+Создать typed stage table:
+
+```text
+<SERVICE>_stage
+```
+
+Stage содержит уже преобразованные и validated значения.
+
+Business columns в stage должны иметь целевые SQL types согласно переданному schema contract.
+
+Не хранить все stage business values как `NVARCHAR`, если target имеет типизированную структуру.
+
+---
+
+# 22. STAGE metadata
+
+Stage должен сохранять traceability.
+
+Следовать reference DWH tables и использовать технические поля, эквивалентные:
+
+```text
+LoadSessionId
+ExcelRowNum
+RawRowId
+```
+
+`RawRowId` должен ссылаться на конкретную RAW row, из которой получена stage row.
+
+Использовать типы технических идентификаторов, совместимые с RAW/session tables.
+
+---
+
+# 23. STAGE persistence
+
+Stage rows сохранять batch-порциями.
+
+Не использовать JPA `save()` для каждой строки.
+
+Использовать JDBC repository pattern современных DWH processors.
+
+Chunk processing должен иметь понятные transaction boundaries по pattern существующих сервисов.
+
+---
+
+# 24. TARGET layer
+
+Создать итоговую typed table:
+
+```text
+<SERVICE>
+```
+
+или имя согласно naming conventions/schema contract.
+
+Target business columns должны строго соответствовать переданной таблице:
+
+* SQL type;
+* length;
+* precision;
+* scale;
+* nullability.
+
+Не изменять типы по собственному усмотрению.
+
+Если входной contract содержит потенциально опасный тип, сообщить об этом отдельно, но не silently менять его.
+
+---
+
+# 25. TARGET metadata
+
+Target должен сохранять traceability согласно современному pattern проекта.
+
+Как минимум использовать эквиваленты:
+
+```text
+LoadSessionId
+RawRowId
+```
+
+если они присутствуют во всех актуальных reference target tables и применимы к новой реализации.
+
+Это должно позволять определить:
+
+```text
+target row
+→ load session
+→ raw row
+→ Excel row
+```
+
+---
+
+# 26. КРИТИЧЕСКИ ВАЖНО: publish semantics
+
+Обычная загрузка **НЕ должна автоматически удалять предыдущие данные того же business period/business key**.
+
+Не реализовывать:
+
+```text
+DELETE WHERE Year = ?
+DELETE WHERE Year = ? AND Month = ?
+DELETE WHERE Year = ? AND Week = ?
+DELETE WHERE Season = ?
+DELETE WHERE business columns match stage
+```
+
+как часть обычного publish, если это отдельно явно не требуется.
+
+Нельзя самостоятельно выводить business scope из названий колонок.
+
+Publish должен работать **по текущей LoadSessionId**, как унифицированные DWH-сервисы проекта.
+
+---
+
+# 27. TARGET publish transaction
+
+Canonical flow:
+
+```text
+BEGIN TRANSACTION
+
+DELETE FROM target
+WHERE LoadSessionId = currentLoadSessionId
+
+INSERT INTO target (...)
+SELECT ...
+FROM stage
+WHERE LoadSessionId = currentLoadSessionId
+
+verify publishedRows == expectedRows
+
+DELETE FROM stage
+WHERE LoadSessionId = currentLoadSessionId
+
+verify cleanedStageRows == expectedRows
+
+COMMIT
+```
+
+При любой ошибке:
+
+```text
+ROLLBACK
+```
+
+---
+
+# 28. Зачем DELETE target по текущей session
+
+Это обеспечивает idempotent processing одной и той же загрузочной session.
+
+Если processing текущей session выполняется повторно, target rows этой session заменяются.
+
+При этом target rows:
+
+```text
+других LoadSessionId
+```
+
+не должны автоматически удаляться.
+
+Даже если другая session содержит те же business values или тот же период.
+
+---
+
+# 29. Проверка количества опубликованных строк
+
+Перед commit обязательно проверить:
+
+```text
+publishedRows == expectedValidRows
+```
+
+Если количество не совпадает:
+
+```text
+ROLLBACK
+```
+
+Session не должна завершиться SUCCESS.
+
+Не считать publish успешным только потому, что SQL statement не бросил exception.
+
+---
+
+# 30. STAGE cleanup после успешного publish
+
+После успешной target insertion, но **до commit**, необходимо:
+
+```sql
+DELETE FROM <SERVICE>_stage
+WHERE LoadSessionId = ?
+```
+
+Затем проверить:
+
+```text
+cleanedStageRows == expectedRows
+```
+
+Если количество не совпадает:
+
+```text
+ROLLBACK
+```
+
+---
+
+# 31. Transaction boundary publish + cleanup
+
+Следующие операции должны находиться **на одном connection в одной DB transaction**:
+
+```text
+target delete current session
+target insert current session
+publish count verification
+stage cleanup current session
+stage cleanup count verification
+```
+
+Commit выполняется только после всех проверок.
+
+---
+
+# 32. Поведение rollback
+
+Если ошибка возникает:
+
+* при target DELETE;
+* при target INSERT;
+* при publish count verification;
+* при stage DELETE;
+* при cleanup count verification;
+* до commit;
+
+необходимо rollback всей publish transaction.
+
+После rollback не должно оставаться частично опубликованного target состояния.
+
+Stage не должен быть потерян из-за failed publish transaction.
+
+---
+
+# 33. Что делать с RAW после SUCCESS
+
+Не придумывай новую cleanup policy RAW.
+
+Следуй существующему lifecycle reference DWH services.
+
+Если современные reference services сохраняют RAW после обработки для traceability — сохраняй.
+
+Не удаляй RAW только ради экономии места без отдельного требования.
+
+---
+
+# 34. Delete API
+
+Разделять:
+
+```text
+обычная загрузка
+```
+
+и:
+
+```text
+явное удаление данных
+```
+
+Business deletion не должна быть скрытой частью publish.
+
+---
+
+# 35. Delete по LoadSessionId
+
+Если это соответствует текущему общему pattern DWH services, реализовать явное удаление итоговых данных текущего сервиса по:
+
+```text
+LoadSessionId
+```
+
+через отдельный DELETE endpoint и deletion service.
+
+Удаление должно касаться **target data**, а не уничтожать audit history загрузки.
+
+Не удалять автоматически:
+
+* RAW;
+* DWH load session;
+* DWH errors;
+
+только потому, что удаляется target.
+
+---
+
+# 36. Business delete criteria
+
+Если вместе с schema contract я явно передала критерий удаления, например:
+
+```text
+Year + Week
+Year + Month
+Name + Day
+God + Sezon
+```
+
+реализовать соответствующий typed delete endpoint по pattern существующих services.
+
+Если business delete criteria **не переданы**, НЕ ПРИДУМЫВАТЬ их самостоятельно.
+
+Нельзя считать, что наличие колонок:
+
+```text
+Year
+Month
+Week
+Season
+Date
+Name
+```
+
+автоматически означает необходимость соответствующего DELETE API.
+
+В таком случае:
+
+* реализовать только архитектурно достоверную часть;
+* отдельно написать, что business delete criteria не заданы;
+* не создавать speculative endpoint.
+
+---
+
+# 37. Delete session logging
+
+Явная операция удаления должна использовать общий session/audit mechanism проекта.
+
+Удаление должно регистрироваться как отдельная operation/session согласно существующему deletion pattern.
+
+Сохранять:
+
+* тип операции;
+* критерии удаления, если infrastructure их поддерживает;
+* результат;
+* количество удалённых строк;
+* SUCCESS/ERROR.
+
+Не считать delete частью предыдущей load session.
+
+---
+
+# 38. Delete transaction
+
+Target DELETE и успешное завершение deletion session должны следовать существующему transactional pattern проекта.
+
+Не допускать ситуации:
+
+```text
+target удалён
+→ deletion session осталась RUNNING из-за отдельного commit
+```
+
+если reference deletion services уже решают это в одной transaction.
+
+Используй существующий pattern.
+
+---
+
+# 39. Delete count
+
+Результат удаления должен содержать фактическое количество удалённых target rows согласно существующей deletion architecture.
+
+Не возвращать просто:
+
+```text
+OK
+```
+
+если reference services используют структурированный result/session mechanism.
+
+---
+
+# 40. DDL: отдельные таблицы
+
+Добавить DDL для:
+
+```text
+<SERVICE>_raw
+<SERVICE>_stage
+<SERVICE>
+```
+
+Использовать схему:
+
+```text
+dbo
+```
+
+если это стандарт проекта.
+
+Не создавать отдельные session/error tables.
+
+---
+
+# 41. DDL должен быть create/install DDL
+
+Основной DDL нового сервиса не должен начинаться с destructive:
+
+```sql
+DROP TABLE ...
+```
+
+Не удалять существующие business tables в deployment script.
+
+Не копировать старые destructive patterns вроде legacy `ABCdata_ddl.sql`.
+
+DDL должен быть пригоден для fresh install и соответствовать текущему DDL approach проекта.
+
+---
+
+# 42. Foreign keys
+
+Следовать существующим DWH schema patterns для FK к:
+
+```text
+DWH_Excel_Load_Session
+RAW row
+```
+
+там, где эти FK реально используются reference tables.
+
+Не создавать cascade delete, который может уничтожить audit/history data, если такого pattern нет в современных сервисах.
+
+---
+
+# 43. SQL types
+
+Строго использовать переданный schema contract.
+
+Особенно внимательно:
+
+```text
+BIGINT
+INT
+SMALLINT
+DECIMAL(p,s)
+NVARCHAR(n)
+DATE/DATETIME
+BIT
+```
+
+Не выбирать `INT` автоматически для денежных, количественных или технических identifiers, если диапазон может быть недостаточен.
+
+Но также не менять явно заданный тип без согласования.
+
+Если обнаружен риск переполнения — сообщить отдельно.
+
+---
+
+# 44. Nullability
+
+DDL, Java typed row и validation должны быть согласованы.
+
+Если:
+
+```text
+Nullable = false
+```
+
+то:
+
+* target/stage column должна быть NOT NULL;
+* validator должен запрещать отсутствие значения;
+* Java representation должна корректно отражать обязательность.
+
+Если:
+
+```text
+Nullable = true
+```
+
+не использовать Java primitive, если необходимо корректно представить DB NULL.
+
+Например, учитывать разницу между:
+
+```java
+int
+Integer
+```
+
+---
+
+# 45. Raw vs typed types
+
+Важно не смешивать layers.
+
+RAW:
+
+```text
+source-oriented representation
+```
+
+STAGE:
+
+```text
+validated typed representation
+```
+
+TARGET:
+
+```text
+validated typed business representation
+```
+
+Не пытаться сделать RAW идентичным target, если это уничтожит возможность корректно зарегистрировать parsing errors.
+
+---
+
+# 46. Индексы
+
+Создать только индексы, необходимые runtime flow.
+
+Обязательные/типичные candidates:
+
+RAW:
+
+```text
+LoadSessionId + Id
+```
+
+или эквивалентный индекс для keyset processing.
+
+STAGE:
+
+```text
+LoadSessionId
+```
+
+для:
+
+* publish;
+* cleanup.
+
+TARGET:
+
+```text
+LoadSessionId
+```
+
+для:
+
+* idempotent publish;
+* explicit session delete;
+* traceability.
+
+---
+
+# 47. Business indexes
+
+Business indexes создавать только если они оправданы:
+
+* delete criteria;
+* documented production query;
+* service contract;
+* существующим request.
+
+Не создавать индексы на все business columns «на всякий случай».
+
+Если business delete criteria явно заданы, индекс по этим критериям рассмотреть обязательно.
+
+---
+
+# 48. Index naming
+
+Следовать naming convention существующего проекта:
+
+```text
+IX_<table>_<columns>
+```
+
+или фактическому project pattern.
+
+Не вводить новый naming style.
+
+---
+
+# 49. Не создавать stored procedure
+
+Для нового DWH service не создавать:
+
+```text
+usp_<SERVICE>_ProcessLoadSession
+```
+
+если задача не требует этого явно.
+
+Validation, conversion и processing должны быть Java-based.
+
+Не создавать historical SQL implementation «про запас».
+
+---
+
+# 50. Не использовать SQL как silent validator
+
+Не использовать:
+
+```sql
+TRY_CONVERT(...)
+```
+
+с превращением invalid input в NULL без регистрации ошибки.
+
+SQL должен отвечать главным образом за:
+
+* persistence;
+* selection;
+* target publication;
+* deletion.
+
+Business parsing/validation — Java.
+
+---
+
+# 51. Repository architecture
+
+Разделить repositories по responsibility согласно reference services.
+
+Ожидаемая структура примерно:
+
+```text
+<SERVICE>RawRepository
+<SERVICE>StageRepository
+<SERVICE>TargetRepository
+<SERVICE>ErrorRepository
+```
+
+и при наличии deletion:
+
+```text
+<SERVICE>DeletionRepository
+```
+
+Не создавать один giant repository со всей SQL-логикой сервиса.
+
+---
+
+# 52. Configuration
+
+Использовать существующий configuration approach.
+
+Настройки вроде:
+
+* raw batch size;
+* processing chunk size;
+* stage batch size;
+
+не размножать hardcoded constants, если в reference architecture они configurable.
+
+---
+
+# 53. Error handling
+
+Разделять:
+
+## File-level error
+
+Например:
+
+* файл не существует;
+* файл нельзя открыть;
+* неверная структура;
+* неверный header.
+
+## Row validation error
+
+Например:
+
+* required value отсутствует;
+* invalid decimal;
+* invalid date;
+* value too long.
+
+## Processing/system error
+
+Например:
+
+* DB failure;
+* transaction failure;
+* unexpected processing exception.
+
+Все должны приводить session в корректное конечное состояние согласно существующей architecture.
+
+Не оставлять session `RUNNING` после fatal exception.
+
+---
+
+# 54. Idempotency
+
+Повторный processing одной `LoadSessionId` должен быть безопасным.
+
+Для этого использовать:
+
+```text
+initial stage cleanup
++
+target delete current LoadSessionId
++
+target insert current LoadSessionId
++
+successful stage cleanup
+```
+
+Не обеспечивать idempotency посредством удаления других sessions.
+
+---
+
+# 55. Concurrency
+
+Архитектура нового сервиса не должна использовать global shared STG без `LoadSessionId`.
+
+Нельзя повторять legacy pattern:
+
+```text
+TRUNCATE shared_stage
+→ load
+→ process
+```
+
+который создаёт race condition между параллельными загрузками.
+
+Все intermediate rows должны быть изолированы по:
+
+```text
+LoadSessionId
+```
+
+---
+
+# 56. Не использовать partial commits внутри бизнес-загрузки без необходимости
+
+Не повторять legacy ABCData pattern с промежуточными commits глобальной stage.
+
+Batch != commit.
+
+Batch insert используется для производительности.
+
+Transaction boundary определяется архитектурой, а не каждым batch автоматически.
+
+Следовать transaction model reference DWH loaders/processors.
+
+---
+
+# 57. Не использовать row-by-row JPA persistence
+
+Не повторять StoreTurnover legacy pattern:
+
+```text
+for each row:
+    repository.save(row)
+```
+
+если сервис предназначен для bulk DWH loading.
+
+Использовать JDBC batching по существующему pattern.
+
+---
+
+# 58. API response
+
+Не возвращать plain text:
+
+```text
+OK
+```
+
+или:
+
+```text
+List.toString()
+```
+
+Использовать существующий structured API contract.
+
+Новый сервис должен выглядеть для клиента так же, как остальные современные DWH services.
+
+---
+
+# 59. DB permissions
+
+Обновить deployment permission contract:
+
+```text
+src/main/db/tables/Users.sql
+```
+
+по существующему pattern.
+
+Давать runtime principal только реально необходимые permissions.
+
+---
+
+# 60. Least privilege
+
+Определи фактические SQL operations каждого repository и выдай минимальные object-level rights.
+
+Ориентировочно могут потребоваться:
+
+RAW:
+
+```text
+SELECT
+INSERT
+```
+
+STAGE:
+
+```text
+SELECT
+INSERT
+DELETE
+```
+
+TARGET:
+
+```text
+SELECT
+INSERT
+DELETE
+```
+
+Но не копируй этот список blindly.
+
+Проверь реальный runtime SQL.
+
+Если repository действительно выполняет дополнительную операцию, право должно соответствовать ей.
+
+---
+
+# 61. Не выдавать ненужные permissions
+
+Без отдельной причины не добавлять:
+
+```text
+ALTER
+CONTROL
+ADMINISTER BULK OPERATIONS
+SHOWPLAN
+EXECUTE на processing procedures
+UPDATE
+```
+
+если runtime их не использует.
+
+Не давать permission stored procedure, которой нет или которая не вызывается.
+
+---
+
+# 62. DDL/permission contract
+
+Tests должны подтверждать, что DDL и `Users.sql` содержат необходимые объекты и permissions.
+
+Не полагаться только на ручную проверку SQL-файлов.
+
+---
+
+# 63. Migration existing DB
+
+Различать:
+
+```text
+fresh-install DDL
+```
+
+и:
+
+```text
+upgrade существующей production DB
+```
+
+Если новый сервис создаёт абсолютно новые таблицы, основной DDL должен описывать fresh installation этих объектов.
+
+Если реализация требует изменения уже существующей общей таблицы или общего DB object, не маскируй это внутри create DDL.
+
+Отдельно перечисли, какой migration нужен для существующей БД.
+
+Не добавляй destructive migration автоматически.
+
+---
+
+# 64. Naming
+
+Использовать naming conventions проекта для:
+
+* Java packages;
+* controllers;
+* services;
+* definitions;
+* processors;
+* validators;
+* repositories;
+* DB tables;
+* indexes;
+* endpoint names;
+* tests.
+
+Не вводить произвольное новое именование.
+
+Перед созданием файлов посмотри ближайший reference service.
+
+---
+
+# 65. Package structure
+
+Использовать современную структуру packages, аналогичную reference services.
+
+Примерно:
+
+```text
+services/<service>/
+services/<service>/process/
+services/dwhexcelload/definitions/
+controllers/
+```
+
+Точную структуру брать из текущего проекта.
+
+---
+
+# 66. Definition
+
+Создать load definition нового сервиса по pattern:
+
+```text
+<SERVICE>ExcelLoadDefinition
+```
+
+Definition должна описывать:
+
+* service/load type;
+* raw insert contract;
+* source columns;
+* header contract;
+* processor connection.
+
+Если Java processing используется напрямую, не оставлять фиктивный stored procedure contract.
+
+---
+
+# 67. Не создавать parallel legacy path
+
+После реализации не должно появляться двух runtime путей:
+
+```text
+Java processor
+```
+
+и одновременно:
+
+```text
+stored procedure processor
+```
+
+для одной загрузки.
+
+Нужен один canonical runtime path.
+
+---
+
+# 68. Документация
+
+Если в проекте существует документ со списком shared DWH services, обновить его новым сервисом.
+
+Документация должна описывать реальный runtime.
+
+Не писать, что используется stored procedure, если processing Java-based.
+
+Не ссылаться на nonexistent migrations.
+
+---
+
+# 69. ТЕСТЫ — общий принцип
+
+Новый сервис считается завершённым только вместе с тестами.
+
+Не ограничиваться одним happy-path test.
+
+Использовать testing style современных DWH services.
+
+---
+
+# 70. Header tests
+
+Проверить:
+
+1. правильные headers принимаются;
+2. неправильное имя колонки отклоняется;
+3. неправильный порядок отклоняется;
+4. отсутствующая колонка отклоняется;
+5. лишняя колонка обрабатывается согласно выбранному strict contract.
+
+---
+
+# 71. Definition tests
+
+Проверить:
+
+* корректное число source columns;
+* raw insert mapping;
+* expected table;
+* load type/service name;
+* processor wiring;
+* отсутствие runtime stored procedure processing, если применимо.
+
+---
+
+# 72. Validator tests
+
+Для каждой business column проверить relevant cases:
+
+* valid value;
+* null;
+* blank;
+* invalid type;
+* boundary values;
+* too long;
+* precision overflow;
+* scale;
+* required field missing.
+
+Проверять только правила, реально следующие из schema contract.
+
+---
+
+# 73. Mapper/parser tests
+
+Проверить raw → typed conversion:
+
+* string;
+* integers;
+* decimals;
+* dates;
+* nullable;
+* zero;
+* negative values, если допустимы/недопустимы согласно contract;
+* whitespace handling;
+* locale-specific formats только если они являются частью входного формата.
+
+---
+
+# 74. RAW repository tests
+
+Проверить SQL contract:
+
+* selection только текущей session;
+* keyset `Id > lastId`;
+* ordering;
+* chunk limit;
+* правильный mapping columns.
+
+---
+
+# 75. Pagination tests
+
+Обязательно проверить несколько chunks.
+
+Например:
+
+```text
+chunk 1
+chunk 2
+chunk 3
+```
+
+и убедиться, что:
+
+* строка не теряется;
+* строка не читается дважды;
+* next cursor соответствует последнему RAW ID.
+
+---
+
+# 76. STAGE repository tests
+
+Проверить:
+
+* batch insert;
+* все business columns;
+* metadata;
+* `LoadSessionId`;
+* `ExcelRowNum`;
+* `RawRowId`;
+* `deleteByLoadSessionId`.
+
+---
+
+# 77. Error tests
+
+Проверить, что invalid row:
+
+* не попадает как valid stage row;
+* создаёт structured DWH error;
+* сохраняет правильный Excel row;
+* сохраняет Raw ID;
+* содержит диагностируемое описание.
+
+---
+
+# 78. Processor happy path
+
+Проверить полный processor flow:
+
+```text
+initial stage cleanup
+→ raw chunks
+→ validation
+→ stage batches
+→ target publish
+→ publish count verification
+→ stage cleanup
+→ cleanup count verification
+→ commit
+→ SUCCESS
+```
+
+---
+
+# 79. Processor validation failure
+
+Проверить:
+
+* validation error зарегистрирован;
+* target publish не происходит;
+* session не становится SUCCESS;
+* existing target data не изменяются.
+
+---
+
+# 80. Publish repository tests
+
+КРИТИЧЕСКИ ВАЖНО проверить правильную session semantics.
+
+## Scenario A
+
+Target содержит:
+
+```text
+LoadSessionId = 100
+```
+
+Stage содержит:
+
+```text
+LoadSessionId = 100
+```
+
+После publish target rows session `100` заменены текущими rows session `100`.
+
+---
+
+# 81. Не удалять другую session того же business scope
+
+## Scenario B
+
+Target:
+
+```text
+LoadSessionId = 100
+Year = 2026
+Month = 7
+```
+
+Stage:
+
+```text
+LoadSessionId = 101
+Year = 2026
+Month = 7
+```
+
+если такие поля существуют.
+
+После publish session `101`:
+
+```text
+session 100 должна остаться
+session 101 должна появиться
+```
+
+Обычный publish не должен удалять session 100 по совпадению business columns.
+
+Этот тест обязателен там, где target имеет business-period-like columns.
+
+---
+
+# 82. Other sessions unaffected
+
+Проверить, что target rows других `LoadSessionId` не изменяются.
+
+---
+
+# 83. Publish count mismatch test
+
+Если:
+
+```text
+publishedRows != expectedRows
+```
+
+должен произойти:
+
+```text
+ROLLBACK
+```
+
+Commit запрещён.
+
+---
+
+# 84. Stage cleanup test
+
+После successful publish:
+
+```text
+deleteByLoadSessionId(currentSession)
+```
+
+обязательно вызывается.
+
+Проверить:
+
+```text
+cleanedRows == expectedRows
+```
+
+---
+
+# 85. Stage cleanup mismatch test
+
+Если:
+
+```text
+cleanedRows != expectedRows
+```
+
+должен быть rollback всей publish transaction.
+
+Target publish не должен остаться committed.
+
+---
+
+# 86. Stage cleanup exception test
+
+Если stage DELETE бросает exception:
+
+```text
+ROLLBACK
+```
+
+Проверить отсутствие commit.
+
+---
+
+# 87. Publish exception test
+
+Если target publish падает:
+
+```text
+ROLLBACK
+```
+
+Stage не должен быть потерян из-за failed publish transaction.
+
+---
+
+# 88. Initial stage cleanup/retry test
+
+Проверить повторный processing той же session:
+
+* stale stage удаляется в начале;
+* stage формируется заново;
+* успешный publish выполняется;
+* stage очищается после успеха.
+
+---
+
+# 89. Transaction tests
+
+Проверить, что:
+
+```text
+target publish
+stage cleanup
+```
+
+используют одну transaction.
+
+Не должно быть commit между:
+
+```text
+target insert
+```
+
+и:
+
+```text
+stage delete
+```
+
+---
+
+# 90. Delete tests
+
+Если реализуется delete API:
+
+проверить:
+
+* правильный target predicate;
+* удаляется только target;
+* другие rows не затрагиваются;
+* deletion session создаётся;
+* удалённое количество фиксируется;
+* SUCCESS;
+* rollback/error path.
+
+---
+
+# 91. Session delete tests
+
+Для:
+
+```text
+DELETE .../session
+```
+
+проверить:
+
+```text
+WHERE LoadSessionId = ?
+```
+
+и отсутствие удаления других sessions.
+
+---
+
+# 92. Business delete tests
+
+Если business criteria явно переданы, проверить:
+
+* полный composite predicate;
+* каждый обязательный parameter;
+* отсутствие partial accidental delete;
+* correct deleted row count;
+* deletion audit metadata.
+
+---
+
+# 93. Controller tests
+
+Проверить:
+
+* valid request;
+* invalid request;
+* loader invocation;
+* стандартный response;
+* отсутствие business processing в controller.
+
+---
+
+# 94. DDL schema contract tests
+
+Проверить:
+
+* существуют raw/stage/target definitions;
+* все columns присутствуют;
+* SQL types;
+* nullability;
+* precision;
+* lengths;
+* technical metadata;
+* indexes;
+* FKs;
+* отсутствие destructive DROP TABLE;
+* отсутствие duplicate CREATE TABLE.
+
+---
+
+# 95. Permissions tests
+
+Проверить `Users.sql`:
+
+* новый target;
+* raw;
+* stage;
+* необходимые rights;
+* отсутствие ненужного `EXECUTE`;
+* отсутствие unnecessary `ALTER`;
+* отсутствие broad privileges только ради нового сервиса.
+
+---
+
+# 96. Regression tests
+
+После targeted tests обязательно выполнить:
+
+```bash
+./mvnw test
+```
+
+Все существующие tests проекта должны продолжить проходить.
+
+Нельзя считать задачу законченной, если новый сервис работает, но ломает existing services.
+
+---
+
+# 97. git diff validation
+
+До завершения выполнить:
+
+```bash
+git diff --check
+git status --short
+git diff --stat
+```
+
+Не включать случайные изменения файлов.
+
+Не форматировать весь проект.
+
+Не менять unrelated code.
+
+---
+
+# 98. Не создавать commit автоматически
+
+После реализации и тестов:
+
+**commit не создавать**, если я отдельно этого не попросила.
+
+Показать мне изменения для review.
+
+---
+
+# 99. Что Codex не имеет права угадывать
+
+Если из входных данных нельзя достоверно определить:
+
+* business delete criteria;
+* uniqueness/business key;
+* whether duplicate business rows are allowed;
+* mandatory business constraints помимо Nullable/Required;
+* append vs business replacement semantics;
+* специальные диапазоны значений;
+* locale-specific parsing;
+* специальную deduplication policy;
+
+не придумывать их.
+
+Отдельно перечислить как:
+
+```text
+Business rule not specified
+```
+
+Но техническую реализацию, не зависящую от этого правила, выполнить полностью.
+
+---
+
+# 100. Нельзя автоматически выводить business key
+
+Наличие колонок:
+
+```text
+Year
+Week
+Month
+Day
+Name
+SKU
+Store
+Season
+```
+
+не означает автоматически, что их комбинация является:
+
+* PK;
+* UNIQUE;
+* delete criteria;
+* publish scope;
+* deduplication key.
+
+Business key существует только если он явно задан требованиями или уже существует в достоверном contract.
+
+---
+
+# 101. Не добавлять automatic deduplication
+
+Не использовать:
+
+```text
+DISTINCT
+GROUP BY
+ROW_NUMBER() ... keep first
+MERGE
+```
+
+для удаления дублей, если такого business requirement нет.
+
+Если две одинаковые business rows присутствуют в source и допустимость дублей не определена — не менять данные silently.
+
+---
+
+# 102. Не делать automatic business-period replacement
+
+Особенно важно:
+
+если source содержит:
+
+```text
+Year + Week
+Year + Month
+Year + Season
+Name + Day
+```
+
+это **не означает**, что новая загрузка должна автоматически удалить старые данные этого периода.
+
+Обычный publish — session-scoped.
+
+Business delete — отдельная явная операция.
+
+---
+
+# 103. Производительность
+
+При реализации проверить отсутствие очевидных anti-patterns:
+
+* whole workbook in memory;
+* row-by-row DB insert;
+* row-by-row JPA transaction;
+* OFFSET на огромной RAW;
+* N+1 queries;
+* unbounded result list;
+* global stage;
+* full table DELETE вместо session predicate.
+
+---
+
+# 104. SQL Server compatibility
+
+Все SQL должно соответствовать версии SQL Server, используемой проектом/production.
+
+Не использовать syntax/features более новой версии без проверки.
+
+Ориентироваться на SQL patterns уже существующего проекта.
+
+---
+
+# 105. Final architecture verification
+
+После реализации сравни новый сервис с:
+
+* WeeklyData
+* CDData
+* CDEcom
+* SalesByChannel
+
+по следующим пунктам:
+
+| Area                        | Verify                               |
+| --------------------------- | ------------------------------------ |
+| Controller                  | thin                                 |
+| Shared loader               | yes                                  |
+| Session                     | shared                               |
+| File reading                | streaming                            |
+| Header validation           | yes                                  |
+| RAW                         | session-scoped                       |
+| RAW metadata                | traceable                            |
+| Processing                  | Java                                 |
+| Pagination                  | keyset/chunked                       |
+| Validator                   | separate                             |
+| Errors                      | shared DWH error                     |
+| STAGE                       | typed                                |
+| Stage batching              | yes                                  |
+| TARGET                      | typed                                |
+| Target traceability         | yes                                  |
+| Publish                     | current LoadSessionId only           |
+| Publish transaction         | atomic                               |
+| Publish count check         | yes                                  |
+| Stage cleanup               | before publish retry + after SUCCESS |
+| Cleanup count check         | yes                                  |
+| Rollback                    | target + stage cleanup               |
+| Delete                      | explicit, not hidden publish         |
+| Delete session              | audited                              |
+| DDL                         | non-destructive                      |
+| Indexes                     | runtime-driven                       |
+| Permissions                 | least privilege                      |
+| Stored processing procedure | no                                   |
+| Tests                       | comprehensive                        |
+
+Если новый сервис отличается по любому пункту, отдельно объясни почему.
+
+---
+
+# 106. Финальный отчёт после реализации
+
+После завершения дай отчёт в следующей структуре.
+
+## 1. Реализованный flow
+
+Покажи:
+
+```text
+Controller
+→ Loader
+→ RAW
+→ Processor
+→ Validator
+→ STAGE/Error
+→ TARGET
+→ Stage cleanup
+→ Session
+```
+
+## 2. Созданные/изменённые Java files
+
+Для каждого кратко назначение.
+
+## 3. DB objects
+
+Перечислить:
+
+* raw;
+* stage;
+* target;
+* indexes;
+* FKs;
+* permissions.
+
+## 4. Schema mapping
+
+Таблица:
+
+| Source column | RAW | Java typed value | STAGE SQL | TARGET SQL | Nullable | Validation |
+| ------------- | --- | ---------------- | --------- | ---------- | -------- | ---------- |
+
+## 5. Transaction boundaries
+
+Отдельно описать:
+
+* raw load;
+* processing chunks;
+* target publish;
+* stage cleanup;
+* deletion.
+
+## 6. Error behavior
+
+Показать поведение:
+
+* header error;
+* row validation error;
+* DB processing error;
+* publish failure;
+* cleanup failure.
+
+## 7. Delete behavior
+
+Указать:
+
+* session deletion;
+* business deletion, если задана;
+* какие таблицы реально удаляются;
+* deletion session/audit.
+
+## 8. Tests
+
+Перечислить:
+
+* targeted tests;
+* количество tests;
+* full `./mvnw test`;
+* failures/errors.
+
+## 9. Git state
+
+Показать:
+
+```text
+git diff --check
+git diff --stat
+git status --short
+```
+
+## 10. Unresolved business rules
+
+Если были требования, которые нельзя определить из входного schema contract, перечислить их здесь.
+
+Не угадывать ответы.
+
+---
+
+# 107. Definition of Done
+
+Новый сервис считается готовым только если:
+
+* используется shared DWH architecture;
+* controller thin;
+* файл читается потоково;
+* header contract проверяется;
+* RAW сохраняет source traceability;
+* RAW processing chunked/keyset;
+* validation Java-based;
+* invalid rows записываются в shared error table;
+* STAGE typed;
+* target publish session-scoped;
+* другой `LoadSessionId` не удаляется при обычном publish;
+* publish atomic;
+* published row count проверяется;
+* stage очищается после successful publish в той же transaction;
+* cleanup row count проверяется;
+* rollback покрывает publish + cleanup;
+* explicit delete отделён от load;
+* deletion sessions логируются;
+* DDL non-destructive;
+* indexes обоснованы runtime;
+* runtime permissions минимальны;
+* processing stored procedure отсутствует;
+* comprehensive tests добавлены;
+* все existing project tests проходят;
+* `git diff --check` чистый;
+* unrelated changes отсутствуют;
+* commit не создан без отдельного запроса.
+
+---
+
+# 108. Основное правило при сомнении
+
+Если нужно выбрать между:
+
+```text
+«придумать удобное новое решение»
+```
+
+и:
+
+```text
+«повторить проверенный современный pattern Replenishment»
+```
+
+выбирай существующий pattern Replenishment.
+
+Если существующий pattern не может выполнить явно заданное новое требование — объясни это отдельно и внеси минимально необходимое изменение.
+
+Не расширяй scope задачи без необходимости.
