@@ -422,6 +422,17 @@ RAW не является target business table.
 
 Основные преобразования выполняются позже Java processor.
 
+Обязательность business field не означает, что соответствующая RAW column должна быть `NOT NULL`. RAW является source-oriented layer и должен сохранять исходный input, включая отсутствующее или некорректное значение, до Java validation:
+
+```text
+RAW: source-oriented, nullable allowed
+→ Validator
+→ STAGE: typed business contract
+→ TARGET: typed business contract
+```
+
+Поэтому `RAW nullable` полностью совместим с `STAGE NOT NULL` и `TARGET NOT NULL` для required field.
+
 ---
 
 # 10. RAW metadata
@@ -569,6 +580,17 @@ Business validation должна выполняться в Java.
 
 Validator должен работать исходя из переданного schema contract.
 
+Если входной contract задаёт `Required = true` или `Nullable = false`, обязательность должна быть согласована по всей typed pipeline:
+
+```text
+required source field
+→ validator rejects missing value
+→ typed STAGE NOT NULL
+→ TARGET NOT NULL
+```
+
+Нельзя оставлять typed DB column nullable для явно обязательного business field без отдельно доказанного и объяснённого исключения.
+
 Проверять, где применимо:
 
 * required / nullable;
@@ -615,6 +637,27 @@ NULL → 0
 Для nullable fields корректное пустое значение может преобразовываться в `NULL` по существующему project pattern.
 
 Для required fields отсутствие значения должно создавать validation error.
+
+До реализации mapping для каждой column явно определить:
+
+```text
+source blank          → ?
+source null marker    → ?
+invalid nonblank      → ?
+valid numeric zero    → ?
+```
+
+Для required numeric field (`Short`, `Integer`, `Long`, `BigDecimal` и т. п.) `null`, empty, whitespace и supported special-null marker должны приводить к validation error, если parser трактует их как отсутствие. Не заменять missing required numeric value на `0`, `0.0` или `BigDecimal.ZERO`.
+
+Для required string field значение после стандартной text normalization должно быть non-null и nonblank. Значения, которые shared cleaner превращает в `null`, включая поддерживаемые whitespace-only Unicode representations, должны отклоняться. Не подставлять `""`, `"UNKNOWN"` или `"N/A"` вместо отсутствующего required text.
+
+Policy вроде `DWHExcelNullHandling.ZERO` использовать только при явно заданном business contract:
+
+```text
+missing source value == numeric zero
+```
+
+Иначе optional missing value сохранять как typed `null`, а required missing value отклонять. Различие missing и real zero должно сохраняться, если их эквивалентность прямо не задана.
 
 ---
 
@@ -705,6 +748,8 @@ Business columns в stage должны иметь целевые SQL types со�
 
 Не хранить все stage business values как `NVARCHAR`, если target имеет типизированную структуру.
 
+Для required fields typed stage columns должны быть `NOT NULL`. Для nullable fields Java stage representation должна уметь представить `NULL`.
+
 ---
 
 # 22. STAGE metadata
@@ -754,6 +799,8 @@ Target business columns должны строго соответствовать
 * precision;
 * scale;
 * nullability.
+
+STAGE и TARGET business columns должны совпадать по SQL type, length, precision, scale и nullability, если отдельно не задано доказанное архитектурное исключение. Не допускать случайного `STAGE NULL / TARGET NOT NULL` или обратного расхождения.
 
 Не изменять типы по собственному усмотрению.
 
@@ -1001,6 +1048,18 @@ God + Sezon
 
 реализовать соответствующий typed delete endpoint по pattern существующих services.
 
+Для каждого явно заданного delete criterion или business-key field дополнительно проверить required/nullability contract. Использование в delete criteria само по себе **не делает поле required**: это определяется входным schema/business contract.
+
+Если delete field явно required, должны быть согласованы:
+
+```text
+Validator required
+STAGE NOT NULL
+TARGET NOT NULL
+```
+
+Если business contract допускает `NULL`, отдельно проверить и описать, достижимы ли такие target rows через business delete API. Не придумывать изменение required status или SQL NULL semantics самостоятельно.
+
 Если business delete criteria **не переданы**, НЕ ПРИДУМЫВАТЬ их самостоятельно.
 
 Нельзя считать, что наличие колонок:
@@ -1152,7 +1211,15 @@ BIT
 
 # 44. Nullability
 
-DDL, Java typed row и validation должны быть согласованы.
+Source contract, parser, validator, Java typed row и DDL должны быть согласованы:
+
+```text
+source
+→ parser
+→ validator
+→ typed STAGE
+→ TARGET
+```
 
 Если:
 
@@ -1162,7 +1229,7 @@ Nullable = false
 
 то:
 
-* target/stage column должна быть NOT NULL;
+* stage и target columns должны быть `NOT NULL`;
 * validator должен запрещать отсутствие значения;
 * Java representation должна корректно отражать обязательность.
 
@@ -1180,6 +1247,8 @@ Nullable = true
 int
 Integer
 ```
+
+Комбинация `DB nullable + Java primitive` является потенциальным mismatch, потому что primitive не представляет business `NULL`. Комбинация `DB NOT NULL + validator allows null` является потенциальным runtime failure. Проверить согласованность Java representation, Validator, STAGE DDL и TARGET DDL для каждой business column.
 
 ---
 
@@ -1206,6 +1275,8 @@ validated typed business representation
 ```
 
 Не пытаться сделать RAW идентичным target, если это уничтожит возможность корректно зарегистрировать parsing errors.
+
+Required/nullability contract начинается на переходе `RAW → Validator → STAGE`: RAW остаётся source-oriented и может быть nullable, даже когда соответствующие typed columns обязательны.
 
 ---
 
@@ -1575,11 +1646,26 @@ upgrade существующей production DB
 
 Если новый сервис создаёт абсолютно новые таблицы, основной DDL должен описывать fresh installation этих объектов.
 
+Fresh-install tables сразу создавать с правильным `NULL / NOT NULL` contract.
+
 Если реализация требует изменения уже существующей общей таблицы или общего DB object, не маскируй это внутри create DDL.
 
 Отдельно перечисли, какой migration нужен для существующей БД.
 
 Не добавляй destructive migration автоматически.
+
+При изменении существующей column `NULL → NOT NULL` отдельная migration обязательна. До `ALTER COLUMN` проверить legacy rows в TARGET и STAGE: `NULL`, а для required text также blank/whitespace согласно business normalization. Не считать STAGE гарантированно пустой после failed/incomplete processing.
+
+Если legacy data нарушает новый contract, migration должна fail fast с диагностируемой ошибкой. Без отдельного data-correction requirement запрещены:
+
+```text
+UPDATE NULL → 0
+UPDATE NULL → ''
+UPDATE → UNKNOWN
+DELETE invalid rows
+```
+
+Не добавлять fake `DEFAULT` только ради перехода в `NOT NULL`. Migration должна быть repeat-safe по существующему SQL Server/project pattern, например через `sys.columns.is_nullable`.
 
 ---
 
@@ -1739,6 +1825,29 @@ Tests не должны закреплять `trim`, case-insensitive comparison
 
 Проверять только правила, реально следующие из schema contract.
 
+Для каждого required numeric field обязательно проверить:
+
+```text
+null → error
+blank → error
+whitespace → error
+supported null marker → error
+invalid number → error
+valid value → accepted
+```
+
+Для каждого required string field обязательно проверить:
+
+```text
+null → error
+"" → error
+whitespace-only → error
+supported normalized Unicode whitespace → error
+valid nonblank → accepted
+```
+
+Если существует хотя бы одно required business field, fully empty business row не может быть valid. Количество ошибок должно следовать существующему validator style: collect-all либо fail-fast.
+
 ---
 
 # 73. Mapper/parser tests
@@ -1842,6 +1951,15 @@ initial stage cleanup
 * target publish не происходит;
 * session не становится SUCCESS;
 * existing target data не изменяются.
+
+Отдельно проверить required-field failure:
+
+```text
+validation error
+→ invalid row не превращается в STAGE row
+→ error сохраняется
+→ TARGET publish не выполняется согласно all-or-nothing policy
+```
 
 ---
 
@@ -2092,6 +2210,10 @@ WHERE LoadSessionId = ?
 * отсутствие destructive DROP TABLE;
 * отсутствие duplicate CREATE TABLE.
 
+Для каждой STAGE/TARGET business column test должен проверять не только наличие, но и exact SQL type, length/precision/scale и `NULL / NOT NULL`. Required fields должны иметь явные assertions на `NOT NULL`, а STAGE/TARGET business contracts — проверку равенства типов и nullability.
+
+Если добавляется nullability migration, contract tests должны подтверждать legacy-data guard для TARGET и STAGE, diagnostic fail-fast, отсутствие silent `UPDATE`/`DELETE`/fake defaults/destructive `DROP`, точный набор изменяемых columns и repeat-safe guard.
+
 ---
 
 # 95. Permissions tests
@@ -2294,6 +2416,11 @@ Business delete — отдельная явная операция.
 | Processing                  | Java                                 |
 | Pagination                  | keyset/chunked                       |
 | Validator                   | separate                             |
+| Required contract           | Validator/STAGE/TARGET aligned       |
+| RAW nullability             | source-oriented                      |
+| STAGE/TARGET nullability    | schema contract aligned              |
+| Missing vs zero             | preserved unless explicitly equivalent |
+| Migration to NOT NULL       | fail-fast on invalid legacy data     |
 | Errors                      | shared DWH error                     |
 | STAGE                       | typed                                |
 | Stage batching              | yes                                  |
@@ -2354,10 +2481,10 @@ Controller
 
 ## 4. Schema mapping
 
-Таблица:
+Таблица должна явно показывать required/nullability flow:
 
-| Source column | RAW | Java typed value | STAGE SQL | TARGET SQL | Nullable | Validation |
-| ------------- | --- | ---------------- | --------- | ---------- | -------- | ---------- |
+| Source | Required | RAW | Parsed Java | Blank/null behavior | STAGE | TARGET | Validation |
+| ------ | -------- | --- | ----------- | ------------------- | ----- | ------ | ---------- |
 
 ## 5. Transaction boundaries
 
@@ -2436,6 +2563,18 @@ git status --short
 * RAW сохраняет source traceability;
 * RAW processing chunked/keyset;
 * validation Java-based;
+* required source fields отклоняются при отсутствии значения;
+* required strings после normalization являются non-null и nonblank;
+* missing required numerics не превращаются в zero без явного требования;
+* optional nullable fields используют nullable-capable Java types;
+* RAW остаётся source-oriented и не ужесточается автоматически из-за required business contract;
+* STAGE и TARGET совпадают по business types и nullability;
+* required typed fields имеют `NOT NULL` в STAGE и TARGET;
+* schema tests явно проверяют `NULL / NOT NULL`;
+* required-field validator tests покрывают null, blank, whitespace и null-marker cases;
+* fully empty row не проходит validation при наличии required fields;
+* nullability migrations проверяют legacy TARGET и STAGE data до `NULL → NOT NULL`;
+* migrations не исправляют и не удаляют legacy data silently и безопасны для повторного запуска;
 * invalid rows записываются в shared error table;
 * STAGE typed;
 * target publish session-scoped;
