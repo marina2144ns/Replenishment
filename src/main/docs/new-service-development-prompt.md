@@ -272,22 +272,133 @@ new XSSFWorkbook(...)
 
 Для нового сервиса header validation является обязательной частью schema contract.
 
-Используй подход `SalesByChannel`, но адаптируй его к новому schema definition.
+Header row определяется как **первая фактически встреченная строка первого worksheet**.
 
-Проверить:
+Нельзя полагаться на:
 
-* количество ожидаемых колонок;
-* порядок колонок;
-* literal header names;
-* отсутствие неожиданного смещения структуры файла.
+```text
+physical Excel row number == 0
+```
+
+Если первая реально существующая строка имеет physical row number `1`, `2` и т. п., она всё равно является header.
+
+Canonical flow:
+
+```text
+session RUNNING
+→ open first worksheet
+→ read first actual row
+→ treat it as header
+→ collect complete physical header
+→ strict schema validation
+→ only after SUCCESS process subsequent actual rows as business data
+→ RAW batch insert
+```
+
+Shared loader должен концептуально иметь отдельное состояние обработки header, например:
+
+```text
+headerProcessed = false
+```
+
+и соблюдать принцип:
+
+```text
+if header not processed:
+    collect complete physical header
+    validate schema
+    mark header processed
+    do not process this row as data
+else:
+    process row as business data
+```
+
+Конкретное имя переменной не является частью contract.
+
+Header schema validation должна одновременно проверять:
+
+```text
+exact column count
+exact literal header names
+exact column order
+```
+
+Schema должна отклоняться при:
+
+* missing column;
+* blank header;
+* renamed header;
+* swapped columns;
+* extra column in the middle;
+* extra column справа;
+* отличии регистра;
+* leading whitespace;
+* trailing whitespace;
+* изменении внутренних пробелов.
+
+Без отдельного business requirement запрещена автоматическая нормализация header:
+
+```text
+trim
+case-insensitive comparison
+fuzzy matching
+aliases
+automatic column reordering
+```
+
+Например, при ожидаемом `Year` фактические `year` и `" Year "` являются schema errors.
+
+До завершения schema validation нельзя ограничивать сбор header значением:
+
+```text
+expectedColumnCount
+```
+
+Shared loader должен видеть **все физически присутствующие Excel columns**, включая `columnIndex >= expectedColumnCount`. Если ожидается `29` колонок, а физический header содержит `30`, результатом должна быть schema validation error, а не silent ignore.
+
+Для header допустимо отдельное representation, сохраняющее все физически присутствующие колонки. Для обычных data rows можно использовать фиксированное representation длиной `expectedColumnCount`, если это соответствует shared loader architecture. Не требуется без необходимости увеличивать memory footprint всех data rows.
+
+Если первый worksheet не содержит ни одной фактически прочитанной строки, header отсутствует и загрузка должна завершиться `ERROR`. Пустой first sheet не является корректным пустым dataset.
+
+Успешная strict schema validation является обязательным invariant перед positional RAW mapping:
+
+```text
+strict header/schema validation
+→ positional RAW mapping
+```
+
+Positional mapping безопасен только после доказанного совпадения position, header name и column count с ожидаемым schema contract. Row validator не заменяет header validation. Без этой проверки перестановка двух совместимых по типу колонок может вызвать silent logical data corruption: RAW mapping присвоит значения business fields по позиции, а последующий Java validator уже не знает исходного header.
+
+До успешного завершения schema validation:
+
+```text
+RAW business rows = 0
+```
+
+При header/schema validation error:
+
+* business data rows не вставляются в RAW;
+* RAW transaction корректно откатывается согласно shared loader lifecycle;
+* processor не запускается;
+* target processing не происходит;
+* session завершается `ERROR` и не остаётся в `RUNNING` или `QUEUED`;
+* ошибка должна быть диагностируемой через существующий file/schema error lifecycle.
+
+Не создавать отдельную header error table. Header/schema validation проверяет структуру файла и не должна моделироваться как invalid business row только ради записи в row-level error table. Row/business validation отдельно проверяет значения конкретных business rows.
+
+Header validation должна использовать единственную shared implementation общей DWH infrastructure. Новый сервис не должен добавлять собственный `validateHeaderRow()` или equivalent comparison в своём `BulkLoader`, если shared loader уже предоставляет этот механизм.
+
+Expected headers должны задаваться через `<SERVICE>ExcelLoadDefinition` и существующий shared contract:
+
+```text
+one shared header validation implementation
++
+service-specific schema definitions
+```
+
+Не создавать несколько независимых service-specific validation implementations и не дублировать список headers в loader, controller или отдельном validator.
 
 Имена должны соответствовать переданной мной таблице source columns.
-
-При несовпадении header файл не должен silently загружаться по позициям.
-
-Ошибка должна быть диагностируемой.
-
-Не делать fuzzy matching, автоматическое исправление названий или перестановку колонок, если это отдельно не задано.
 
 ---
 
@@ -1251,7 +1362,10 @@ Business parsing/validation — Java.
 * файл не существует;
 * файл нельзя открыть;
 * неверная структура;
-* неверный header.
+* неверный header;
+* пустой first worksheet.
+
+Header/schema error должен использовать существующий file/schema error lifecycle, завершать session в `ERROR` и предотвращать RAW business insert и запуск processor. Не записывать его как обычную invalid business row в row-level error table.
 
 ## Row validation error
 
@@ -1521,8 +1635,11 @@ Definition должна описывать:
 * service/load type;
 * raw insert contract;
 * source columns;
-* header contract;
+* schema contract для shared loader: expected column count, expected physical positions и exact expected header names;
+* raw column mapping;
 * processor connection.
+
+`<SERVICE>ExcelLoadDefinition` является единственным service-specific источником schema information для shared header validation и последующего positional RAW mapping. Не дублировать тот же список headers в loader, controller или validator.
 
 Если Java processing используется напрямую, не оставлять фиктивный stored procedure contract.
 
@@ -1572,13 +1689,24 @@ stored procedure processor
 
 # 70. Header tests
 
-Проверить:
+Обязательно проверить strict schema contract и lifecycle:
 
-1. правильные headers принимаются;
-2. неправильное имя колонки отклоняется;
-3. неправильный порядок отклоняется;
-4. отсутствующая колонка отклоняется;
-5. лишняя колонка обрабатывается согласно выбранному strict contract.
+1. valid header с exact count, literal names и order принимается;
+2. renamed header отклоняется;
+3. swapped columns отклоняются;
+4. missing column отклоняется;
+5. extra column in the middle отклоняется;
+6. extra trailing column (`expected N`, `actual N + 1`) отклоняется; это обязательный regression case, подтверждающий видимость complete physical header;
+7. blank header отклоняется;
+8. case mismatch отклоняется;
+9. leading или trailing whitespace mismatch отклоняется;
+10. изменение внутренних пробелов отклоняется;
+11. первая фактически прочитанная строка с physical row index, не равным `0`, всё равно считается header и не попадает в RAW как business data;
+12. empty first sheet завершает загрузку `ERROR`;
+13. при любой header/schema error в RAW вставлено `0` business rows и processor не запущен;
+14. при invalid header session проходит существующий lifecycle `QUEUED → RUNNING → ERROR` (или его точный эквивалент проекта), фиксирует ошибку и не остаётся незавершённой.
+
+Tests не должны закреплять `trim`, case-insensitive comparison, aliases, fuzzy matching или automatic column reordering, если такое business requirement отдельно не задано.
 
 ---
 
@@ -2154,7 +2282,13 @@ Business delete — отдельная явная операция.
 | Shared loader               | yes                                  |
 | Session                     | shared                               |
 | File reading                | streaming                            |
-| Header validation           | yes                                  |
+| Header source               | first actual row; physical row `0` не предполагается |
+| Header column count         | strict                               |
+| Header literal names/order  | strict                               |
+| Extra/missing columns       | reject                               |
+| Empty first sheet           | reject                               |
+| RAW before schema SUCCESS   | no                                   |
+| Header implementation       | shared; schema from definition       |
 | RAW                         | session-scoped                       |
 | RAW metadata                | traceable                            |
 | Processing                  | Java                                 |
@@ -2288,7 +2422,17 @@ git status --short
 * используется shared DWH architecture;
 * controller thin;
 * файл читается потоково;
-* header contract проверяется;
+* первая фактически прочитанная строка first worksheet считается header независимо от physical row number;
+* physical row number `0` не предполагается;
+* header schema строго проверяет exact expected column count, literal names и order;
+* missing, blank, renamed, swapped, extra middle и extra trailing headers отклоняются;
+* case differences, leading/trailing whitespace и изменения внутренних пробелов отклоняются;
+* `trim`, fuzzy matching, aliases, case-insensitive comparison и automatic reordering не применяются без явного требования;
+* complete physical header, включая columns за `expectedColumnCount`, доступен schema validation;
+* до успешной schema validation не вставляется ни одной RAW business row;
+* empty first sheet отклоняется;
+* после schema failure processor не запускается, а session завершается `ERROR`;
+* используется shared header validation со schema из definition, без service-specific duplicate code;
 * RAW сохраняет source traceability;
 * RAW processing chunked/keyset;
 * validation Java-based;
