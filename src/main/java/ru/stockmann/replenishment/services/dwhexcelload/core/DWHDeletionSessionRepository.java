@@ -26,6 +26,7 @@ public class DWHDeletionSessionRepository {
                     OperationMode,
                     DeleteYear,
                     DeleteWeek,
+                    DeleteMonth,
                     SourceLoadSessionId,
                     DeleteCriterion,
                     DeleteParameter1Name,
@@ -35,7 +36,7 @@ public class DWHDeletionSessionRepository {
                     Status
                 )
                 OUTPUT INSERTED.Id
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         try (Connection connection = dataSource.getConnection();
@@ -46,13 +47,14 @@ public class DWHDeletionSessionRepository {
             ps.setString(4, session.operationMode().name());
             setNullableInteger(ps, 5, session.deleteYear());
             setNullableInteger(ps, 6, session.deleteWeek());
-            setNullableLong(ps, 7, session.sourceLoadSessionId());
-            setNullableString(ps, 8, session.deleteCriterion());
-            setNullableString(ps, 9, session.deleteParameter1Name());
-            setNullableString(ps, 10, session.deleteParameter1Value());
-            setNullableString(ps, 11, session.deleteParameter2Name());
-            setNullableString(ps, 12, session.deleteParameter2Value());
-            ps.setString(13, DWHExcelLoadStatus.RUNNING.name());
+            setNullableInteger(ps, 7, session.deleteMonth());
+            setNullableLong(ps, 8, session.sourceLoadSessionId());
+            setNullableString(ps, 9, session.deleteCriterion());
+            setNullableString(ps, 10, session.deleteParameter1Name());
+            setNullableString(ps, 11, session.deleteParameter1Value());
+            setNullableString(ps, 12, session.deleteParameter2Name());
+            setNullableString(ps, 13, session.deleteParameter2Value());
+            ps.setString(14, DWHExcelLoadStatus.RUNNING.name());
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {

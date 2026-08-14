@@ -5,6 +5,7 @@ public record DWHDeletionSession(
         DWHDeletionOperationMode operationMode,
         Integer deleteYear,
         Integer deleteWeek,
+        Integer deleteMonth,
         Long sourceLoadSessionId,
         String deleteCriterion,
         String deleteParameter1Name,
@@ -19,7 +20,16 @@ public record DWHDeletionSession(
             int week
     ) {
         return new DWHDeletionSession(loadType, DWHDeletionOperationMode.BY_PERIOD,
-                year, week, null, null, null, null, null, null);
+                year, week, null, null, null, null, null, null, null);
+    }
+
+    public static DWHDeletionSession byYearAndMonth(
+            DWHExcelLoadType loadType,
+            int year,
+            int month
+    ) {
+        return new DWHDeletionSession(loadType, DWHDeletionOperationMode.BY_PERIOD,
+                year, null, month, null, null, null, null, null, null);
     }
 
     public static DWHDeletionSession byLoadSession(
@@ -27,7 +37,7 @@ public record DWHDeletionSession(
             long sourceLoadSessionId
     ) {
         return new DWHDeletionSession(loadType, DWHDeletionOperationMode.BY_LOAD_SESSION,
-                null, null, sourceLoadSessionId, null, null, null, null, null);
+                null, null, null, sourceLoadSessionId, null, null, null, null, null);
     }
 
     public static DWHDeletionSession byCriteria(
@@ -39,7 +49,7 @@ public record DWHDeletionSession(
             String parameter2Value
     ) {
         return new DWHDeletionSession(loadType, DWHDeletionOperationMode.BY_CRITERIA,
-                null, null, null, criterion,
+                null, null, null, null, criterion,
                 parameter1Name, parameter1Value, parameter2Name, parameter2Value);
     }
 }

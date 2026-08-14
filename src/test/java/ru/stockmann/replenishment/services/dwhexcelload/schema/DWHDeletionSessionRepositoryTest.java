@@ -38,14 +38,31 @@ class DWHDeletionSessionRepositoryTest {
                 "setString:4:BY_PERIOD",
                 "setInt:5:2026",
                 "setInt:6:31",
-                "setNull:7:" + Types.BIGINT,
-                "setNull:8:" + Types.NVARCHAR,
+                "setNull:7:" + Types.INTEGER,
+                "setNull:8:" + Types.BIGINT,
                 "setNull:9:" + Types.NVARCHAR,
                 "setNull:10:" + Types.NVARCHAR,
                 "setNull:11:" + Types.NVARCHAR,
                 "setNull:12:" + Types.NVARCHAR,
-                "setString:13:RUNNING"
+                "setNull:13:" + Types.NVARCHAR,
+                "setString:14:RUNNING"
         ), jdbc.calls);
+    }
+
+    @Test
+    void createsYearMonthSessionWithoutUsingDeleteWeek() {
+        RecordingJdbc jdbc = new RecordingJdbc(7006L, 1);
+        DWHDeletionSessionRepository repository =
+                new DWHDeletionSessionRepository(jdbc.dataSource());
+
+        repository.create(DWHDeletionSession.byYearAndMonth(
+                DWHExcelLoadType.SALES_BY_CHANNEL, 2026, 7
+        ));
+
+        assertEquals("setInt:5:2026", jdbc.calls.get(4));
+        assertEquals("setNull:6:" + Types.INTEGER, jdbc.calls.get(5));
+        assertEquals("setInt:7:7", jdbc.calls.get(6));
+        assertEquals("setString:14:RUNNING", jdbc.calls.get(13));
     }
 
     @Test
@@ -60,12 +77,12 @@ class DWHDeletionSessionRepositoryTest {
         ));
 
         assertEquals("setString:4:BY_CRITERIA", jdbc.calls.get(3));
-        assertEquals("setString:8:NAZVANIE_DEN", jdbc.calls.get(7));
-        assertEquals("setString:9:nazvanie", jdbc.calls.get(8));
-        assertEquals("setString:10:Main", jdbc.calls.get(9));
-        assertEquals("setString:11:den", jdbc.calls.get(10));
-        assertEquals("setString:12:15", jdbc.calls.get(11));
-        assertEquals("setString:13:RUNNING", jdbc.calls.get(12));
+        assertEquals("setString:9:NAZVANIE_DEN", jdbc.calls.get(8));
+        assertEquals("setString:10:nazvanie", jdbc.calls.get(9));
+        assertEquals("setString:11:Main", jdbc.calls.get(10));
+        assertEquals("setString:12:den", jdbc.calls.get(11));
+        assertEquals("setString:13:15", jdbc.calls.get(12));
+        assertEquals("setString:14:RUNNING", jdbc.calls.get(13));
     }
 
     @Test
@@ -82,7 +99,8 @@ class DWHDeletionSessionRepositoryTest {
         assertEquals("setString:4:BY_LOAD_SESSION", jdbc.calls.get(3));
         assertEquals("setNull:5:" + Types.INTEGER, jdbc.calls.get(4));
         assertEquals("setNull:6:" + Types.INTEGER, jdbc.calls.get(5));
-        assertEquals("setLong:7:10521", jdbc.calls.get(6));
+        assertEquals("setNull:7:" + Types.INTEGER, jdbc.calls.get(6));
+        assertEquals("setLong:8:10521", jdbc.calls.get(7));
     }
 
     @Test
