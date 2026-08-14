@@ -10,12 +10,53 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Arrays;
+import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SalesByChannelProcessorTest {
+
+    @Test
+    void blankNumericMetricsStageAsZeroAndPublish() {
+        Transactions transactions = new Transactions();
+        FakeStageRepository stage = new FakeStageRepository();
+        FakeTargetRepository target = new FakeTargetRepository();
+        target.publishedRows = 1;
+
+        SalesByChannelProcessResult result = processor(
+                true, transactions,
+                new FakeRawRepository(List.of(List.of(blankMetricsRow(1)), List.of())),
+                stage, new FakeErrorRepository(), target
+        ).process(10L);
+
+        assertTrue(result.success());
+        SalesByChannelStageRow row = stage.insertedRows.get(0);
+        assertEquals(0, row.salesQuantity());
+        for (BigDecimal value : List.of(row.salesCurr(), row.gm(), row.discountTtl(), row.turnoverCurr())) {
+            assertEquals(0, value.compareTo(BigDecimal.ZERO));
+        }
+    }
+
+    @Test
+    void invalidNumericMetricPersistsErrorAndPreventsTargetPublish() {
+        Transactions transactions = new Transactions();
+        FakeStageRepository stage = new FakeStageRepository();
+        FakeErrorRepository errors = new FakeErrorRepository();
+        FakeTargetRepository target = new FakeTargetRepository();
+
+        SalesByChannelProcessResult result = processor(
+                true, transactions,
+                new FakeRawRepository(List.of(List.of(row(1, "2025", "April", "abc")), List.of())),
+                stage, errors, target
+        ).process(10L);
+
+        assertFalse(result.success());
+        assertEquals(1, result.errorRows());
+        assertEquals(0, target.calls);
+        assertTrue(stage.insertedRows.isEmpty());
+    }
 
     @Test
     void processesMultipleChunksContinuesAfterErrorsAndNeverPublishesTarget() {
@@ -304,6 +345,16 @@ class SalesByChannelProcessorTest {
         );
     }
 
+    private SalesByChannelRawRow blankMetricsRow(long id) {
+        return new SalesByChannelRawRow(
+                id, 10L, id + 1, "sy", "s6", "ym", "ys", "FY2025", "April",
+                "channel", "store", "type", "division", "department", "campaign",
+                "seasonality", "brand", null, "", " ", "N/A", "-",
+                "budget", "storeBpo", "channelBpo", "sub", "tm", "node", "section",
+                "group", "phase", "product"
+        );
+    }
+
     private static final class FakeSessionRepository extends SalesByChannelLoadSessionRepository {
         private final boolean exists;
         FakeSessionRepository(boolean exists) { super(null); this.exists = exists; }
@@ -333,6 +384,7 @@ class SalesByChannelProcessorTest {
         private Integer cleanupCountOverride;
         private boolean failInsert;
         private final List<Long> rawEquivalentIds = new ArrayList<>();
+        private final List<SalesByChannelStageRow> insertedRows = new ArrayList<>();
         @Override public int deleteByLoadSessionId(Connection connection, long id) {
             cleanupCalls++;
             if (cleanupCalls == failOnCleanupCall) {
@@ -349,6 +401,7 @@ class SalesByChannelProcessorTest {
         @Override public void insertBatch(Connection connection, long id, List<SalesByChannelStageRow> rows) {
             if (failInsert) throw new RuntimeException("stage failed");
             stagedRows += rows.size();
+            insertedRows.addAll(rows);
             rows.forEach(row -> rawEquivalentIds.add(row.excelRowNum() - 1));
         }
     }

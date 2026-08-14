@@ -40,7 +40,7 @@ class SalesByChannelExcelLoadDefinitionTest {
     }
 
     @Test
-    void mapsHeadersToRawColumnsWithoutNumericConversionOrZeroSubstitution() {
+    void mapsHeadersToRawColumnsAndDeclaresTextDimensionsAndZeroMetrics() {
         assertEquals(List.of(
                 "seasonYear", "season6m", "yearMonth", "yearSeason", "year", "month",
                 "salesChannelType", "storeRus", "typeOfSales", "mfpDivision", "mfpDepartment",
@@ -51,14 +51,31 @@ class SalesByChannelExcelLoadDefinitionTest {
         ), definition.columns().stream().map(DWHExcelColumnSpec::rawColumnName).toList());
 
         definition.columns().forEach(column -> {
-            assertEquals(DWHExcelValueKind.TEXT, column.valueKind());
             assertEquals(4000, column.rawMaxLength());
-            assertEquals(DWHExcelNullHandling.KEEP_NULL, column.nullHandling());
-            assertEquals(
-                    "year".equals(column.rawColumnName()) || "month".equals(column.rawColumnName()),
-                    column.required(),
-                    column.rawColumnName()
-            );
         });
+
+        for (String name : List.of("salesQuantity", "salesCurr", "gm", "discountTtl", "turnoverCurr")) {
+            DWHExcelColumnSpec column = definition.columns().stream()
+                    .filter(candidate -> name.equals(candidate.rawColumnName()))
+                    .findFirst()
+                    .orElseThrow();
+            assertEquals("salesQuantity".equals(name) ? DWHExcelValueKind.INT : DWHExcelValueKind.DECIMAL,
+                    column.valueKind(), name);
+            assertEquals(false, column.required(), name);
+            assertEquals(DWHExcelNullHandling.ZERO, column.nullHandling(), name);
+        }
+
+        definition.columns().stream()
+                .filter(column -> !List.of(
+                        "salesQuantity", "salesCurr", "gm", "discountTtl", "turnoverCurr"
+                ).contains(column.rawColumnName()))
+                .forEach(column -> {
+                    assertEquals(DWHExcelValueKind.TEXT, column.valueKind(), column.rawColumnName());
+                    assertEquals(DWHExcelNullHandling.KEEP_NULL, column.nullHandling(), column.rawColumnName());
+                    assertEquals(
+                            "year".equals(column.rawColumnName()) || "month".equals(column.rawColumnName()),
+                            column.required(), column.rawColumnName()
+                    );
+                });
     }
 }

@@ -2,6 +2,7 @@ package ru.stockmann.replenishment.services.salesbychannel;
 
 import org.springframework.stereotype.Service;
 import ru.stockmann.replenishment.services.dwhexcelload.core.AbstractDWHExcelLoader;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelColumnSpec;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadSessionResult;
 import ru.stockmann.replenishment.services.dwhexcelload.definitions.SalesByChannelExcelLoadDefinition;
 import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannelProcessResult;
@@ -21,6 +22,12 @@ public class SalesByChannelBulkLoader extends AbstractDWHExcelLoader {
     ) {
         super(dataSource, definition);
         this.processor = processor;
+    }
+
+    @Override
+    protected String applyNullHandling(DWHExcelColumnSpec column, String value) {
+        // SalesByChannel RAW preserves source absence; ZERO is applied in typed validation.
+        return value;
     }
 
     @Override

@@ -61,11 +61,11 @@ public class SalesByChannelExcelLoadDefinition implements DWHExcelLoadDefinition
                 text(11, "Campaign Sales Type", "campaignSalesType"),
                 text(12, "Seasonality", "seasonality"),
                 text(13, "SKU Brand type", "skuBrandType"),
-                text(14, "Sum([Sales Quantity])", "salesQuantity"),
-                text(15, "Sum([Sales Curr])", "salesCurr"),
-                text(16, "GM", "gm"),
-                text(17, "Discount TTL", "discountTtl"),
-                text(18, "Sum([Turnover Curr])", "turnoverCurr"),
+                integerMetric(14, "Sum([Sales Quantity])", "salesQuantity"),
+                decimalMetric(15, "Sum([Sales Curr])", "salesCurr"),
+                decimalMetric(16, "GM", "gm"),
+                decimalMetric(17, "Discount TTL", "discountTtl"),
+                decimalMetric(18, "Sum([Turnover Curr])", "turnoverCurr"),
                 text(19, "SKU SeasonBudget", "skuSeasonBudget"),
                 text(20, "StoreRus_BPO", "storeRusBpo"),
                 text(21, "Sales Channel_BPO", "salesChannelBpo"),
@@ -85,6 +85,20 @@ public class SalesByChannelExcelLoadDefinition implements DWHExcelLoadDefinition
 
     private static DWHExcelColumnSpec requiredText(int index, String excelHeader, String rawColumn) {
         return text(index, excelHeader, rawColumn, true);
+    }
+
+    private static DWHExcelColumnSpec integerMetric(int index, String excelHeader, String rawColumn) {
+        return DWHExcelColumns.intNumber(
+                index, excelHeader, rawColumn, rawColumn, RAW_TEXT_LENGTH,
+                false, DWHExcelNullHandling.ZERO
+        );
+    }
+
+    private static DWHExcelColumnSpec decimalMetric(int index, String excelHeader, String rawColumn) {
+        return DWHExcelColumns.decimal(
+                index, excelHeader, rawColumn, rawColumn, RAW_TEXT_LENGTH,
+                false, DWHExcelNullHandling.ZERO
+        );
     }
 
     private static DWHExcelColumnSpec text(

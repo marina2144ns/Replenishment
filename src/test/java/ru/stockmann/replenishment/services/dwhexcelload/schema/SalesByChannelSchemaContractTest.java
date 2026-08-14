@@ -23,6 +23,8 @@ class SalesByChannelSchemaContractTest {
     private static final String STAGE = "dbo.SalesByChannel_stage";
     private static final String TARGET = "dbo.SalesByChannel";
     private static final String USERS_DDL = "src/main/db/tables/Users.example.sql";
+    private static final String ZERO_METRICS_MIGRATION =
+            "src/main/db/tables/salesbychannel_zero_metrics_migration.sql";
 
     private static final List<String> BUSINESS_COLUMNS = List.of(
             "seasonyear", "season6m", "yearmonth", "yearseason", "year", "month",
@@ -115,6 +117,54 @@ class SalesByChannelSchemaContractTest {
     }
 
     @Test
+    void zeroMetricsAreNotNullableInBothStageAndTargetWhilePeriodRemainsText() throws Exception {
+        List<DWHSchemaTestSupport.ColumnDef> stage = tableColumns(DDL, STAGE);
+        List<DWHSchemaTestSupport.ColumnDef> target = tableColumns(DDL, TARGET);
+
+        for (List<DWHSchemaTestSupport.ColumnDef> columns : List.of(stage, target)) {
+            assertColumn(columns, "year", "nvarchar(50)", false);
+            assertColumn(columns, "month", "nvarchar(50)", false);
+            assertColumn(columns, "salesquantity", "int", false);
+            for (String name : List.of("salescurr", "gm", "discountttl", "turnovercurr")) {
+                assertColumn(columns, name, "decimal(18,2)", false);
+            }
+        }
+    }
+
+    @Test
+    void zeroMetricsMigrationUpdatesOnlyMetricNullsThenGuardsNotNullAlter() throws Exception {
+        String migration = normalizeSql(read(ZERO_METRICS_MIGRATION));
+
+        for (String table : List.of("dbo.salesbychannel", "dbo.salesbychannel_stage")) {
+            assertTrue(migration.contains(
+                    "update " + table + " set salesquantity = 0 where salesquantity is null"
+            ));
+            assertTrue(migration.contains(
+                    "alter table " + table + " alter column salesquantity int not null"
+            ));
+            for (String field : List.of("salescurr", "gm", "discountttl", "turnovercurr")) {
+                assertTrue(migration.contains(
+                        "update " + table + " set " + field + " = 0 where " + field + " is null"
+                ), table + "." + field);
+                assertTrue(migration.contains(
+                        "alter table " + table + " alter column " + field
+                                + " decimal(18,2) not null"
+                ), table + "." + field);
+            }
+        }
+
+        assertEquals(10, occurrences(migration, "is_nullable = 1"));
+        assertFalse(migration.contains("salesbychannel_raw"));
+        assertFalse(migration.contains("dwh_excel_load_session"));
+        assertFalse(migration.contains("alter column year "));
+        assertFalse(migration.contains("alter column month "));
+        assertFalse(migration.contains("delete "));
+        assertFalse(migration.contains("drop "));
+        assertFalse(migration.contains("truncate "));
+        assertFalse(migration.contains("default"));
+    }
+
+    @Test
     void targetHasPeriodAndLoadSessionIndexesWithoutRawRowIndex() throws Exception {
         String ddl = normalizeSql(read(DDL));
 
@@ -194,6 +244,10 @@ class SalesByChannelSchemaContractTest {
         return java.util.Arrays.stream(grantedPermissions.split(","))
                 .map(String::trim)
                 .collect(java.util.stream.Collectors.toSet());
+    }
+
+    private static int occurrences(String value, String token) {
+        return (value.length() - value.replace(token, "").length()) / token.length();
     }
 
     private static void assertCreatedAt(

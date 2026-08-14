@@ -121,6 +121,65 @@ class SalesByChannelValidatorTest {
     }
 
     @Test
+    void everyMetricMapsMissingNullMarkersAndRealZeroToTypedZero() {
+        for (String field : metricFields()) {
+            for (String value : new String[]{null, "", " ", "   ", "N/A", "NULL", "-", "0", "0.0"}) {
+                SalesByChannelRowValidationResult result = validator.validateAndMap(withMetric(field, value));
+
+                assertTrue(result.valid(), field + "=" + value + ": " + result.errors());
+                if ("salesQuantity".equals(field)) {
+                    assertEquals(0, result.stageRow().salesQuantity(), field + "=" + value);
+                } else {
+                    assertEquals(0, decimalMetric(result.stageRow(), field).compareTo(BigDecimal.ZERO),
+                            field + "=" + value);
+                }
+            }
+        }
+    }
+
+    @Test
+    void everyMetricParsesPositiveAndNegativeValues() {
+        for (String field : metricFields()) {
+            for (String value : List.of("12", "-12")) {
+                SalesByChannelRowValidationResult result = validator.validateAndMap(withMetric(field, value));
+
+                assertTrue(result.valid(), field + "=" + value + ": " + result.errors());
+                if ("salesQuantity".equals(field)) {
+                    assertEquals(Integer.valueOf(value), result.stageRow().salesQuantity(), field);
+                } else {
+                    assertEquals(0, decimalMetric(result.stageRow(), field).compareTo(new BigDecimal(value)), field);
+                }
+            }
+        }
+    }
+
+    @Test
+    void everyMetricRejectsInvalidNonblankInsteadOfDefaultingToZero() {
+        for (String field : metricFields()) {
+            for (String value : List.of("abc", "1x", "12abc")) {
+                SalesByChannelRowValidationResult result = validator.validateAndMap(withMetric(field, value));
+
+                assertFalse(result.valid(), field + "=" + value);
+                String code = "salesQuantity".equals(field) ? "INVALID_INTEGER" : "INVALID_DECIMAL";
+                assertTrue(result.errors().stream().anyMatch(error ->
+                        field.equals(error.fieldName()) && code.equals(error.errorCode())),
+                        field + "=" + value + ": " + result.errors());
+            }
+        }
+    }
+
+    @Test
+    void textualYearMonthAcceptFiscalTextAndLeadingZeroExactly() {
+        SalesByChannelStageRow fiscal = validator.validateAndMap(withYearMonth("FY2025", "April")).stageRow();
+        SalesByChannelStageRow leadingZero = validator.validateAndMap(withYearMonth("2026", "08")).stageRow();
+
+        assertEquals("FY2025", fiscal.year());
+        assertEquals("April", fiscal.month());
+        assertEquals("2026", leadingZero.year());
+        assertEquals("08", leadingZero.month());
+    }
+
+    @Test
     void collectsAllErrorsAndNeverReturnsPartiallyTypedStageRow() {
         SalesByChannelRawRow raw = new SalesByChannelRawRow(
                 8L, 10L, 17L,
@@ -202,6 +261,35 @@ class SalesByChannelValidatorTest {
                 row.storeRusBpo(), row.salesChannelBpo(), row.mfpSubDepartment(), row.skuTm(),
                 row.mfpNode(), row.section(), row.merchandiseSubGroup(), row.skuPhase(),
                 row.skuProductClass());
+    }
+
+    private static List<String> metricFields() {
+        return List.of("salesQuantity", "salesCurr", "gm", "discountTtl", "turnoverCurr");
+    }
+
+    private SalesByChannelRawRow withMetric(String field, String value) {
+        SalesByChannelRawRow row = validRow();
+        return copy(row, row.seasonYear(), row.season6m(), row.yearMonth(), row.yearSeason(), row.year(),
+                row.month(), row.salesChannelType(), row.storeRus(), row.typeOfSales(), row.mfpDivision(),
+                row.mfpDepartment(), row.campaignSalesType(), row.seasonality(), row.skuBrandType(),
+                "salesQuantity".equals(field) ? value : row.salesQuantity(),
+                "salesCurr".equals(field) ? value : row.salesCurr(),
+                "gm".equals(field) ? value : row.gm(),
+                "discountTtl".equals(field) ? value : row.discountTtl(),
+                "turnoverCurr".equals(field) ? value : row.turnoverCurr(),
+                row.skuSeasonBudget(), row.storeRusBpo(), row.salesChannelBpo(), row.mfpSubDepartment(),
+                row.skuTm(), row.mfpNode(), row.section(), row.merchandiseSubGroup(), row.skuPhase(),
+                row.skuProductClass());
+    }
+
+    private static BigDecimal decimalMetric(SalesByChannelStageRow row, String field) {
+        return switch (field) {
+            case "salesCurr" -> row.salesCurr();
+            case "gm" -> row.gm();
+            case "discountTtl" -> row.discountTtl();
+            case "turnoverCurr" -> row.turnoverCurr();
+            default -> throw new IllegalArgumentException(field);
+        };
     }
 
     private SalesByChannelRawRow tooLong(String field) {

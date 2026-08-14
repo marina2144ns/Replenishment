@@ -107,19 +107,19 @@ public class SalesByChannelValidator {
             String field,
             String value
     ) {
-        if (cleanText(value) == null) {
+        if (value == null || value.isBlank() || parser.cleanText(value) == null) {
             return 0;
         }
         DWHParseResult<Integer> result = parser.parseInteger(value);
-        if (!result.success() || result.value() == null) {
-            String code = result.success() ? "INVALID_INTEGER" : result.errorCode();
+        if (!result.success()) {
+            String code = result.errorCode();
             String reason = "NUMERIC_OVERFLOW".equals(code)
                     ? "INTEGER value is out of range"
                     : "Invalid INTEGER value";
             errors.add(error(row, field, code, reason));
             return null;
         }
-        return result.value();
+        return result.value() != null ? result.value() : 0;
     }
 
     private BigDecimal decimal(
@@ -128,20 +128,20 @@ public class SalesByChannelValidator {
             String field,
             String value
     ) {
-        if (cleanText(value) == null) {
+        if (value == null || value.isBlank() || parser.cleanText(value) == null) {
             return ZERO_DECIMAL;
         }
         DWHParseResult<BigDecimal> result =
                 parser.parseDecimal(value, DECIMAL_PRECISION, DECIMAL_SCALE);
-        if (!result.success() || result.value() == null) {
-            String code = result.success() ? "INVALID_DECIMAL" : result.errorCode();
+        if (!result.success()) {
+            String code = result.errorCode();
             String reason = "NUMERIC_OVERFLOW".equals(code)
                     ? "DECIMAL(18,2) value is out of range"
                     : "Invalid DECIMAL value";
             errors.add(error(row, field, code, reason));
             return null;
         }
-        return result.value();
+        return result.value() != null ? result.value() : ZERO_DECIMAL;
     }
 
     private SalesByChannelValidationError error(
