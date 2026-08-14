@@ -27,6 +27,8 @@ class CDDataStageSchemaContractTest {
             "src/main/java/ru/stockmann/replenishment/services/cddata/process/CDDataProcessor.java";
     private static final String REQUIRED_FIELDS_MIGRATION =
             "src/main/db/tables/cddata_required_delete_fields_migration.sql";
+    private static final String ZERO_METRICS_MIGRATION =
+            "src/main/db/tables/cddata_zero_metrics_migration.sql";
 
     private static final List<String> BUSINESS_COLUMNS = List.of(
             "nazvanie",
@@ -81,7 +83,7 @@ class CDDataStageSchemaContractTest {
             assertColumn(columns, name, "int", false);
         }
         assertColumn(columns, "nazvanie", "nvarchar(255)", false);
-        assertColumn(columns, "plan_rub", "int", true);
+        assertColumn(columns, "plan_rub", "int", false);
         assertColumn(columns, "data", "date", true);
         assertColumn(columns, "sku_style_color", "bigint", true);
         assertColumn(columns, "rawrowid", "bigint", true);
@@ -99,7 +101,7 @@ class CDDataStageSchemaContractTest {
                 "stock_stores_pcs",
                 "stock_stores_dd"
         )) {
-            assertColumn(columns, name, "decimal(18,2)", true);
+            assertColumn(columns, name, "decimal(18,2)", false);
         }
 
         for (String name : List.of(
@@ -135,6 +137,19 @@ class CDDataStageSchemaContractTest {
         assertColumn(target, "god", "int", false);
         assertColumn(target, "sezon", "int", false);
         assertColumn(target, "den", "int", false);
+    }
+
+    @Test
+    void zeroMetricsAreNotNullableAndMatchTargetContract() throws Exception {
+        List<DWHSchemaTestSupport.ColumnDef> target = tableColumns(CD_DATA_DDL, TARGET_TABLE);
+        List<DWHSchemaTestSupport.ColumnDef> stage = tableColumns(CD_DATA_DDL, STAGE_TABLE);
+
+        for (String name : decimalMetrics()) {
+            assertColumn(stage, name, "decimal(18,2)", false);
+            assertColumn(target, name, "decimal(18,2)", false);
+        }
+        assertColumn(stage, "plan_rub", "int", false);
+        assertColumn(target, "plan_rub", "int", false);
     }
 
     @Test
@@ -271,6 +286,46 @@ class CDDataStageSchemaContractTest {
         assertFalse(migration.contains("update "));
         assertFalse(migration.contains("truncate"));
         assertFalse(migration.contains("default"));
+    }
+
+    @Test
+    void zeroMetricsMigrationUpdatesOnlyMetricNullsThenGuardsNotNullAlter() throws Exception {
+        String migration = normalizeSql(read(ZERO_METRICS_MIGRATION));
+
+        for (String table : List.of("dbo.cd_data", "dbo.cd_data_stage")) {
+            for (String field : decimalMetrics()) {
+                assertTrue(migration.contains(
+                        "update " + table + " set " + field + " = 0 where " + field + " is null"
+                ), table + "." + field);
+                assertTrue(migration.contains(
+                        "alter table " + table + " alter column " + field
+                                + " decimal(18,2) not null"
+                ), table + "." + field);
+            }
+            assertTrue(migration.contains(
+                    "update " + table + " set plan_rub = 0 where plan_rub is null"
+            ));
+            assertTrue(migration.contains(
+                    "alter table " + table + " alter column plan_rub int not null"
+            ));
+        }
+
+        assertEquals(24, occurrences(migration, "is_nullable = 1"));
+        assertFalse(migration.contains("cd_data_raw"));
+        for (String field : List.of("god", "sezon", "nazvanie", "den", "sku_style_color")) {
+            assertFalse(migration.contains("alter column " + field + " "), field);
+        }
+        assertFalse(migration.contains("delete "));
+        assertFalse(migration.contains("drop "));
+        assertFalse(migration.contains("truncate "));
+        assertFalse(migration.contains("default"));
+    }
+
+    private static List<String> decimalMetrics() {
+        return List.of(
+                "stock_start_pcs", "stock_start_dd", "sales_pcs", "sales_rub", "revenue", "gp",
+                "cogs", "sales_frp_price", "sales_discount", "stock_stores_pcs", "stock_stores_dd"
+        );
     }
 
     private static List<String> concat(List<String> first, List<String> second) {

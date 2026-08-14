@@ -107,18 +107,18 @@ public class CDDataValidator {
                 campaignSales,
                 skuStyleColor.value(),
                 skuPhase,
-                stockStartPcs.value(),
-                stockStartDd.value(),
-                salesPcs.value(),
-                salesRub.value(),
-                revenue.value(),
-                gp.value(),
-                cogs.value(),
-                salesFrpPrice.value(),
-                salesDiscount.value(),
-                stockStoresPcs.value(),
-                stockStoresDd.value(),
-                planRub.value(),
+                decimalValueOrZero(stockStartPcs),
+                decimalValueOrZero(stockStartDd),
+                decimalValueOrZero(salesPcs),
+                decimalValueOrZero(salesRub),
+                decimalValueOrZero(revenue),
+                decimalValueOrZero(gp),
+                decimalValueOrZero(cogs),
+                decimalValueOrZero(salesFrpPrice),
+                decimalValueOrZero(salesDiscount),
+                decimalValueOrZero(stockStoresPcs),
+                decimalValueOrZero(stockStoresDd),
+                integerValueOrZero(planRub),
                 draiveryCd,
                 skuColorRus,
                 skuComposition,
@@ -229,6 +229,14 @@ public class CDDataValidator {
 
     private Date toSqlDate(LocalDate value) {
         return value == null ? null : Date.valueOf(value);
+    }
+
+    private BigDecimal decimalValueOrZero(DWHParseResult<BigDecimal> result) {
+        return result.value() != null ? result.value() : BigDecimal.ZERO;
+    }
+
+    private Integer integerValueOrZero(DWHParseResult<Integer> result) {
+        return result.value() != null ? result.value() : 0;
     }
 
     private CDDataValidationError parseError(

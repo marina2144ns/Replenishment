@@ -27,26 +27,26 @@ CREATE TABLE dbo.CD_data (
                              sku_phase               NVARCHAR(255)        NULL,
 
     -- Остатки
-                             stock_start_pcs         DECIMAL(18,2)        NULL,
-                             stock_start_dd          DECIMAL(18,2)        NULL,
+                             stock_start_pcs         DECIMAL(18,2)        NOT NULL,
+                             stock_start_dd          DECIMAL(18,2)        NOT NULL,
 
     -- Продажи
-                             sales_pcs               DECIMAL(18,2)        NULL,
-                             sales_rub               DECIMAL(18,2)        NULL,
-                             revenue                 DECIMAL(18,2)        NULL,
-                             gp                      DECIMAL(18,2)        NULL,
-                             cogs                    DECIMAL(18,2)        NULL,
+                             sales_pcs               DECIMAL(18,2)        NOT NULL,
+                             sales_rub               DECIMAL(18,2)        NOT NULL,
+                             revenue                 DECIMAL(18,2)        NOT NULL,
+                             gp                      DECIMAL(18,2)        NOT NULL,
+                             cogs                    DECIMAL(18,2)        NOT NULL,
 
     -- Цены / скидки
-                             sales_frp_price         DECIMAL(18,2)        NULL,
-                             sales_discount          DECIMAL(18,2)        NULL,
+                             sales_frp_price         DECIMAL(18,2)        NOT NULL,
+                             sales_discount          DECIMAL(18,2)        NOT NULL,
 
     -- Остатки по магазинам
-                             stock_stores_pcs        DECIMAL(18,2)        NULL,
-                             stock_stores_dd         DECIMAL(18,2)        NULL,
+                             stock_stores_pcs        DECIMAL(18,2)        NOT NULL,
+                             stock_stores_dd         DECIMAL(18,2)        NOT NULL,
 
     -- План
-                             plan_rub                INT                  NULL,
+                             plan_rub                INT                  NOT NULL,
 
     -- Доп. аналитика
                              draivery_cd             NVARCHAR(255)        NULL,
@@ -166,26 +166,26 @@ CREATE TABLE dbo.CD_data_stage (
                                    sku_phase               NVARCHAR(255)        NULL,
 
     -- Остатки
-                                   stock_start_pcs         DECIMAL(18,2)        NULL,
-                                   stock_start_dd          DECIMAL(18,2)        NULL,
+                                   stock_start_pcs         DECIMAL(18,2)        NOT NULL,
+                                   stock_start_dd          DECIMAL(18,2)        NOT NULL,
 
     -- Продажи
-                                   sales_pcs               DECIMAL(18,2)        NULL,
-                                   sales_rub               DECIMAL(18,2)        NULL,
-                                   revenue                 DECIMAL(18,2)        NULL,
-                                   gp                      DECIMAL(18,2)        NULL,
-                                   cogs                    DECIMAL(18,2)        NULL,
+                                   sales_pcs               DECIMAL(18,2)        NOT NULL,
+                                   sales_rub               DECIMAL(18,2)        NOT NULL,
+                                   revenue                 DECIMAL(18,2)        NOT NULL,
+                                   gp                      DECIMAL(18,2)        NOT NULL,
+                                   cogs                    DECIMAL(18,2)        NOT NULL,
 
     -- Цены / скидки
-                                   sales_frp_price         DECIMAL(18,2)        NULL,
-                                   sales_discount          DECIMAL(18,2)        NULL,
+                                   sales_frp_price         DECIMAL(18,2)        NOT NULL,
+                                   sales_discount          DECIMAL(18,2)        NOT NULL,
 
     -- Остатки по магазинам
-                                   stock_stores_pcs        DECIMAL(18,2)        NULL,
-                                   stock_stores_dd         DECIMAL(18,2)        NULL,
+                                   stock_stores_pcs        DECIMAL(18,2)        NOT NULL,
+                                   stock_stores_dd         DECIMAL(18,2)        NOT NULL,
 
     -- План
-                                   plan_rub                INT                  NULL,
+                                   plan_rub                INT                  NOT NULL,
 
     -- Доп. аналитика
                                    draivery_cd             NVARCHAR(255)        NULL,

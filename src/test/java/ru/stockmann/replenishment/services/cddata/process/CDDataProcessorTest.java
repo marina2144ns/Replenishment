@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -17,6 +18,37 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CDDataProcessorTest {
+
+    @Test
+    void blankNumericMetricsStageAsZeroAndPublish() {
+        TestContext context = TestContext.withChunks(List.of(actualRow(1, null)));
+
+        CDDataProcessResult result = context.processor(new CDDataValidator()).process(100L);
+
+        assertTrue(result.success());
+        assertEquals(1, context.targetRepository.publishCalls);
+        CDDataStageRow row = context.stageRepository.insertedRows.get(0);
+        for (BigDecimal value : List.of(
+                row.stockStartPcs(), row.stockStartDd(), row.salesPcs(), row.salesRub(), row.revenue(),
+                row.gp(), row.cogs(), row.salesFrpPrice(), row.salesDiscount(), row.stockStoresPcs(),
+                row.stockStoresDd()
+        )) {
+            assertEquals(0, value.compareTo(BigDecimal.ZERO));
+        }
+        assertEquals(0, row.planRub());
+    }
+
+    @Test
+    void invalidNumericMetricPersistsErrorAndPreventsTargetPublish() {
+        TestContext context = TestContext.withChunks(List.of(actualRow(1, "abc")));
+
+        CDDataProcessResult result = context.processor(new CDDataValidator()).process(100L);
+
+        assertFalse(result.success());
+        assertEquals(1, result.errorRows());
+        assertEquals(0, context.targetRepository.publishCalls);
+        assertTrue(context.stageRepository.insertedRows.isEmpty());
+    }
 
     @Test
     void processesMultipleValidChunksAndPublishesTargetAtomically() {
@@ -244,6 +276,16 @@ class CDDataProcessorTest {
         );
     }
 
+    private static CDDataRawRow actualRow(long id, String salesRub) {
+        return new CDDataRawRow(
+                id, 100L, id + 10, "Name", "2025", "1", "1", null,
+                null, null, null, null, null, null, null, null, null, null, null,
+                null, null,
+                null, null, null, salesRub, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null
+        );
+    }
+
     private static CDDataStageRow stageRow(CDDataRawRow row) {
         return new CDDataStageRow(
                 row.loadSessionId(), row.excelRowNum(), row.nazvanie(),
@@ -279,6 +321,10 @@ class CDDataProcessorTest {
         }
 
         CDDataProcessor processor() {
+            return processor(validator);
+        }
+
+        CDDataProcessor processor(CDDataValidator selectedValidator) {
             return new CDDataProcessor(
                     dataSource(connection),
                     loadSessionRepository,
@@ -286,7 +332,7 @@ class CDDataProcessorTest {
                     errorRepository,
                     stageRepository,
                     targetRepository,
-                    validator
+                    selectedValidator
             );
         }
     }
@@ -347,6 +393,7 @@ class CDDataProcessorTest {
     private static final class FakeStageRepository extends CDDataStageRepository {
         private final List<String> events;
         private final List<List<Long>> insertedRawIds = new ArrayList<>();
+        private final List<CDDataStageRow> insertedRows = new ArrayList<>();
         private int deleteCalls;
         private int insertCalls;
         private int failOnInsertCall;
@@ -384,6 +431,7 @@ class CDDataProcessorTest {
                 throw new RuntimeException("stage insert failed");
             }
             insertedRawIds.add(rows.stream().map(row -> row.excelRowNum() - 10).toList());
+            insertedRows.addAll(rows);
         }
     }
 

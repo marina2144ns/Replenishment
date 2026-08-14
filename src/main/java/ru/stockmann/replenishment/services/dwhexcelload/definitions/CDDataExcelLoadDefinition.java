@@ -41,11 +41,20 @@ public class CDDataExcelLoadDefinition implements DWHExcelLoadDefinition {
     @Override
     public List<DWHExcelColumnSpec> columns() {
         return List.of(
-                DWHExcelColumns.text(0,  "nazvanie", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(
+                        0, "nazvanie", "nazvanie", "nazvanie", RAW_TEXT_LENGTH,
+                        true, DWHExcelNullHandling.KEEP_NULL
+                ),
 
-                DWHExcelColumns.intNumber(1, "god", 50, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.intNumber(2, "sezon", 50, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.intNumber(3, "den", 50, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.intNumber(
+                        1, "god", "god", "god", 50, true, DWHExcelNullHandling.KEEP_NULL
+                ),
+                DWHExcelColumns.intNumber(
+                        2, "sezon", "sezon", "sezon", 50, true, DWHExcelNullHandling.KEEP_NULL
+                ),
+                DWHExcelColumns.intNumber(
+                        3, "den", "den", "den", 50, true, DWHExcelNullHandling.KEEP_NULL
+                ),
 
                 DWHExcelColumns.date(4, "data", 50),
 
@@ -84,7 +93,7 @@ public class CDDataExcelLoadDefinition implements DWHExcelLoadDefinition {
                 DWHExcelColumns.decimal(27, "stock_stores_pcs", 50, DWHExcelNullHandling.ZERO),
                 DWHExcelColumns.decimal(28, "stock_stores_dd", 50, DWHExcelNullHandling.ZERO),
 
-                DWHExcelColumns.intNumber(29, "plan_rub", 50, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.intNumber(29, "plan_rub", 50, DWHExcelNullHandling.ZERO),
 
                 DWHExcelColumns.text(30, "draivery_cd", RAW_TEXT_LENGTH),
                 DWHExcelColumns.text(31, "sku_color_rus", RAW_TEXT_LENGTH),

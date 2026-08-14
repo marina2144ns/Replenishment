@@ -216,6 +216,54 @@ class CDDataValidatorTest {
     }
 
     @Test
+    void everyNumericMetricMapsMissingAndRealZeroToTypedZero() {
+        for (String field : metricFields()) {
+            for (String value : new String[]{null, "", " ", "   ", "N/A", "NULL", "-", "0", "0.0"}) {
+                CDDataRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
+
+                assertTrue(result.valid(), field + "=" + value + ": " + result.errors());
+                if ("planRub".equals(field)) {
+                    assertEquals(0, result.stageRow().planRub(), field + "=" + value);
+                } else {
+                    assertEquals(0, metricValue(result.stageRow(), field).compareTo(BigDecimal.ZERO),
+                            field + "=" + value);
+                }
+            }
+        }
+    }
+
+    @Test
+    void everyNumericMetricParsesPositiveAndNegativeValues() {
+        for (String field : metricFields()) {
+            for (String value : List.of("12", "-12")) {
+                CDDataRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
+
+                assertTrue(result.valid(), field + "=" + value + ": " + result.errors());
+                if ("planRub".equals(field)) {
+                    assertEquals(Integer.valueOf(value), result.stageRow().planRub(), field);
+                } else {
+                    assertEquals(0, metricValue(result.stageRow(), field).compareTo(new BigDecimal(value)), field);
+                }
+            }
+        }
+    }
+
+    @Test
+    void everyNumericMetricRejectsInvalidNonblankInsteadOfDefaultingToZero() {
+        for (String field : metricFields()) {
+            for (String value : List.of("abc", "1x", "12abc")) {
+                CDDataRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
+
+                assertTrue(result.stageRow() == null, field + "=" + value);
+                String errorCode = "planRub".equals(field) ? "INVALID_INTEGER" : "INVALID_DECIMAL";
+                assertTrue(result.errors().stream().anyMatch(error ->
+                        field.equals(error.fieldName()) && errorCode.equals(error.errorCode())),
+                        field + "=" + value + ": " + result.errors());
+            }
+        }
+    }
+
+    @Test
     void textLength255IsValid() {
         CDDataValidationResult result = validator.validate(rowBuilder()
                 .nazvanie("a".repeat(255))
@@ -399,6 +447,50 @@ class CDDataValidatorTest {
                 "skuCollection",
                 "skuComment"
         );
+    }
+
+    private static List<String> metricFields() {
+        return List.of(
+                "stockStartPcs", "stockStartDd", "salesPcs", "salesRub", "revenue", "gp",
+                "cogs", "salesFrpPrice", "salesDiscount", "stockStoresPcs", "stockStoresDd",
+                "planRub"
+        );
+    }
+
+    private static CDDataRawRow rowWithMetric(String fieldName, String value) {
+        CDDataRawRowBuilder builder = rowBuilder();
+        return switch (fieldName) {
+            case "stockStartPcs" -> builder.stockStartPcs(value).build();
+            case "stockStartDd" -> builder.stockStartDd(value).build();
+            case "salesPcs" -> builder.salesPcs(value).build();
+            case "salesRub" -> builder.salesRub(value).build();
+            case "revenue" -> builder.revenue(value).build();
+            case "gp" -> builder.gp(value).build();
+            case "cogs" -> builder.cogs(value).build();
+            case "salesFrpPrice" -> builder.salesFrpPrice(value).build();
+            case "salesDiscount" -> builder.salesDiscount(value).build();
+            case "stockStoresPcs" -> builder.stockStoresPcs(value).build();
+            case "stockStoresDd" -> builder.stockStoresDd(value).build();
+            case "planRub" -> builder.planRub(value).build();
+            default -> throw new IllegalArgumentException(fieldName);
+        };
+    }
+
+    private static BigDecimal metricValue(CDDataStageRow row, String fieldName) {
+        return switch (fieldName) {
+            case "stockStartPcs" -> row.stockStartPcs();
+            case "stockStartDd" -> row.stockStartDd();
+            case "salesPcs" -> row.salesPcs();
+            case "salesRub" -> row.salesRub();
+            case "revenue" -> row.revenue();
+            case "gp" -> row.gp();
+            case "cogs" -> row.cogs();
+            case "salesFrpPrice" -> row.salesFrpPrice();
+            case "salesDiscount" -> row.salesDiscount();
+            case "stockStoresPcs" -> row.stockStoresPcs();
+            case "stockStoresDd" -> row.stockStoresDd();
+            default -> throw new IllegalArgumentException(fieldName);
+        };
     }
 
     private static CDDataRawRow rowWithTextField(String fieldName, String value) {
