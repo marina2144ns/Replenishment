@@ -3,6 +3,7 @@ package ru.stockmann.replenishment.services.dwhexcelload.schema;
 import org.junit.jupiter.api.Test;
 import ru.stockmann.replenishment.services.cddata.process.CDDataDeletionRepository;
 import ru.stockmann.replenishment.services.cdecom.process.CDEcomDeletionRepository;
+import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannelDeletionRepository;
 import ru.stockmann.replenishment.services.weeklydata.process.WeeklyDataDeletionRepository;
 
 import java.lang.reflect.Proxy;
@@ -70,6 +71,30 @@ class TargetDataDeletionRepositoryTest {
         assertEquals(41L, weekly.parameters.get(1));
         assertEquals(42L, cdData.parameters.get(1));
         assertEquals(43L, cdecom.parameters.get(1));
+    }
+
+    @Test
+    void newCompositeDeletesUseBothBoundValuesAndOnlyTargetTables() {
+        JdbcRecording cdData = new JdbcRecording(2);
+        assertEquals(2, new CDDataDeletionRepository()
+                .deleteByNazvanieAndDen(cdData.connection(), "Main", 15));
+        assertPeriodSql(cdData.sql, "dbo.cd_data", "nazvanie", "den");
+        assertEquals("Main", cdData.parameters.get(1));
+        assertEquals(15, cdData.parameters.get(2));
+
+        JdbcRecording cdecom = new JdbcRecording(3);
+        assertEquals(3, new CDEcomDeletionRepository()
+                .deleteByNazvanieAndDen(cdecom.connection(), "Online", 16));
+        assertPeriodSql(cdecom.sql, "dbo.cd_ecom", "name", "[day]");
+        assertEquals("Online", cdecom.parameters.get(1));
+        assertEquals(16, cdecom.parameters.get(2));
+
+        JdbcRecording sales = new JdbcRecording(4);
+        assertEquals(4, new SalesByChannelDeletionRepository()
+                .deleteByYearAndMonth(sales.connection(), "2026", "08"));
+        assertPeriodSql(sales.sql, "dbo.salesbychannel", "[year]", "[month]");
+        assertEquals("2026", sales.parameters.get(1));
+        assertEquals("08", sales.parameters.get(2));
     }
 
     private static void assertPeriodSql(String sql, String table, String year, String week) {

@@ -17,7 +17,9 @@ class DeletionSessionSchemaContractTest {
 
         for (String column : new String[]{
                 "operationtype", "operationmode", "deleteyear", "deleteweek",
-                "sourceloadsessionid", "deletedrows"
+                "sourceloadsessionid", "deletedrows", "deletecriterion",
+                "deleteparameter1name", "deleteparameter1value",
+                "deleteparameter2name", "deleteparameter2value"
         }) {
             assertTrue(sql.contains(
                     "col_length(n'dbo.dwh_excel_load_session', n'" + column + "') is null"

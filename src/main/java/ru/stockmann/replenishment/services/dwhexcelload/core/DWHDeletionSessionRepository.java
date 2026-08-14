@@ -27,10 +27,15 @@ public class DWHDeletionSessionRepository {
                     DeleteYear,
                     DeleteWeek,
                     SourceLoadSessionId,
+                    DeleteCriterion,
+                    DeleteParameter1Name,
+                    DeleteParameter1Value,
+                    DeleteParameter2Name,
+                    DeleteParameter2Value,
                     Status
                 )
                 OUTPUT INSERTED.Id
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         try (Connection connection = dataSource.getConnection();
@@ -42,7 +47,12 @@ public class DWHDeletionSessionRepository {
             setNullableInteger(ps, 5, session.deleteYear());
             setNullableInteger(ps, 6, session.deleteWeek());
             setNullableLong(ps, 7, session.sourceLoadSessionId());
-            ps.setString(8, DWHExcelLoadStatus.RUNNING.name());
+            setNullableString(ps, 8, session.deleteCriterion());
+            setNullableString(ps, 9, session.deleteParameter1Name());
+            setNullableString(ps, 10, session.deleteParameter1Value());
+            setNullableString(ps, 11, session.deleteParameter2Name());
+            setNullableString(ps, 12, session.deleteParameter2Value());
+            ps.setString(13, DWHExcelLoadStatus.RUNNING.name());
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
@@ -110,6 +120,15 @@ public class DWHDeletionSessionRepository {
             ps.setNull(index, java.sql.Types.BIGINT);
         } else {
             ps.setLong(index, value);
+        }
+    }
+
+    private void setNullableString(PreparedStatement ps, int index, String value)
+            throws SQLException {
+        if (value == null) {
+            ps.setNull(index, java.sql.Types.NVARCHAR);
+        } else {
+            ps.setString(index, value);
         }
     }
 

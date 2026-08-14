@@ -76,4 +76,25 @@ public class CDEcomController {
         DWHDataDeleteResult result = deletionService.deleteByLoadSessionId(loadSessionId);
         return ResponseEntity.ok(result);
     }
+
+    @DeleteMapping("/nazvanie-den")
+    public ResponseEntity<?> deleteByNazvanieAndDen(@RequestParam Map<String, String> parameters) {
+        if (!parameters.keySet().equals(java.util.Set.of("nazvanie", "den"))) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("error", "exactly nazvanie and den are required")
+            );
+        }
+        String nazvanie = parameters.get("nazvanie");
+        if (nazvanie == null || nazvanie.isBlank() || nazvanie.length() > 255) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("error", "nazvanie must not be blank or longer than 255 characters")
+            );
+        }
+        try {
+            int den = Integer.parseInt(parameters.get("den"));
+            return ResponseEntity.ok(deletionService.deleteByNazvanieAndDen(nazvanie, den));
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "den must be an integer"));
+        }
+    }
 }

@@ -180,3 +180,14 @@ GO
 CREATE NONCLUSTERED INDEX IX_CD_ecom_year_season
     ON dbo.CD_ecom([year], season);
 GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE name = N'IX_CD_ecom_name_day'
+      AND object_id = OBJECT_ID(N'dbo.CD_ecom')
+)
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_CD_ecom_name_day
+        ON dbo.CD_ecom(name, [day]);
+END;
+GO

@@ -12,6 +12,8 @@ import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDeletionSessionR
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadType;
 import ru.stockmann.replenishment.services.weeklydata.process.WeeklyDataDeletionRepository;
 import ru.stockmann.replenishment.services.weeklydata.process.WeeklyDataDeletionService;
+import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannelDeletionRepository;
+import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannelDeletionService;
 
 import javax.sql.DataSource;
 import java.lang.reflect.Proxy;
@@ -124,6 +126,101 @@ class TargetDataDeletionSessionTest {
         assertEquals(9004L, sessions.errorSessionId);
         assertEquals("delete failed", sessions.errorMessage);
         assertEquals(1, sessions.errorCalls);
+    }
+
+    @Test
+    void cdDataCriteriaDeleteRecordsBothValuesAndExactCount() {
+        Transaction transaction = new Transaction();
+        RecordingSessionRepository sessions = new RecordingSessionRepository(9010L);
+        CDDataDeletionRepository deletion = new CDDataDeletionRepository() {
+            @Override public int deleteByNazvanieAndDen(Connection connection, String nazvanie, int den) {
+                assertEquals("Main", nazvanie); assertEquals(15, den); return 2;
+            }
+        };
+
+        DWHDataDeleteResult result = new CDDataDeletionService(
+                transaction.dataSource(), deletion, sessions).deleteByNazvanieAndDen("Main", 15);
+
+        assertEquals(2, result.deletedRows());
+        assertCriteria(sessions.created, DWHExcelLoadType.CD_DATA,
+                "NAZVANIE_DEN", "nazvanie", "Main", "den", "15");
+        assertEquals(2, sessions.deletedRows);
+        assertTrue(transaction.committed);
+    }
+
+    @Test
+    void cdEcomCriteriaDeleteRecordsBothValuesAndZeroAsSuccess() {
+        Transaction transaction = new Transaction();
+        RecordingSessionRepository sessions = new RecordingSessionRepository(9011L);
+        CDEcomDeletionRepository deletion = new CDEcomDeletionRepository() {
+            @Override public int deleteByNazvanieAndDen(Connection connection, String nazvanie, int den) {
+                return 0;
+            }
+        };
+
+        DWHDataDeleteResult result = new CDEcomDeletionService(
+                transaction.dataSource(), deletion, sessions).deleteByNazvanieAndDen("Online", 16);
+
+        assertEquals(0, result.deletedRows());
+        assertCriteria(sessions.created, DWHExcelLoadType.CD_ECOM,
+                "NAZVANIE_DEN", "nazvanie", "Online", "den", "16");
+        assertEquals(0, sessions.deletedRows);
+        assertEquals(0, sessions.errorCalls);
+    }
+
+    @Test
+    void salesCriteriaDeleteRecordsBothStringValuesAndExactCount() {
+        Transaction transaction = new Transaction();
+        RecordingSessionRepository sessions = new RecordingSessionRepository(9012L);
+        SalesByChannelDeletionRepository deletion = new SalesByChannelDeletionRepository() {
+            @Override public int deleteByYearAndMonth(Connection connection, String year, String month) {
+                assertEquals("2026", year); assertEquals("08", month); return 4;
+            }
+        };
+
+        DWHDataDeleteResult result = new SalesByChannelDeletionService(
+                transaction.dataSource(), deletion, sessions).deleteByYearAndMonth("2026", "08");
+
+        assertEquals(4, result.deletedRows());
+        assertCriteria(sessions.created, DWHExcelLoadType.SALES_BY_CHANNEL,
+                "YEAR_MONTH", "year", "2026", "month", "08");
+        assertEquals(4, sessions.deletedRows);
+        assertTrue(transaction.committed);
+    }
+
+    @Test
+    void newCriteriaDeleteFailureRollsBackAndRecordsDiagnosticMessage() {
+        Transaction transaction = new Transaction();
+        RecordingSessionRepository sessions = new RecordingSessionRepository(9013L);
+        CDEcomDeletionRepository deletion = new CDEcomDeletionRepository() {
+            @Override public int deleteByNazvanieAndDen(Connection connection, String nazvanie, int den) {
+                throw new RuntimeException("criteria delete failed");
+            }
+        };
+
+        RuntimeException failure = assertThrows(RuntimeException.class, () ->
+                new CDEcomDeletionService(transaction.dataSource(), deletion, sessions)
+                        .deleteByNazvanieAndDen("Online", 16));
+
+        assertEquals("criteria delete failed", failure.getMessage());
+        assertTrue(transaction.rolledBack);
+        assertFalse(transaction.committed);
+        assertEquals(9013L, sessions.errorSessionId);
+        assertEquals("criteria delete failed", sessions.errorMessage);
+    }
+
+    private static void assertCriteria(DWHDeletionSession session, DWHExcelLoadType loadType,
+            String criterion, String name1, String value1, String name2, String value2) {
+        assertEquals(loadType, session.loadType());
+        assertEquals(DWHDeletionOperationMode.BY_CRITERIA, session.operationMode());
+        assertEquals(criterion, session.deleteCriterion());
+        assertEquals(name1, session.deleteParameter1Name());
+        assertEquals(value1, session.deleteParameter1Value());
+        assertEquals(name2, session.deleteParameter2Name());
+        assertEquals(value2, session.deleteParameter2Value());
+        assertNull(session.deleteYear());
+        assertNull(session.deleteWeek());
+        assertNull(session.sourceLoadSessionId());
     }
 
     private static final class RecordingSessionRepository

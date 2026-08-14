@@ -46,6 +46,28 @@ public class CDEcomDeletionService {
         );
     }
 
+    public DWHDataDeleteResult deleteByNazvanieAndDen(String nazvanie, int den) {
+        requireText(nazvanie, "nazvanie");
+        requireMaxLength(nazvanie, "nazvanie", 255);
+        return delete(
+                DWHDeletionSession.byCriteria(DWHExcelLoadType.CD_ECOM,
+                        "NAZVANIE_DEN", "nazvanie", nazvanie, "den", Integer.toString(den)),
+                connection -> repository.deleteByNazvanieAndDen(connection, nazvanie, den)
+        );
+    }
+
+    private void requireText(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+    }
+
+    private void requireMaxLength(String value, String name, int maxLength) {
+        if (value.length() > maxLength) {
+            throw new IllegalArgumentException(name + " must not be longer than " + maxLength + " characters");
+        }
+    }
+
     private DWHDataDeleteResult delete(
             DWHDeletionSession session,
             DeleteOperation operation

@@ -37,4 +37,20 @@ public class SalesByChannelDeletionRepository {
             );
         }
     }
+
+    public int deleteByYearAndMonth(Connection connection, String year, String month) {
+        String sql = """
+                DELETE FROM dbo.SalesByChannel
+                WHERE [year] = ?
+                  AND [month] = ?
+                """;
+
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, year);
+            ps.setString(2, month);
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to delete SalesByChannel rows by year and month", e);
+        }
+    }
 }

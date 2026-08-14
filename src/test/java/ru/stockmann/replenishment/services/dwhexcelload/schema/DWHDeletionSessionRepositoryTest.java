@@ -39,8 +39,33 @@ class DWHDeletionSessionRepositoryTest {
                 "setInt:5:2026",
                 "setInt:6:31",
                 "setNull:7:" + Types.BIGINT,
-                "setString:8:RUNNING"
+                "setNull:8:" + Types.NVARCHAR,
+                "setNull:9:" + Types.NVARCHAR,
+                "setNull:10:" + Types.NVARCHAR,
+                "setNull:11:" + Types.NVARCHAR,
+                "setNull:12:" + Types.NVARCHAR,
+                "setString:13:RUNNING"
         ), jdbc.calls);
+    }
+
+    @Test
+    void createsCriteriaSessionWithCriterionAndEveryParameterValue() {
+        RecordingJdbc jdbc = new RecordingJdbc(7005L, 1);
+        DWHDeletionSessionRepository repository =
+                new DWHDeletionSessionRepository(jdbc.dataSource());
+
+        repository.create(DWHDeletionSession.byCriteria(
+                DWHExcelLoadType.CD_DATA, "NAZVANIE_DEN",
+                "nazvanie", "Main", "den", "15"
+        ));
+
+        assertEquals("setString:4:BY_CRITERIA", jdbc.calls.get(3));
+        assertEquals("setString:8:NAZVANIE_DEN", jdbc.calls.get(7));
+        assertEquals("setString:9:nazvanie", jdbc.calls.get(8));
+        assertEquals("setString:10:Main", jdbc.calls.get(9));
+        assertEquals("setString:11:den", jdbc.calls.get(10));
+        assertEquals("setString:12:15", jdbc.calls.get(11));
+        assertEquals("setString:13:RUNNING", jdbc.calls.get(12));
     }
 
     @Test

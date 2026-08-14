@@ -79,4 +79,22 @@ public class SalesByChannelController {
         DWHDataDeleteResult result = deletionService.deleteByLoadSessionId(loadSessionId);
         return ResponseEntity.ok(result);
     }
+
+    @DeleteMapping("/year-month")
+    public ResponseEntity<?> deleteByYearAndMonth(@RequestParam Map<String, String> parameters) {
+        if (!parameters.keySet().equals(java.util.Set.of("year", "month"))) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("error", "exactly year and month are required")
+            );
+        }
+        String year = parameters.get("year");
+        String month = parameters.get("month");
+        if (year == null || year.isBlank() || year.length() > 50
+                || month == null || month.isBlank() || month.length() > 50) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("error", "year and month must not be blank or longer than 50 characters")
+            );
+        }
+        return ResponseEntity.ok(deletionService.deleteByYearAndMonth(year, month));
+    }
 }

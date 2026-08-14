@@ -35,4 +35,20 @@ public class CDDataDeletionRepository {
             throw new RuntimeException("Failed to delete CD_data rows by load session", e);
         }
     }
+
+    public int deleteByNazvanieAndDen(Connection connection, String nazvanie, int den) {
+        String sql = """
+                DELETE FROM dbo.CD_data
+                WHERE nazvanie = ?
+                  AND den = ?
+                """;
+
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, nazvanie);
+            ps.setInt(2, den);
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to delete CD_data rows by nazvanie and den", e);
+        }
+    }
 }

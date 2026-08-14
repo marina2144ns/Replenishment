@@ -220,3 +220,14 @@ GO
 CREATE NONCLUSTERED INDEX IX_CD_data_god_sezon
     ON dbo.CD_data(god, sezon);
 GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE name = N'IX_CD_data_nazvanie_den'
+      AND object_id = OBJECT_ID(N'dbo.CD_data')
+)
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_CD_data_nazvanie_den
+        ON dbo.CD_data(nazvanie, den);
+END;
+GO

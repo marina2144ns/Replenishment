@@ -29,6 +29,11 @@ class DWHCommonTablesSchemaContractTest {
                 "deleteyear",
                 "deleteweek",
                 "sourceloadsessionid",
+                "deletecriterion",
+                "deleteparameter1name",
+                "deleteparameter1value",
+                "deleteparameter2name",
+                "deleteparameter2value",
                 "deletedrows",
                 "status",
                 "startedat",
@@ -45,6 +50,11 @@ class DWHCommonTablesSchemaContractTest {
         assertColumn(columns, "deleteyear", "int", "null");
         assertColumn(columns, "deleteweek", "int", "null");
         assertColumn(columns, "sourceloadsessionid", "bigint", "null");
+        assertColumn(columns, "deletecriterion", "nvarchar(50)", "null");
+        assertColumn(columns, "deleteparameter1name", "nvarchar(50)", "null");
+        assertColumn(columns, "deleteparameter1value", "nvarchar(1000)", "null");
+        assertColumn(columns, "deleteparameter2name", "nvarchar(50)", "null");
+        assertColumn(columns, "deleteparameter2value", "nvarchar(1000)", "null");
         assertColumn(columns, "deletedrows", "bigint", "null");
         assertColumn(columns, "status", "nvarchar(30)", "not null");
         assertColumn(columns, "startedat", "datetime2(0)", "not null");

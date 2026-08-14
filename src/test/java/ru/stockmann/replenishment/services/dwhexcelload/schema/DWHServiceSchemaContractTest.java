@@ -149,6 +149,20 @@ class DWHServiceSchemaContractTest {
                 "year",
                 "season"
         );
+        assertNonclusteredIndex(
+                CD_DATA_DDL,
+                "IX_CD_data_nazvanie_den",
+                "dbo.CD_data",
+                "nazvanie",
+                "den"
+        );
+        assertNonclusteredIndex(
+                CD_ECOM_DDL,
+                "IX_CD_ecom_name_day",
+                "dbo.CD_ecom",
+                "name",
+                "day"
+        );
     }
 
     private static void assertInfrastructure(List<DWHSchemaTestSupport.ColumnDef> columns, boolean createdAt) {
