@@ -9,12 +9,27 @@ import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadSession
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CDDataBulkLoaderTest {
+
+    @Test
+    void rejectsWrongLiteralHeader() {
+        TestCDDataBulkLoader loader = new TestCDDataBulkLoader(null, null);
+        List<String> headers = loader.getDefinition().columns().stream()
+                .map(column -> column.excelColumnName())
+                .toList();
+        String[] actual = headers.toArray(String[]::new);
+        actual[0] = "Nazvanie";
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class, () -> loader.validate(actual)
+        );
+    }
 
     @Test
     void processLoadSessionCallsProcessorWithSameLoadSessionId() {
@@ -144,6 +159,10 @@ class CDDataBulkLoaderTest {
 
         private void callDefaultProcedure(Long loadSessionId) throws Exception {
             callProcessProcedure(loadSessionId);
+        }
+
+        private void validate(String[] headers) {
+            validateHeaderRow(headers);
         }
     }
 }

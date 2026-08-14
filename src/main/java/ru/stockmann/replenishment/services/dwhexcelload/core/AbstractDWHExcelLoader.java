@@ -18,7 +18,9 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -305,24 +307,30 @@ public abstract class AbstractDWHExcelLoader {
                 }
 
                 final int[] inBatch = {0};
+                final boolean[] headerProcessed = {false};
 
                 XSSFSheetXMLHandler.SheetContentsHandler handler = new XSSFSheetXMLHandler.SheetContentsHandler() {
                     private String[] currentRow;
                     private int currentRowNum = -1;
+                    private boolean currentRowIsHeader;
+                    private List<String> currentHeader;
 
                     @Override
                     public void startRow(int rowNum) {
                         currentRowNum = rowNum;
                         lastRowNum[0] = rowNum;
                         currentRow = new String[columnCount];
+                        currentRowIsHeader = !headerProcessed[0];
+                        currentHeader = currentRowIsHeader ? new ArrayList<>() : null;
                     }
 
                     @Override
                     public void endRow(int rowNum) {
                         parsedRows[0]++;
 
-                        if (rowNum == 0) {
-                            validateHeaderRow(currentRow);
+                        if (currentRowIsHeader) {
+                            validateHeaderRow(currentHeader.toArray(String[]::new));
+                            headerProcessed[0] = true;
                             return;
                         }
 
@@ -354,7 +362,12 @@ public abstract class AbstractDWHExcelLoader {
                     public void cell(String cellReference, String formattedValue,
                                      org.apache.poi.xssf.usermodel.XSSFComment comment) {
                         int col = columnIndex(cellReference);
-                        if (col >= 0 && col < columnCount) {
+                        if (currentRowIsHeader && col >= 0) {
+                            while (currentHeader.size() <= col) {
+                                currentHeader.add(null);
+                            }
+                            currentHeader.set(col, formattedValue);
+                        } else if (col >= 0 && col < columnCount) {
                             currentRow[col] = formattedValue;
                         }
                     }
@@ -371,6 +384,12 @@ public abstract class AbstractDWHExcelLoader {
 
                 try (InputStream sheetStream = sheets.next()) {
                     parser.parse(new InputSource(sheetStream));
+                }
+
+                if (!headerProcessed[0]) {
+                    throw new IllegalArgumentException(
+                            "Missing Excel header: first worksheet does not contain rows"
+                    );
                 }
 
                 if (inBatch[0] > 0) {
@@ -414,11 +433,35 @@ public abstract class AbstractDWHExcelLoader {
         return new ExcelRowData(rowNum, values);
     }
 
-    /**
-     * Hook for loaders whose source contract requires literal header validation.
-     * Existing definitions retain their current behavior unless they override it.
-     */
     protected void validateHeaderRow(String[] headerValues) {
+        List<DWHExcelColumnSpec> columns = definition.columns();
+        int expectedCount = definition.expectedColumnCount();
+
+        for (int index = 0; index < expectedCount; index++) {
+            String expected = columns.get(index).excelColumnName();
+            String actual = index < headerValues.length ? headerValues[index] : null;
+
+            if (actual == null || actual.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Missing header at column " + (index + 1)
+                                + ": expected [" + expected + "]"
+                );
+            }
+            if (!expected.equals(actual)) {
+                throw new IllegalArgumentException(
+                        "Header mismatch at column " + (index + 1)
+                                + ": expected [" + expected + "], actual [" + actual + "]"
+                );
+            }
+        }
+
+        if (headerValues.length > expectedCount) {
+            String actual = headerValues[expectedCount];
+            throw new IllegalArgumentException(
+                    "Unexpected extra column at column " + (expectedCount + 1)
+                            + ": header [" + actual + "]"
+            );
+        }
     }
 
     protected String applyNullHandling(DWHExcelColumnSpec col, String value) {

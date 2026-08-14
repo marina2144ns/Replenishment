@@ -79,6 +79,9 @@ class CDEcomExcelLoadDefinitionTest {
                 "skuCommentBuyer",
                 "skuCollection"
         ), columns);
+        assertEquals(columns, definition.columns().stream()
+                .map(DWHExcelColumnSpec::excelColumnName)
+                .toList());
     }
 
     @Test

@@ -9,12 +9,25 @@ import ru.stockmann.replenishment.services.weeklydata.process.WeeklyDataProcesso
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WeeklyDataBulkLoaderTest {
+
+    @Test
+    void rejectsWrongLiteralHeader() {
+        TestWeeklyDataBulkLoader loader = new TestWeeklyDataBulkLoader(null, null);
+        List<String> headers = loader.getDefinition().columns().stream()
+                .map(column -> column.excelColumnName())
+                .toList();
+        String[] actual = headers.toArray(String[]::new);
+        actual[4] = "year";
+
+        assertThrows(IllegalArgumentException.class, () -> loader.validate(actual));
+    }
 
     @Test
     void processLoadSessionCallsProcessorWithSameLoadSessionId() {
@@ -106,6 +119,10 @@ class WeeklyDataBulkLoaderTest {
 
         private void callDefaultProcedure(Long loadSessionId) throws Exception {
             callProcessProcedure(loadSessionId);
+        }
+
+        private void validate(String[] headers) {
+            validateHeaderRow(headers);
         }
     }
 }

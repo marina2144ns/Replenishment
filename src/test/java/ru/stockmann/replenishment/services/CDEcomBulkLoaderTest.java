@@ -10,6 +10,7 @@ import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDEcomExcelL
 import javax.sql.DataSource;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -19,6 +20,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CDEcomBulkLoaderTest {
+
+    @Test
+    void rejectsWrongLiteralHeader() {
+        TestCDEcomBulkLoader loader = new TestCDEcomBulkLoader(
+                null, new CDEcomExcelLoadDefinition(), fakeProcessor(true)
+        );
+        List<String> headers = loader.getDefinition().columns().stream()
+                .map(column -> column.excelColumnName())
+                .toList();
+        String[] actual = headers.toArray(String[]::new);
+        actual[1] = "Year";
+
+        assertThrows(IllegalArgumentException.class, () -> loader.validate(actual));
+    }
 
     @Test
     void cdecomBulkLoaderExtendsAbstractDwhLoaderAndUsesDefinition() {
@@ -119,6 +134,10 @@ class CDEcomBulkLoaderTest {
 
         private void callDefaultProcedure(Long loadSessionId) throws Exception {
             callProcessProcedure(loadSessionId);
+        }
+
+        private void validate(String[] headers) {
+            validateHeaderRow(headers);
         }
     }
 
