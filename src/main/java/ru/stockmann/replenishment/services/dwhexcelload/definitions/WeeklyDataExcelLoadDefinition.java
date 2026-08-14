@@ -45,8 +45,12 @@ public class WeeklyDataExcelLoadDefinition implements DWHExcelLoadDefinition {
                 DWHExcelColumns.intNumber(1, "Week21", 50, DWHExcelNullHandling.KEEP_NULL),
                 DWHExcelColumns.intNumber(2, "YearCorr", 50, DWHExcelNullHandling.KEEP_NULL),
                 DWHExcelColumns.intNumber(3, "WeekCorr", 50, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.intNumber(4, "Year", 50, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.intNumber(5, "Week", 50, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.intNumber(
+                        4, "Year", "Year", "Year", 50, true, DWHExcelNullHandling.KEEP_NULL
+                ),
+                DWHExcelColumns.intNumber(
+                        5, "Week", "Week", "Week", 50, true, DWHExcelNullHandling.KEEP_NULL
+                ),
 
                 DWHExcelColumns.text(6, "SalesChannelBpo", RAW_TEXT_LENGTH),
                 DWHExcelColumns.text(7, "StoreRusBpo", RAW_TEXT_LENGTH),

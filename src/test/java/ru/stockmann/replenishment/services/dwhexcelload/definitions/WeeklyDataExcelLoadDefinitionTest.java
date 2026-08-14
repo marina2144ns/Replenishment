@@ -2,6 +2,7 @@ package ru.stockmann.replenishment.services.dwhexcelload.definitions;
 
 import org.junit.jupiter.api.Test;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelValueKind;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelNullHandling;
 
 import java.util.Set;
 import java.util.List;
@@ -11,6 +12,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WeeklyDataExcelLoadDefinitionTest {
+
+    private static final Set<String> ZERO_METRICS = Set.of(
+            "TotalStockPcs", "TotalStockDdp", "SalesPcs", "SalesRub",
+            "Revenue", "Gp", "DiscountTotalRub"
+    );
 
     private static final Set<String> TEXT_COLUMNS = Set.of(
             "SalesChannelBpo",
@@ -52,6 +58,39 @@ class WeeklyDataExcelLoadDefinitionTest {
                 assertEquals(DWHExcelValueKind.TEXT, column.valueKind(), column.rawColumnName());
             }
         });
+    }
+
+    @Test
+    void numericColumnsDeclareRequiredDimensionsAndOptionalZeroMetricsExplicitly() {
+        WeeklyDataExcelLoadDefinition definition = new WeeklyDataExcelLoadDefinition();
+
+        definition.columns().stream()
+                .filter(column -> ZERO_METRICS.contains(column.rawColumnName()))
+                .forEach(column -> {
+                    assertEquals(DWHExcelValueKind.DECIMAL, column.valueKind(), column.rawColumnName());
+                    assertEquals(false, column.required(), column.rawColumnName());
+                    assertEquals(DWHExcelNullHandling.ZERO, column.nullHandling(), column.rawColumnName());
+                });
+
+        for (String required : List.of("Year", "Week")) {
+            var column = definition.columns().stream()
+                    .filter(candidate -> required.equals(candidate.rawColumnName()))
+                    .findFirst()
+                    .orElseThrow();
+            assertEquals(DWHExcelValueKind.INT, column.valueKind(), required);
+            assertTrue(column.required(), required);
+            assertEquals(DWHExcelNullHandling.KEEP_NULL, column.nullHandling(), required);
+        }
+
+        for (String correction : List.of("Year21", "Week21", "YearCorr", "WeekCorr")) {
+            var column = definition.columns().stream()
+                    .filter(candidate -> correction.equals(candidate.rawColumnName()))
+                    .findFirst()
+                    .orElseThrow();
+            assertEquals(DWHExcelValueKind.INT, column.valueKind(), correction);
+            assertEquals(false, column.required(), correction);
+            assertEquals(DWHExcelNullHandling.KEEP_NULL, column.nullHandling(), correction);
+        }
     }
 
     @Test

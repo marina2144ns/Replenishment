@@ -119,6 +119,31 @@ class WeeklyDataValidatorTest {
     }
 
     @Test
+    void everyOptionalMetricMapsMissingAndRealZeroToTypedZero() {
+        for (String field : metricFields()) {
+            for (String value : new String[]{null, "", " ", "   ", "N/A", "NULL", "-", "0", "0.0"}) {
+                WeeklyDataRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
+
+                assertTrue(result.valid(), field + "=" + value + ": " + result.errors());
+                assertEquals(0, metricValue(result.stageRow(), field).compareTo(BigDecimal.ZERO),
+                        field + "=" + value);
+            }
+        }
+    }
+
+    @Test
+    void everyOptionalMetricRejectsInvalidNonblankValuesInsteadOfDefaultingToZero() {
+        for (String field : metricFields()) {
+            for (String value : List.of("abc", "1x")) {
+                WeeklyDataRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
+
+                assertTrue(result.stageRow() == null, field + "=" + value);
+                assertHasError(result.errors(), field, "INVALID_DECIMAL");
+            }
+        }
+    }
+
+    @Test
     void textLongerThan255ReturnsTextTooLongError() {
         List<WeeklyDataValidationError> errors = validator.validate(row()
                 .year("2025")
@@ -217,6 +242,41 @@ class WeeklyDataValidatorTest {
                 "Bundle",
                 "Seasonality"
         );
+    }
+
+    private static List<String> metricFields() {
+        return List.of(
+                "TotalStockPcs", "TotalStockDdp", "SalesPcs", "SalesRub",
+                "Revenue", "Gp", "DiscountTotalRub"
+        );
+    }
+
+    private static WeeklyDataRawRow rowWithMetric(String fieldName, String value) {
+        return new WeeklyDataRawRow(
+                1, 2, 3L, null, null, null, null, "2025", "10",
+                null, null, null, null, null, null, null,
+                "TotalStockPcs".equals(fieldName) ? value : null,
+                "TotalStockDdp".equals(fieldName) ? value : null,
+                "SalesPcs".equals(fieldName) ? value : null,
+                "SalesRub".equals(fieldName) ? value : null,
+                "Revenue".equals(fieldName) ? value : null,
+                "Gp".equals(fieldName) ? value : null,
+                "DiscountTotalRub".equals(fieldName) ? value : null,
+                null, null, null, null, null
+        );
+    }
+
+    private static BigDecimal metricValue(WeeklyDataStageRow row, String fieldName) {
+        return switch (fieldName) {
+            case "TotalStockPcs" -> row.totalStockPcs();
+            case "TotalStockDdp" -> row.totalStockDdp();
+            case "SalesPcs" -> row.salesPcs();
+            case "SalesRub" -> row.salesRub();
+            case "Revenue" -> row.revenue();
+            case "Gp" -> row.gp();
+            case "DiscountTotalRub" -> row.discountTotalRub();
+            default -> throw new IllegalArgumentException(fieldName);
+        };
     }
 
     private static WeeklyDataRawRow rowWithTextField(String fieldName, String value) {

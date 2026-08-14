@@ -21,17 +21,17 @@ CREATE TABLE dbo.Weekly_data (
                                  TypeOfSales NVARCHAR(255) NULL,
 
     -- Остатки
-                                 TotalStockPcs DECIMAL(18,2),
-                                 TotalStockDdp DECIMAL(18,2),
+                                 TotalStockPcs DECIMAL(18,2) NOT NULL,
+                                 TotalStockDdp DECIMAL(18,2) NOT NULL,
 
     -- Продажи
-                                 SalesPcs DECIMAL(18,2),
-                                 SalesRub DECIMAL(18,2),
+                                 SalesPcs DECIMAL(18,2) NOT NULL,
+                                 SalesRub DECIMAL(18,2) NOT NULL,
 
     -- Финансы
-                                 Revenue DECIMAL(18,2),
-                                 Gp DECIMAL(18,2),
-                                 DiscountTotalRub DECIMAL(18,2),
+                                 Revenue DECIMAL(18,2) NOT NULL,
+                                 Gp DECIMAL(18,2) NOT NULL,
+                                 DiscountTotalRub DECIMAL(18,2) NOT NULL,
 
     -- Доп. аналитика
                                  MfpDivision NVARCHAR(255) NULL,
@@ -123,17 +123,17 @@ CREATE TABLE dbo.Weekly_data_stage (
                                        TypeOfSales NVARCHAR(255) NULL,
 
     -- Остатки
-                                       TotalStockPcs DECIMAL(18,2) NULL,
-                                       TotalStockDdp DECIMAL(18,2) NULL,
+                                       TotalStockPcs DECIMAL(18,2) NOT NULL,
+                                       TotalStockDdp DECIMAL(18,2) NOT NULL,
 
     -- Продажи
-                                       SalesPcs DECIMAL(18,2) NULL,
-                                       SalesRub DECIMAL(18,2) NULL,
+                                       SalesPcs DECIMAL(18,2) NOT NULL,
+                                       SalesRub DECIMAL(18,2) NOT NULL,
 
     -- Финансы
-                                       Revenue DECIMAL(18,2) NULL,
-                                       Gp DECIMAL(18,2) NULL,
-                                       DiscountTotalRub DECIMAL(18,2) NULL,
+                                       Revenue DECIMAL(18,2) NOT NULL,
+                                       Gp DECIMAL(18,2) NOT NULL,
+                                       DiscountTotalRub DECIMAL(18,2) NOT NULL,
 
     -- Доп. аналитика
                                        MfpDivision NVARCHAR(255) NULL,

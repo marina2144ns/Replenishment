@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
+import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -57,6 +58,37 @@ class WeeklyDataProcessorTest {
         assertEquals(4, fixture.dataSource.commitCount);
         assertEquals(0, fixture.dataSource.rollbackCount);
         assertEquals(1, fixture.targetRepository.publishCalls);
+        assertTrue(fixture.stageRepository.rows.isEmpty());
+    }
+
+    @Test
+    void blankOptionalMetricsPublishAsTypedZero() {
+        TestFixture fixture = new TestFixture();
+        fixture.rawRepository.chunks.put(0L, List.of(validRow(1)));
+
+        WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
+
+        assertTrue(result.success());
+        assertEquals(1, fixture.targetRepository.publishedRows.size());
+        WeeklyDataStageRow row = fixture.targetRepository.publishedRows.get(0);
+        for (BigDecimal value : List.of(
+                row.totalStockPcs(), row.totalStockDdp(), row.salesPcs(), row.salesRub(),
+                row.revenue(), row.gp(), row.discountTotalRub()
+        )) {
+            assertEquals(0, value.compareTo(BigDecimal.ZERO));
+        }
+    }
+
+    @Test
+    void invalidOptionalMetricPreventsAllOrNothingPublish() {
+        TestFixture fixture = new TestFixture();
+        fixture.rawRepository.chunks.put(0L, List.of(rowWithSalesRub(1, "abc")));
+
+        WeeklyDataProcessResult result = fixture.processor.process(LOAD_SESSION_ID);
+
+        assertFalse(result.success());
+        assertEquals(1, result.errorRows());
+        assertEquals(0, fixture.targetRepository.publishCalls);
         assertTrue(fixture.stageRepository.rows.isEmpty());
     }
 
@@ -261,6 +293,19 @@ class WeeklyDataProcessorTest {
         );
     }
 
+    private static WeeklyDataRawRow rowWithSalesRub(long rawId, String salesRub) {
+        WeeklyDataRawRow row = row(rawId, "2025", "10");
+        return new WeeklyDataRawRow(
+                row.loadSessionId(), row.rawId(), row.excelRowNum(),
+                row.year21(), row.week21(), row.yearCorr(), row.weekCorr(), row.year(), row.week(),
+                row.salesChannelBpo(), row.storeRusBpo(), row.storeRus(), row.mfpDivisionNew(),
+                row.mfpDepartment(), row.skuSeasonBudget(), row.typeOfSales(),
+                row.totalStockPcs(), row.totalStockDdp(), row.salesPcs(), salesRub,
+                row.revenue(), row.gp(), row.discountTotalRub(), row.mfpDivision(), row.season(),
+                row.month(), row.bundle(), row.seasonality()
+        );
+    }
+
     private static final class TestFixture {
         private final RecordingDataSource dataSource = new RecordingDataSource();
         private final FakeLoadSessionRepository loadSessionRepository = new FakeLoadSessionRepository();
@@ -355,6 +400,7 @@ class WeeklyDataProcessorTest {
         private int publishCalls;
         private RuntimeException failure;
         private Integer publishedRowsOverride;
+        private List<WeeklyDataStageRow> publishedRows = List.of();
 
         private FakeTargetRepository(FakeStageRepository stageRepository) {
             this.stageRepository = stageRepository;
@@ -366,6 +412,7 @@ class WeeklyDataProcessorTest {
             if (failure != null) {
                 throw failure;
             }
+            publishedRows = List.copyOf(stageRepository.rows);
             return publishedRowsOverride != null ? publishedRowsOverride : stageRepository.rows.size();
         }
     }

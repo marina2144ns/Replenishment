@@ -21,6 +21,9 @@ class WeeklyDataStageSchemaContractTest {
     private static final String STAGE_REPOSITORY =
             "src/main/java/ru/stockmann/replenishment/services/weeklydata/process/WeeklyDataStageRepository.java";
     private static final String STAGE_TABLE = "dbo.Weekly_data_stage";
+    private static final String TARGET_TABLE = "dbo.Weekly_data";
+    private static final String ZERO_METRICS_MIGRATION =
+            "src/main/db/tables/weeklydata_zero_metrics_migration.sql";
 
     @Test
     void stageTableHasTypedWeeklyDataColumnsAndNullability() throws Exception {
@@ -93,8 +96,45 @@ class WeeklyDataStageSchemaContractTest {
                 "gp",
                 "discounttotalrub"
         )) {
-            assertColumn(columns, name, "decimal(18,2)", true);
+            assertColumn(columns, name, "decimal(18,2)", false);
         }
+    }
+
+    @Test
+    void zeroMetricsAreNotNullableAndMatchTargetContract() throws Exception {
+        List<DWHSchemaTestSupport.ColumnDef> stage = tableColumns(WEEKLY_DDL, STAGE_TABLE);
+        List<DWHSchemaTestSupport.ColumnDef> target = tableColumns(WEEKLY_DDL, TARGET_TABLE);
+
+        for (String name : zeroMetrics()) {
+            assertColumn(stage, name, "decimal(18,2)", false);
+            assertColumn(target, name, "decimal(18,2)", false);
+        }
+    }
+
+    @Test
+    void zeroMetricsMigrationUpdatesNullsThenGuardsNotNullAlterForTargetAndStage() throws Exception {
+        String migration = normalizeSql(read(ZERO_METRICS_MIGRATION));
+
+        for (String table : List.of("dbo.weekly_data", "dbo.weekly_data_stage")) {
+            for (String column : zeroMetrics()) {
+                assertTrue(migration.contains(
+                        "update " + table + " set " + column + " = 0 where " + column + " is null"
+                ), table + "." + column);
+                assertTrue(migration.contains(
+                        "alter table " + table + " alter column " + column
+                                + " decimal(18,2) not null"
+                ), table + "." + column);
+            }
+        }
+
+        assertEquals(14, occurrences(migration, "is_nullable = 1"));
+        assertFalse(migration.contains("weekly_data_raw"));
+        assertFalse(migration.contains("alter column year "));
+        assertFalse(migration.contains("alter column week "));
+        assertFalse(migration.contains("delete from"));
+        assertFalse(migration.contains("drop "));
+        assertFalse(migration.contains("truncate "));
+        assertFalse(migration.contains("default"));
     }
 
     @Test
@@ -157,5 +197,16 @@ class WeeklyDataStageSchemaContractTest {
         } else {
             assertTrue(column.contains(type + " not null"), name + " should be NOT NULL");
         }
+    }
+
+    private static List<String> zeroMetrics() {
+        return List.of(
+                "totalstockpcs", "totalstockddp", "salespcs", "salesrub",
+                "revenue", "gp", "discounttotalrub"
+        );
+    }
+
+    private static int occurrences(String value, String token) {
+        return (value.length() - value.replace(token, "").length()) / token.length();
     }
 }
