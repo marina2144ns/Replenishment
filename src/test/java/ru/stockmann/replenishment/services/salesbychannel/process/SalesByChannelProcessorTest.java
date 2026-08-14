@@ -111,6 +111,7 @@ class SalesByChannelProcessorTest {
     void validRowsPublishAndLoadedRowsEqualsActualInsertCount() {
         Transactions transactions = new Transactions();
         FakeTargetRepository target = new FakeTargetRepository();
+        FakeStageRepository stage = new FakeStageRepository();
 
         SalesByChannelProcessResult result = processor(
                 true, transactions,
@@ -118,7 +119,7 @@ class SalesByChannelProcessorTest {
                         List.of(row(1, "2025", "April", "1"), row(7, "2025", "May", "2")),
                         List.of()
                 )),
-                new FakeStageRepository(), new FakeErrorRepository(), target
+                stage, new FakeErrorRepository(), target
         ).process(10L);
 
         assertTrue(result.success());
@@ -128,6 +129,8 @@ class SalesByChannelProcessorTest {
         assertEquals(0, result.errorRows());
         assertEquals(1, target.calls);
         assertEquals(10L, target.loadSessionId);
+        assertEquals(2, stage.cleanupCalls);
+        assertEquals(2, stage.lastCleanedRows);
         assertEquals(3, transactions.commits); // cleanup, chunk, publish
     }
 
@@ -172,6 +175,52 @@ class SalesByChannelProcessorTest {
     }
 
     @Test
+    void stageCleanupCountMismatchRollsBackPublishAndReportsProcessingError() {
+        Transactions transactions = new Transactions();
+        FakeStageRepository stage = new FakeStageRepository();
+        stage.cleanupCountOverride = 1;
+        FakeErrorRepository errors = new FakeErrorRepository();
+
+        SalesByChannelProcessResult result = processor(
+                true, transactions,
+                new FakeRawRepository(List.of(List.of(
+                        row(1, "2025", "April", "1"),
+                        row(2, "2025", "April", "2")
+                ), List.of())),
+                stage, errors, new FakeTargetRepository()
+        ).process(10L);
+
+        assertFalse(result.success());
+        assertTrue(result.message().contains("stage cleanup row count mismatch"));
+        assertEquals(2, stage.cleanupCalls);
+        assertEquals(2, transactions.commits); // initial cleanup and chunk only
+        assertEquals(1, transactions.rollbacks);
+        assertEquals(1, errors.bestEffort.size());
+    }
+
+    @Test
+    void stageCleanupFailureRollsBackPublishAndReportsProcessingError() {
+        Transactions transactions = new Transactions();
+        FakeStageRepository stage = new FakeStageRepository();
+        stage.failOnCleanupCall = 2;
+        FakeErrorRepository errors = new FakeErrorRepository();
+        FakeTargetRepository target = new FakeTargetRepository();
+        target.publishedRows = 1;
+
+        SalesByChannelProcessResult result = processor(
+                true, transactions,
+                new FakeRawRepository(List.of(List.of(row(1, "2025", "April", "1")), List.of())),
+                stage, errors, target
+        ).process(10L);
+
+        assertFalse(result.success());
+        assertEquals(2, stage.cleanupCalls);
+        assertEquals(2, transactions.commits); // initial cleanup and chunk only
+        assertEquals(1, transactions.rollbacks);
+        assertEquals(1, errors.bestEffort.size());
+    }
+
+    @Test
     void noSeparatePublicPublishEntryPointExists() {
         assertFalse(Arrays.stream(SalesByChannelProcessor.class.getMethods())
                 .anyMatch(method -> method.getName().toLowerCase().contains("publish")));
@@ -208,7 +257,8 @@ class SalesByChannelProcessorTest {
         assertEquals(2, first.loadedRows());
         assertEquals(2, second.loadedRows());
         assertEquals(2, target.calls);
-        assertEquals(2, stage.cleanupCalls);
+        assertEquals(4, stage.cleanupCalls);
+        assertEquals(0, stage.stagedRows);
     }
 
     private SalesByChannelProcessor processor(
@@ -235,11 +285,12 @@ class SalesByChannelProcessorTest {
         private int calls;
         private long loadSessionId;
         private boolean fail;
+        private int publishedRows = 2;
         @Override int publishFromStage(Connection connection, long loadSessionId) {
             calls++;
             this.loadSessionId = loadSessionId;
             if (fail) throw new RuntimeException("target insert failed");
-            return 2;
+            return publishedRows;
         }
     }
 
@@ -276,14 +327,28 @@ class SalesByChannelProcessorTest {
 
     private static final class FakeStageRepository extends SalesByChannelStageRepository {
         private int cleanupCalls;
+        private int stagedRows;
+        private int lastCleanedRows;
+        private int failOnCleanupCall = -1;
+        private Integer cleanupCountOverride;
         private boolean failInsert;
         private final List<Long> rawEquivalentIds = new ArrayList<>();
         @Override public int deleteByLoadSessionId(Connection connection, long id) {
             cleanupCalls++;
-            return 0;
+            if (cleanupCalls == failOnCleanupCall) {
+                throw new RuntimeException("stage cleanup failed");
+            }
+            int cleanedRows = stagedRows;
+            stagedRows = 0;
+            lastCleanedRows = cleanedRows;
+            if (cleanupCalls > 1 && cleanupCountOverride != null) {
+                return cleanupCountOverride;
+            }
+            return cleanedRows;
         }
         @Override public void insertBatch(Connection connection, long id, List<SalesByChannelStageRow> rows) {
             if (failInsert) throw new RuntimeException("stage failed");
+            stagedRows += rows.size();
             rows.forEach(row -> rawEquivalentIds.add(row.excelRowNum() - 1));
         }
     }

@@ -198,6 +198,16 @@ public class SalesByChannelProcessor {
                                     + ", publishedRows=" + publishedRows
                     );
                 }
+
+                int cleanedRows = stageRepository.deleteByLoadSessionId(connection, loadSessionId);
+                if (cleanedRows != expectedRows) {
+                    throw new IllegalStateException(
+                            "SalesByChannel stage cleanup row count mismatch. loadSessionId=" + loadSessionId
+                                    + ", expectedRows=" + expectedRows
+                                    + ", cleanedRows=" + cleanedRows
+                    );
+                }
+
                 connection.commit();
                 log.info("SalesByChannel publish commit completed. loadSessionId={}, publishedRows={}, "
                                 + "elapsedMs={}",
