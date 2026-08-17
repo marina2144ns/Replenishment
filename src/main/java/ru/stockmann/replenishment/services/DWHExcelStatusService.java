@@ -8,6 +8,7 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 
 @Service
@@ -31,6 +32,20 @@ public class DWHExcelStatusService {
                     ServiceName,
                     FileName,
                     FilePath,
+                    OperationType,
+                    OperationMode,
+                    DeleteYear,
+                    DeleteWeek,
+                    DeleteMonth,
+                    DeleteYearText,
+                    DeleteMonthText,
+                    SourceLoadSessionId,
+                    DeleteCriterion,
+                    DeleteParameter1Name,
+                    DeleteParameter1Value,
+                    DeleteParameter2Name,
+                    DeleteParameter2Value,
+                    DeletedRows,
                     Status,
                     Message,
                     StartedAt,
@@ -55,6 +70,20 @@ public class DWHExcelStatusService {
                         rs.getString("ServiceName"),
                         rs.getString("FileName"),
                         rs.getString("FilePath"),
+                        rs.getString("OperationType"),
+                        rs.getString("OperationMode"),
+                        getNullableInteger(rs, "DeleteYear"),
+                        getNullableInteger(rs, "DeleteWeek"),
+                        getNullableInteger(rs, "DeleteMonth"),
+                        rs.getString("DeleteYearText"),
+                        rs.getString("DeleteMonthText"),
+                        getNullableLong(rs, "SourceLoadSessionId"),
+                        rs.getString("DeleteCriterion"),
+                        rs.getString("DeleteParameter1Name"),
+                        rs.getString("DeleteParameter1Value"),
+                        rs.getString("DeleteParameter2Name"),
+                        rs.getString("DeleteParameter2Value"),
+                        getNullableLong(rs, "DeletedRows"),
                         rs.getString("Status"),
                         rs.getString("Message"),
                         toStringOrNull(rs.getTimestamp("StartedAt")),
@@ -73,5 +102,15 @@ public class DWHExcelStatusService {
         return timestamp != null
                 ? timestamp.toLocalDateTime().toString()
                 : null;
+    }
+
+    private Integer getNullableInteger(ResultSet rs, String column) throws SQLException {
+        int value = rs.getInt(column);
+        return rs.wasNull() ? null : value;
+    }
+
+    private Long getNullableLong(ResultSet rs, String column) throws SQLException {
+        long value = rs.getLong(column);
+        return rs.wasNull() ? null : value;
     }
 }
