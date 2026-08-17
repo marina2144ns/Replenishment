@@ -15,23 +15,167 @@
 
 ---
 
-# 0. Входные данные
+# 0. Входные данные: единственный canonical format
 
-## Название сервиса
+Пользователь передаёт только название сервиса, при необходимости source format и business delete criteria, а также таблицу business columns в следующем формате:
 
-`<SERVICE_NAME>`
+```text
+SERVICE_NAME:
 
-## Структура входных данных
+<SERVICE_NAME>
 
-Я передаю таблицу со столбцами примерно следующего вида:
+SOURCE_FORMAT:
 
-| Column | Source name | SQL type | Java type | Nullable | Required | Length / precision | Notes |
-| ------ | ----------- | -------- | --------- | -------- | -------- | ------------------ | ----- |
-| ...    | ...         | ...      | ...       | ...      | ...      | ...                | ...   |
+<XLSX | другое явно заданное значение>
 
-Используй эту таблицу как основной schema contract.
+BUSINESS_DELETE_CRITERIA:
+- Year + Week
+- Name + Day
+```
 
-Если какое-либо свойство явно указано во входной таблице, оно имеет приоритет над предположениями.
+Секция `SOURCE_FORMAT` опциональна. Если она отсутствует, использовать `XLSX` без дополнительного вопроса пользователю.
+
+Секция `BUSINESS_DELETE_CRITERIA` опциональна. Если она отсутствует:
+
+* не спрашивать пользователя о business delete criteria;
+* не придумывать criteria и speculative business delete endpoints;
+* полностью реализовать все остальные capabilities сервиса;
+* session delete реализовать только тогда, когда это обязательный canonical pattern текущей reference architecture;
+* в финальном отчёте указать `Business delete criteria: not specified`.
+
+Единственный допустимый формат таблицы колонок:
+
+| # | Field | Source header | SQL type | Role | Required | Missing behavior | Format / constraints | Notes |
+|---|---|---|---|---|---|---|---|---|
+| 1 | ... | ... | ... | ... | ... | ... | ... | ... |
+
+Значение колонок таблицы:
+
+* `#` — физический порядок source column; позиции должны образовывать однозначную последовательность без дублей;
+* `Field` — canonical logical technical/business name для вывода Java/DB naming;
+* `Source header` — exact literal header в source file;
+* `SQL type` — canonical typed STAGE/TARGET type, например `INT`, `BIGINT`, `SMALLINT`, `DECIMAL(18,2)`, `NVARCHAR(255)`, `DATE`, `DATETIME2`, `BIT`;
+* `Role` — один из фиксированных business roles: `DIMENSION`, `METRIC`, `IDENTIFIER`, `ATTRIBUTE`;
+* `Required` — только `YES` или `NO`;
+* `Missing behavior` — только `ERROR`, `ZERO` или `NULL`;
+* `Format / constraints` — только явно заданные дополнительные ограничения, например `max length 255`, `YYYY-MM-DD`, `scale 2`, `allowed values A/B/C`, `range 1..12`;
+* `Notes` — дополнительная business information, не отменяющая значения остальных contract columns.
+
+Technical metadata пользователь в таблицу не добавляет. Codex самостоятельно добавляет `Id`, `LoadSessionId`, `ExcelRowNum`, `RawRowId` или их фактические equivalents согласно текущей архитектуре.
+
+Не требовать от пользователя Java type, отдельный `Nullable` flag, RAW SQL type, package layout, repositories, permissions или другие technical implementation details.
+
+## 0.1. Input table — source of truth
+
+Явно заданное значение имеет приоритет над naming guesses, heuristics, историческими patterns и предположениями по названию поля. Например:
+
+```text
+Field = Year
+SQL type = NVARCHAR(50)
+Role = DIMENSION
+Required = YES
+Missing behavior = ERROR
+```
+
+означает required textual `Year`; запрещено автоматически превращать его в `INT`.
+
+`Field` является canonical logical field name. Адаптировать его к Java/SQL conventions проекта можно, но произвольно переименовывать business field нельзя.
+
+`# + Source header` образуют exact source schema:
+
+```text
+#             → exact physical position
+Source header → exact literal header
+```
+
+## 0.2. Role и Missing behavior
+
+Business role не выводится из SQL type или имени:
+
+```text
+numeric type != business role
+```
+
+* `DIMENSION` — business dimension, period, category axis и подобные значения;
+* `METRIC` — measure/value;
+* `IDENTIFIER` — business identifier/code;
+* `ATTRIBUTE` — descriptive property.
+
+Technical fields классифицируются отдельно и не являются business roles входной таблицы.
+
+`Missing behavior` является authoritative и имеет ровно три значения:
+
+```text
+ERROR: missing/blank/supported null-equivalent → validation error
+ZERO:  missing/blank/supported null-equivalent → typed numeric zero
+NULL:  missing/blank/supported null-equivalent → typed null
+```
+
+Не придумывать четвёртую semantics. `ZERO` допустим только когда он явно указан во входной таблице; обычно это metric, но unusual technically valid combination не является ошибкой только из-за role.
+
+## 0.3. Проверка input contract и derived contract
+
+До создания файлов проверить:
+
+* обязательные sections и columns таблицы;
+* уникальность `#`, `Field` и однозначность source positions;
+* допустимые значения `Role`, `Required`, `Missing behavior`;
+* синтаксис и поддерживаемость SQL types;
+* внутреннюю логическую согласованность.
+
+Различать:
+
+* реальное противоречие business contract;
+* необычный, но технически безопасно реализуемый contract.
+
+`Required` и `Missing behavior` должны описывать одну operational semantics. `Required = YES + Missing behavior = NULL` или `ZERO` противоречит обязательности; `Required = NO + Missing behavior = ERROR` фактически делает поле обязательным и также требует clarification как explicit conflict. `ZERO` применим только к поддерживаемому numeric SQL type. При этом `Role = ATTRIBUTE + DECIMAL(...) + ZERO` необычно, но не обязательно конфликтует: если это технически реализуемо, следовать явному contract.
+
+Только реальное противоречие отражать в финальном блоке `Input contract conflict`. Не останавливаться из-за unusual, но допустимого contract.
+
+Перед реализацией самостоятельно построить derived mapping для самопроверки:
+
+| Source | Field | Role | Required | Missing behavior | Source kind | RAW type | Java type | STAGE type | TARGET type | Validation |
+|---|---|---|---|---|---|---|---|---|---|---|
+
+Workflow:
+
+```text
+read input
+→ inspect reference services
+→ derive complete implementation contract
+→ validate contract
+→ implement immediately
+```
+
+Не останавливать работу для подтверждения derived table пользователем.
+
+## 0.4. Autonomy и граница inference
+
+Codex обязан самостоятельно выводить все технические решения, которые достоверно следуют из input contract, canonical architecture, reference services и repository conventions. Не задавать вопросы о:
+
+* package/class/file names и repository layout;
+* endpoint base path и Spring registration;
+* JDBC/JPA choice, batch/chunk settings и transaction pattern;
+* technical metadata, traceability, indexes и test naming;
+* DDL/migration naming, RAW representation и permissions;
+* shared session/error/status infrastructure.
+
+Codex не имеет права угадывать business key, uniqueness, deduplication, business delete criteria, replacement scope, special ranges, locale-specific semantics, duplicate policy, equivalence textual values или aggregation rules.
+
+Unspecified optional business rule must not block implementation:
+
+```text
+business delete unknown → no business delete
+uniqueness unknown      → no UNIQUE
+deduplication unknown   → no deduplication
+replacement unknown     → canonical session-scoped publish
+special range unknown   → type/required/precision checks only
+locale parsing unknown  → standard project parser
+```
+
+После реализации перечислить такие пункты в `Unresolved business rules`.
+
+Codex должен стремиться завершить deployment-ready сервис за один проход. Clarification допустим только если explicit input contract внутренне противоречив и без ответа невозможно безопасно реализовать основной load path. Даже тогда сначала реализовать независимые части, если это возможно. Отсутствие optional capability не является причиной остановки.
 
 ---
 
@@ -252,7 +396,7 @@ Session должна позволять определить как миниму
 
 # 7. Чтение исходного файла
 
-Для XLSX использовать существующий streaming mechanism проекта.
+Если `SOURCE_FORMAT` не задан, считать его равным `XLSX` и использовать существующий streaming mechanism проекта без clarification question.
 
 Не использовать:
 
@@ -265,6 +409,8 @@ new XSSFWorkbook(...)
 Ориентироваться на существующий `AbstractDWHExcelLoader`.
 
 Файл должен обрабатываться потоково.
+
+Если явно задан другой source format, не пытаться пропустить его через XLSX loader. Сначала найти canonical shared mechanism проекта для этого формата. Если его нет, минимально расширить architecture, предварительно зафиксировав техническую необходимость и влияние на shared infrastructure; не изобретать business semantics формата.
 
 ---
 
@@ -580,7 +726,7 @@ Business validation должна выполняться в Java.
 
 Validator должен работать исходя из переданного schema contract.
 
-Если входной contract задаёт `Required = true` или `Nullable = false`, обязательность должна быть согласована по всей typed pipeline:
+Если входной contract задаёт `Required = YES + Missing behavior = ERROR`, обязательность должна быть согласована по всей typed pipeline:
 
 ```text
 required source field
@@ -622,21 +768,15 @@ invalid value
 zero
 ```
 
-согласно schema contract.
-
-Не заменять автоматически:
+согласно authoritative `Missing behavior` входной таблицы:
 
 ```text
-blank → 0
-invalid number → NULL
-NULL → 0
+ERROR → missing/blank/null marker вызывает validation error
+ZERO  → missing/blank/null marker становится typed numeric zero
+NULL  → missing/blank/null marker становится typed null
 ```
 
-если этого нет в требованиях.
-
-Для nullable fields корректное пустое значение может преобразовываться в `NULL` по существующему project pattern.
-
-Для required fields отсутствие значения должно создавать validation error.
+Ни один из этих вариантов нельзя выбирать по названию или типу поля. Invalid nonblank value никогда не становится zero или null silently.
 
 До реализации mapping для каждой column явно определить:
 
@@ -647,17 +787,24 @@ invalid nonblank      → ?
 valid numeric zero    → ?
 ```
 
-Для required numeric field (`Short`, `Integer`, `Long`, `BigDecimal` и т. п.) `null`, empty, whitespace и supported special-null marker должны приводить к validation error, если parser трактует их как отсутствие. Не заменять missing required numeric value на `0`, `0.0` или `BigDecimal.ZERO`.
+При `Required = YES + Missing behavior = ERROR` значения `null`, empty, whitespace и supported special-null marker должны приводить к validation error. Для numeric field не заменять required-missing значением `0`, `0.0` или `BigDecimal.ZERO`.
 
 Для required string field значение после стандартной text normalization должно быть non-null и nonblank. Значения, которые shared cleaner превращает в `null`, включая поддерживаемые whitespace-only Unicode representations, должны отклоняться. Не подставлять `""`, `"UNKNOWN"` или `"N/A"` вместо отсутствующего required text.
 
-Policy вроде `DWHExcelNullHandling.ZERO` использовать только при явно заданном business contract:
+При `Missing behavior = ZERO` canonical flow:
 
 ```text
-missing source value == numeric zero
+source blank/missing/null marker
+→ parser identifies missing
+→ typed zero
+→ valid row
+→ STAGE NOT NULL
+→ TARGET NOT NULL
 ```
 
-Иначе optional missing value сохранять как typed `null`, а required missing value отклонять. Различие missing и real zero должно сохраняться, если их эквивалентность прямо не задана.
+Invalid nonblank numeric (`abc`, `1x`, `12abc`) должен создавать parsing/validation error, а не zero.
+
+При `Missing behavior = NULL` Java representation должна поддерживать null (`Integer`, `Long`, `Short`, `BigDecimal`, а не primitive для nullable numeric), а STAGE/TARGET должны быть nullable, если нет отдельного explicit непротиворечивого правила.
 
 ---
 
@@ -1037,7 +1184,7 @@ LoadSessionId
 
 # 36. Business delete criteria
 
-Если вместе с schema contract я явно передала критерий удаления, например:
+Business deletion создаётся только для criteria из опциональной секции `BUSINESS_DELETE_CRITERIA`, например:
 
 ```text
 Year + Week
@@ -1080,6 +1227,14 @@ Name
 * реализовать только архитектурно достоверную часть;
 * отдельно написать, что business delete criteria не заданы;
 * не создавать speculative endpoint.
+
+Для каждого composite criterion создать отдельный canonical endpoint/service/repository и audit tests. Не создавать generic ambiguous endpoint.
+
+Domain параметров delete API должен точно совпадать с field domain. Textual field принимает `String`; запрещён lossy integer conversion. Значения вроде `"7"` и `"07"` не считаются эквивалентными без explicit rule.
+
+Deletion audit должен сохранять criteria losslessly. Если shared metadata недостаточно, минимально расширить shared audit schema отдельными прозрачно названными typed/textual columns, не переиспользуя numeric metadata с ложной семантикой и не ломая existing services.
+
+Если criterion содержит nullable field, не менять requiredness самостоятельно. Проверить достижимость rows с `NULL` через API и указать concern в финальном отчёте, если такие rows нельзя адресовать; это не блокирует реализацию остальных capabilities.
 
 ---
 
@@ -1221,25 +1376,15 @@ source
 → TARGET
 ```
 
-Если:
-
-```text
-Nullable = false
-```
-
-то:
+Если `Required = YES + Missing behavior = ERROR`:
 
 * stage и target columns должны быть `NOT NULL`;
 * validator должен запрещать отсутствие значения;
 * Java representation должна корректно отражать обязательность.
 
-Если:
+Если `Missing behavior = ZERO`, successful typed value non-null, поэтому STAGE/TARGET должны быть `NOT NULL`; SQL `DEFAULT 0` из этого не следует.
 
-```text
-Nullable = true
-```
-
-не использовать Java primitive, если необходимо корректно представить DB NULL.
+Если `Missing behavior = NULL`, STAGE/TARGET должны быть nullable и нельзя использовать Java primitive, если необходимо корректно представить DB NULL.
 
 Например, учитывать разницу между:
 
@@ -1278,13 +1423,30 @@ validated typed business representation
 
 Required/nullability contract начинается на переходе `RAW → Validator → STAGE`: RAW остаётся source-oriented и может быть nullable, даже когда соответствующие typed columns обязательны.
 
+Пользователь не задаёт RAW type. Codex выводит его из current canonical RAW representation reference services. Если современные loaders используют `NVARCHAR`, следовать этому pattern и сохранять возможность представить source absence/invalid input до validation.
+
+Java type также выводится автоматически после проверки фактических mappings reference services. Canonical mapping ожидается в духе:
+
+```text
+INT          → Integer
+BIGINT       → Long
+SMALLINT     → Short
+DECIMAL(p,s) → BigDecimal
+NVARCHAR(n)  → String
+DATE         → LocalDate
+DATETIME2    → соответствующий modern project date/time type
+BIT          → Boolean
+```
+
+Не использовать primitive, когда `Missing behavior = NULL`. SQL type определяет технический value kind, но не business role и не missing semantics.
+
 ---
 
 # 46. Индексы
 
 Создать только индексы, необходимые runtime flow.
 
-Обязательные/типичные candidates:
+Codex самостоятельно создаёт runtime-required indexes по фактическому repository flow. Для canonical architecture обязательны или должны иметь доказанное equivalent:
 
 RAW:
 
@@ -1331,6 +1493,8 @@ Business indexes создавать только если они оправда�
 Не создавать индексы на все business columns «на всякий случай».
 
 Если business delete criteria явно заданы, индекс по этим критериям рассмотреть обязательно.
+
+Не создавать indexes «на всякий случай» и не спрашивать пользователя об index naming/layout: вывести их из SQL predicates и current project convention.
 
 ---
 
@@ -1644,7 +1808,7 @@ fresh-install DDL
 upgrade существующей production DB
 ```
 
-Если новый сервис создаёт абсолютно новые таблицы, основной DDL должен описывать fresh installation этих объектов.
+Если новый сервис создаёт абсолютно новые таблицы, основной DDL должен описывать fresh installation этих объектов сразу с правильным contract. Не создавать бессмысленную migration для только что создаваемых RAW/STAGE/TARGET tables.
 
 Fresh-install tables сразу создавать с правильным `NULL / NOT NULL` contract.
 
@@ -1656,7 +1820,7 @@ Fresh-install tables сразу создавать с правильным `NULL
 
 При изменении существующей column `NULL → NOT NULL` отдельная migration обязательна. До `ALTER COLUMN` проверить legacy rows в TARGET и STAGE: `NULL`, а для required text также blank/whitespace согласно business normalization. Не считать STAGE гарантированно пустой после failed/incomplete processing.
 
-Если legacy data нарушает новый contract, migration должна fail fast с диагностируемой ошибкой. Без отдельного data-correction requirement запрещены:
+Если `NULL` является invalid business data (`ERROR` contract), migration должна fail fast с диагностируемой ошибкой. Без отдельного data-correction requirement запрещены:
 
 ```text
 UPDATE NULL → 0
@@ -1666,6 +1830,15 @@ DELETE invalid rows
 ```
 
 Не добавлять fake `DEFAULT` только ради перехода в `NOT NULL`. Migration должна быть repeat-safe по существующему SQL Server/project pattern, например через `sys.columns.is_nullable`.
+
+Если explicit `Missing behavior = ZERO` относится к уже существующей nullable business/shared column, migration может осознанно выполнить:
+
+```text
+UPDATE NULL → 0
+ALTER COLUMN → NOT NULL
+```
+
+поскольку zero является заданным business value. Проверять и TARGET, и STAGE; не затрагивать RAW. `ZERO` не означает автоматическое создание SQL `DEFAULT 0`: preferred contract — Java canonicalization + DB `NOT NULL`.
 
 ---
 
@@ -1688,6 +1861,8 @@ DELETE invalid rows
 Не вводить произвольное новое именование.
 
 Перед созданием файлов посмотри ближайший reference service.
+
+Из `SERVICE_NAME` самостоятельно вывести package, Controller, BulkLoader, Processor, Validator/Mapper, repositories, ExcelLoadDefinition, DDL/migration/test names, endpoint base path, load type/service identifier и index names. При нескольких historical styles выбирать current canonical reference pattern, а не задавать вопросы пользователю.
 
 ---
 
@@ -1761,6 +1936,33 @@ stored procedure processor
 
 Не ссылаться на nonexistent migrations.
 
+## Automatic integration discovery
+
+После создания core files фактически исследовать repository и сравнить новый сервис с reference services. Найти все реальные integration points, включая при применимости:
+
+* Spring discovery/beans;
+* definitions, controllers и async load routing;
+* load type/service registries, enums и maps;
+* shared status/session/error infrastructure;
+* DDL deployment mechanism и `Users.sql`;
+* schema/permission/registration contract tests;
+* документацию и другие фактически используемые registration points.
+
+Этот список не является заменой repository search. Нельзя считать заранее известный checklist исчерпывающим.
+
+После завершения не должно требоваться вручную дописывать Java registration, SQL objects, permissions, definition, wiring, tests или documentation для deployment/use.
+
+Новый сервис должен быть deployment-ready:
+
+```text
+fresh database
++ application deployment
++ source file matching input contract
+→ runnable complete service flow
+```
+
+Для абсолютно нового сервиса fresh-install DDL достаточно для новых business tables; migration создавать только при изменении existing shared/already-deployed objects.
+
 ---
 
 # 69. ТЕСТЫ — общий принцип
@@ -1806,12 +2008,23 @@ Tests не должны закреплять `trim`, case-insensitive comparison
 * load type/service name;
 * processor wiring;
 * отсутствие runtime stored procedure processing, если применимо.
+* exact `#`, `Source header`, value kind, `Required` и `Missing behavior` каждой input column;
+* отсутствие дополнительных speculative business columns;
+* technical metadata добавлено implementation layer, а не ошибочно включено в source header schema.
 
 ---
 
 # 72. Validator tests
 
-Для каждой business column проверить relevant cases:
+Tests для каждой business column детерминируются input contract:
+
+```text
+ERROR → missing/blank/supported null marker вызывает error
+ZERO  → missing/blank/supported null marker даёт typed zero; invalid даёт error
+NULL  → missing/blank/supported null marker остаётся typed null
+```
+
+Дополнительно проверить relevant cases:
 
 * valid value;
 * null;
@@ -1848,6 +2061,13 @@ valid nonblank → accepted
 
 Если существует хотя бы одно required business field, fully empty business row не может быть valid. Количество ошибок должно следовать существующему validator style: collect-all либо fail-fast.
 
+Role-specific regression:
+
+* `METRIC + ZERO` — typed zero и DB `NOT NULL`;
+* `IDENTIFIER + NULL` — missing остаётся null, а не zero;
+* `DIMENSION + ERROR` — missing отклоняется;
+* `ATTRIBUTE` — строго следует `Required/Missing behavior`, без дополнительных guesses.
+
 ---
 
 # 73. Mapper/parser tests
@@ -1863,6 +2083,8 @@ valid nonblank → accepted
 * negative values, если допустимы/недопустимы согласно contract;
 * whitespace handling;
 * locale-specific formats только если они являются частью входного формата.
+
+Для numeric fields отдельно доказать, что invalid nonblank (`abc`, `1x`, `12abc`) не превращается в zero/null. Precision, scale, date format, allowed values и ranges проверять только когда они следуют из SQL type или `Format / constraints`.
 
 ---
 
@@ -2212,7 +2434,7 @@ WHERE LoadSessionId = ?
 
 Для каждой STAGE/TARGET business column test должен проверять не только наличие, но и exact SQL type, length/precision/scale и `NULL / NOT NULL`. Required fields должны иметь явные assertions на `NOT NULL`, а STAGE/TARGET business contracts — проверку равенства типов и nullability.
 
-Если добавляется nullability migration, contract tests должны подтверждать legacy-data guard для TARGET и STAGE, diagnostic fail-fast, отсутствие silent `UPDATE`/`DELETE`/fake defaults/destructive `DROP`, точный набор изменяемых columns и repeat-safe guard.
+Если добавляется nullability migration, contract tests должны подтверждать TARGET/STAGE coverage, точный набор columns и repeat-safe guard. Для `ERROR` contract требовать diagnostic fail-fast и отсутствие silent repair/delete/fake defaults/destructive `DROP`. Для explicit `ZERO` contract разрешать и проверять только осознанное `UPDATE NULL → 0`, затем `NOT NULL`; RAW, unrelated columns и SQL `DEFAULT` не затрагивать.
 
 ---
 
@@ -2279,7 +2501,7 @@ git diff --stat
 * business delete criteria;
 * uniqueness/business key;
 * whether duplicate business rows are allowed;
-* mandatory business constraints помимо Nullable/Required;
+* mandatory business constraints помимо explicit `Required/Missing behavior`;
 * append vs business replacement semantics;
 * специальные диапазоны значений;
 * locale-specific parsing;
@@ -2400,6 +2622,15 @@ Business delete — отдельная явная операция.
 
 | Area                        | Verify                               |
 | --------------------------- | ------------------------------------ |
+| Input format                | canonical fixed table                |
+| Input completeness          | every source column mapped exactly once |
+| Business role               | explicit input value respected       |
+| Missing behavior            | explicit `ERROR` / `ZERO` / `NULL`  |
+| Numeric ZERO                | only explicit `ZERO`                 |
+| Identifier null             | preserved for `NULL` contract        |
+| Required field              | `ERROR` + typed `NOT NULL`           |
+| Java type                   | derived from SQL type + nullability  |
+| RAW type                    | derived, source-oriented             |
 | Controller                  | thin                                 |
 | Shared loader               | yes                                  |
 | Session                     | shared                               |
@@ -2419,8 +2650,8 @@ Business delete — отдельная явная операция.
 | Required contract           | Validator/STAGE/TARGET aligned       |
 | RAW nullability             | source-oriented                      |
 | STAGE/TARGET nullability    | schema contract aligned              |
-| Missing vs zero             | preserved unless explicitly equivalent |
-| Migration to NOT NULL       | fail-fast on invalid legacy data     |
+| Missing vs zero             | authoritative input behavior         |
+| Migration to NOT NULL       | fail-fast for `ERROR`; normalize only explicit `ZERO` |
 | Errors                      | shared DWH error                     |
 | STAGE                       | typed                                |
 | Stage batching              | yes                                  |
@@ -2437,6 +2668,9 @@ Business delete — отдельная явная операция.
 | DDL                         | non-destructive                      |
 | Indexes                     | runtime-driven                       |
 | Permissions                 | least privilege                      |
+| Integration points          | discovered from repository and updated |
+| Deployment readiness        | fresh deployment is runnable         |
+| Manual post-work            | none                                 |
 | Stored processing procedure | no                                   |
 | Tests                       | comprehensive                        |
 
@@ -2447,6 +2681,19 @@ Business delete — отдельная явная операция.
 # 106. Финальный отчёт после реализации
 
 После завершения дай отчёт в следующей структуре.
+
+## 0. Input contract implemented
+
+Явно показать:
+
+```text
+SERVICE_NAME: ...
+SOURCE_FORMAT: ...
+BUSINESS_DELETE_CRITERIA: ... | not specified
+Column count: ...
+```
+
+Если обнаружен реальный конфликт explicit input, добавить отдельный блок `Input contract conflict`. Не использовать его для unusual, но технически допустимых contracts.
 
 ## 1. Реализованный flow
 
@@ -2479,12 +2726,12 @@ Controller
 * FKs;
 * permissions.
 
-## 4. Schema mapping
+## 4. Complete field contract
 
-Таблица должна явно показывать required/nullability flow:
+Показать все business fields, каждое ровно один раз:
 
-| Source | Required | RAW | Parsed Java | Blank/null behavior | STAGE | TARGET | Validation |
-| ------ | -------- | --- | ----------- | ------------------- | ----- | ------ | ---------- |
+| # | Source header | Field | Role | Required | Missing behavior | RAW | Java | STAGE | TARGET | Validation |
+|---|---|---|---|---|---|---|---|---|---|---|
 
 ## 5. Transaction boundaries
 
@@ -2540,12 +2787,46 @@ git status --short
 
 Не угадывать ответы.
 
+## 11. Final self-audit
+
+Перед завершением ответить на каждый пункт и устранить технические пропуски:
+
+```text
+A. Every input column implemented?
+B. Exact header order implemented?
+C. Role respected?
+D. Missing behavior respected?
+E. Java type derived correctly?
+F. RAW source-oriented?
+G. STAGE/TARGET contract aligned?
+H. Session isolation correct?
+I. Publish atomic?
+J. Stage cleanup atomic?
+K. Deletion only if explicitly defined?
+L. Audit metadata lossless?
+M. Permissions complete?
+N. Registration complete?
+O. DDL deployment-ready?
+P. Tests complete?
+Q. Full suite green?
+```
+
 ---
 
 # 107. Definition of Done
 
 Новый сервис считается готовым только если:
 
+* canonical input format разобран без запроса technical details;
+* каждая input column представлена ровно один раз, без speculative business columns;
+* для каждого field явно соблюдены `Role` и `Missing behavior`;
+* technical metadata добавлено автоматически согласно architecture;
+* Java type автоматически выведен из SQL type/nullability после проверки reference mappings;
+* RAW representation автоматически выведен и остаётся source-oriented;
+* `ZERO` применяется только для explicit `Missing behavior = ZERO`;
+* required fields не превращаются silently в zero;
+* nullable identifiers сохраняют null и используют nullable-capable Java types;
+* invalid numeric никогда не превращается в zero или null silently;
 * используется shared DWH architecture;
 * controller thin;
 * файл читается потоково;
@@ -2569,12 +2850,15 @@ git status --short
 * optional nullable fields используют nullable-capable Java types;
 * RAW остаётся source-oriented и не ужесточается автоматически из-за required business contract;
 * STAGE и TARGET совпадают по business types и nullability;
+* STAGE/TARGET отражают successful typed contract для `ERROR`, `ZERO` и `NULL`;
 * required typed fields имеют `NOT NULL` в STAGE и TARGET;
 * schema tests явно проверяют `NULL / NOT NULL`;
 * required-field validator tests покрывают null, blank, whitespace и null-marker cases;
 * fully empty row не проходит validation при наличии required fields;
 * nullability migrations проверяют legacy TARGET и STAGE data до `NULL → NOT NULL`;
-* migrations не исправляют и не удаляют legacy data silently и безопасны для повторного запуска;
+* `ERROR` migrations fail-fast и не исправляют/delete legacy data silently;
+* explicit `ZERO` migrations изменяют только подтверждённые `NULL → 0`, без SQL default;
+* migrations безопасны для повторного запуска;
 * invalid rows записываются в shared error table;
 * STAGE typed;
 * target publish session-scoped;
@@ -2585,15 +2869,20 @@ git status --short
 * cleanup row count проверяется;
 * rollback покрывает publish + cleanup;
 * explicit delete отделён от load;
+* business delete создан только при наличии `BUSINESS_DELETE_CRITERIA`;
+* delete parameter/audit domain lossless и соответствует input fields;
 * deletion sessions логируются;
 * DDL non-destructive;
 * indexes обоснованы runtime;
 * runtime permissions минимальны;
+* все integration points фактически обнаружены и обновлены;
+* fresh deployment запускает полный service flow без manual post-work;
 * processing stored procedure отсутствует;
 * comprehensive tests добавлены;
 * все existing project tests проходят;
 * `git diff --check` чистый;
 * unrelated changes отсутствуют;
+* final self-audit пройден;
 * commit не создан без отдельного запроса.
 
 ---
