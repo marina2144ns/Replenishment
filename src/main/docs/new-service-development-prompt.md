@@ -444,6 +444,35 @@ Session должна позволять определить как миниму
 
 Не дублируй session metadata в собственной таблице сервиса без необходимости.
 
+## Operation-aware shared status
+
+Существующий shared status endpoint (`DWHExcelStatusController` → `DWHExcelStatusService` → `DWHExcelLoadStatusResult`) должен отображать persisted metadata любой DWH session: как `LOAD`, так и `DELETE`. Не создавать отдельные `/delete-status`, `/operation-status` или service-specific status endpoints.
+
+Canonical status contract сохраняет базовые session fields и включает:
+
+```text
+OperationType
+OperationMode
+DeleteYear
+DeleteWeek
+DeleteMonth
+DeleteYearText
+DeleteMonthText
+SourceLoadSessionId
+DeleteCriterion
+DeleteParameter1Name
+DeleteParameter1Value
+DeleteParameter2Name
+DeleteParameter2Value
+DeletedRows
+```
+
+Для обычной load session `OperationType = LOAD`, а delete-specific metadata обычно `NULL`. Для DELETE session response должен показывать persisted `OperationType = DELETE`, operation mode, criterion/parameters, `SourceLoadSessionId` при применимости, `DeletedRows`, status, message и timestamps.
+
+Status layer только отображает persisted values. Он не должен вычислять criteria, реконструировать operation из других columns, конвертировать textual criteria в numeric или подставлять defaults вместо `NULL`.
+
+Nullable numeric status fields `DeleteYear`, `DeleteWeek`, `DeleteMonth`, `SourceLoadSessionId`, `DeletedRows` должны сохранять SQL `NULL` как Java/JSON `null`, а не `0`. Использовать project-compatible mapping через `getObject(...)` либо `getInt/getLong + wasNull()`.
+
 ---
 
 # 7. Чтение исходного файла
@@ -1121,6 +1150,42 @@ ROLLBACK
 Session не должна завершиться SUCCESS.
 
 Не считать publish успешным только потому, что SQL statement не бросил exception.
+
+## Empty valid session
+
+Пустая, но валидная load session является допустимым результатом processing. Если:
+
+```text
+totalRows = 0
+validationErrors = 0
+stagedRows = 0
+```
+
+publication запрещать нельзя. Canonical flow остаётся общим:
+
+```text
+initial retry cleanup
+→ process RAW
+→ validation complete
+→ verify stagedRows == totalRows
+→ transactional publish for current LoadSessionId
+→ verify publishedRows == stagedRows
+→ cleanup STAGE for current LoadSessionId
+→ verify cleanup count
+→ commit
+→ SUCCESS
+```
+
+`publish(loadSessionId, 0)` является валидной операцией. Publish всё равно выполняет:
+
+```sql
+DELETE FROM target WHERE LoadSessionId = currentLoadSessionId;
+INSERT INTO target (...) SELECT ... FROM stage WHERE LoadSessionId = currentLoadSessionId;
+```
+
+Если target уже содержит rows этой session, empty republish удаляет только их; rows других `LoadSessionId` сохраняются. Publish count `0` и stage cleanup count `0` являются успешными expected counts.
+
+Запрещены special guards `totalRows == 0` или `stagedRows == 0`, failure вида `publication scope is undefined`, чтение Year/Month/Week/business key из stage ради определения publish scope и period/business replacement в ordinary load. Business deletion остаётся отдельной explicit DELETE operation.
 
 ---
 
@@ -1860,6 +1925,13 @@ fresh-install DDL
 upgrade существующей production DB
 ```
 
+Это два разных deployment contracts:
+
+* fresh-install DDL описывает полную current schema для новой БД;
+* upgrade migration приводит supported existing production schema к тому же current contract.
+
+Если новый сервис или shared infrastructure изменяет existing shared/legacy object, одной правки fresh-install DDL недостаточно. Codex обязан проверить, существует ли безопасный upgrade path, и при необходимости создать отдельную idempotent migration. Current fresh-install schema является source of truth для результата migration.
+
 Если новый сервис создаёт абсолютно новые таблицы, основной DDL должен описывать fresh installation этих объектов сразу с правильным contract. Не создавать бессмысленную migration для только что создаваемых RAW/STAGE/TARGET tables.
 
 Fresh-install tables сразу создавать с правильным `NULL / NOT NULL` contract.
@@ -1869,6 +1941,21 @@ Fresh-install tables сразу создавать с правильным `NULL
 Отдельно перечисли, какой migration нужен для существующей БД.
 
 Не добавляй destructive migration автоматически.
+
+Canonical upgrade migration requirements:
+
+* повторный запуск безопасен;
+* existing populated DB поддерживается;
+* каждый `ADD`/`ALTER` имеет appropriate existence/state guard;
+* supported legacy schema convergently приводится к current contract;
+* нельзя предполагать запуск всех historical partial migrations или ручные production fixes;
+* `DROP TABLE`, `DROP COLUMN`, `TRUNCATE` запрещены без отдельного explicit requirement;
+* historical business data не исправляются и не удаляются silently;
+* default/nullability changes учитывают existing rows;
+* для `NOT NULL` column с default на populated table existing rows должны получить корректное contract value;
+* если existing constraint мешает convergence, допустим controlled `DROP CONSTRAINT`: сначала определить его реальное имя из SQL Server metadata, применить safe quoting и удалить только необходимый constraint.
+
+Fresh-install DDL не превращать в ALTER/migration script.
 
 При изменении существующей column `NULL → NOT NULL` отдельная migration обязательна. До `ALTER COLUMN` проверить legacy rows в TARGET и STAGE: `NULL`, а для required text также blank/whitespace согласно business normalization. Не считать STAGE гарантированно пустой после failed/incomplete processing.
 
@@ -2215,6 +2302,21 @@ initial stage cleanup
 → SUCCESS
 ```
 
+Обязательный empty-session regression:
+
+```text
+RAW rows = 0
+errors = 0
+stage rows = 0
+→ publish called with expectedRows = 0
+→ current-session target cleanup executed
+→ stage cleanup count = 0
+→ commit
+→ SUCCESS
+```
+
+Если test architecture позволяет, отдельно доказать удаление existing target rows текущего `LoadSessionId` и сохранение rows других sessions. Не добавлять period/business-key semantics ради этого теста.
+
 ---
 
 # 79. Processor validation failure
@@ -2465,6 +2567,13 @@ WHERE LoadSessionId = ?
 * loader invocation;
 * стандартный response;
 * отсутствие business processing в controller.
+
+Shared status tests должны минимум покрывать:
+
+* LOAD: `operationType = LOAD`, delete metadata = `null`;
+* DELETE: persisted `operationType`, `operationMode`, applicable criterion/parameters и `deletedRows` возвращаются без реконструкции;
+* nullable numeric metadata: SQL `NULL` → Java/JSON `null`, не `0`;
+* existing shared status endpoint сериализует additive metadata без отдельного delete-status controller.
 
 ---
 
@@ -2866,6 +2975,17 @@ Q. Full suite green?
 ---
 
 # 107. Definition of Done
+
+Deployment checklist:
+
+```text
+[ ] empty valid session publishes successfully with expectedRows = 0
+[ ] ordinary load publish scope is current LoadSessionId only
+[ ] status API exposes persisted LOAD/DELETE operation metadata
+[ ] nullable status numerics preserve SQL NULL
+[ ] fresh-install DDL represents current schema
+[ ] existing DB has an idempotent upgrade path whenever current change evolves an existing schema object
+```
 
 Новый сервис считается готовым только если:
 
