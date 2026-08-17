@@ -4,6 +4,7 @@ public enum DWHExcelLoadType {
     CD_DATA("CD_DATA", "CD data"),
     CD_ECOM("CD_ECOM", "CD ecom"),
     SALES_BY_CHANNEL("SALES_BY_CHANNEL", "SalesByChannel"),
+    STORE_TURNOVER("STORE_TURNOVER", "StoreTurnover"),
     WEEKLY_DATA("WEEKLY_DATA", "Weekly data");
 
     private final String code;

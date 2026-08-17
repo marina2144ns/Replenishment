@@ -178,6 +178,14 @@ IF OBJECT_ID(N'dbo.StoreTurnover', N'U') IS NOT NULL
     GRANT SELECT, INSERT, UPDATE, DELETE ON OBJECT::dbo.StoreTurnover TO [Repl_Service];
 GO
 
+IF OBJECT_ID(N'dbo.StoreTurnover_raw', N'U') IS NOT NULL
+    GRANT SELECT, INSERT ON OBJECT::dbo.StoreTurnover_raw TO [Repl_Service];
+GO
+
+IF OBJECT_ID(N'dbo.StoreTurnover_stage', N'U') IS NOT NULL
+    GRANT SELECT, INSERT, DELETE ON OBJECT::dbo.StoreTurnover_stage TO [Repl_Service];
+GO
+
 IF OBJECT_ID(N'dbo.BulkLoadErrors', N'U') IS NOT NULL
     GRANT SELECT, INSERT, UPDATE, DELETE ON OBJECT::dbo.BulkLoadErrors TO [Repl_Service];
 GO
