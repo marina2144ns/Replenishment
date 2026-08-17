@@ -94,17 +94,21 @@ class SalesByChannelProcessorTest {
         Transactions transactions = new Transactions();
         FakeStageRepository stage = new FakeStageRepository();
         FakeErrorRepository errors = new FakeErrorRepository();
+        FakeTargetRepository target = new FakeTargetRepository();
+        target.publishedRows = 0;
 
         processor(true, transactions,
                 new FakeRawRepository(List.of(List.of())), stage, errors,
-                new FakeTargetRepository()).process(10L);
+                target).process(10L);
         processor(true, transactions,
                 new FakeRawRepository(List.of(List.of())), stage, errors,
-                new FakeTargetRepository()).process(10L);
+                target).process(10L);
 
-        assertEquals(2, stage.cleanupCalls);
+        assertEquals(4, stage.cleanupCalls); // initial cleanup + publish cleanup for each run
         assertEquals(2, errors.cleanupCalls);
-        assertEquals(2, transactions.commits);
+        assertEquals(2, target.calls);
+        assertEquals(4, transactions.commits); // cleanup + empty publish for each run
+        assertEquals(0, transactions.rollbacks);
         assertTrue(errors.bestEffort.isEmpty());
     }
 
@@ -176,22 +180,30 @@ class SalesByChannelProcessorTest {
     }
 
     @Test
-    void emptyRawDoesNotPublishOrCreateProcessingError() {
+    void emptyValidSessionPublishesSuccessfully() {
         Transactions transactions = new Transactions();
         FakeTargetRepository target = new FakeTargetRepository();
+        target.publishedRows = 0;
         FakeErrorRepository errors = new FakeErrorRepository();
+        FakeStageRepository stage = new FakeStageRepository();
 
         SalesByChannelProcessResult result = processor(
                 true, transactions, new FakeRawRepository(List.of(List.of())),
-                new FakeStageRepository(), errors, target
+                stage, errors, target
         ).process(10L);
 
-        assertFalse(result.success());
+        assertTrue(result.success());
+        assertEquals(0, result.totalRows());
+        assertEquals(0, result.stagedRows());
         assertEquals(0, result.loadedRows());
-        assertTrue(result.message().contains("scope is undefined"));
-        assertEquals(0, target.calls);
+        assertEquals(0, result.errorRows());
+        assertEquals(1, target.calls);
+        assertEquals(10L, target.loadSessionId);
+        assertEquals(2, stage.cleanupCalls); // initial cleanup + publish cleanup with expected zero
+        assertEquals(0, stage.lastCleanedRows);
         assertTrue(errors.bestEffort.isEmpty());
-        assertEquals(1, transactions.commits); // cleanup only
+        assertEquals(2, transactions.commits); // initial cleanup + empty publish
+        assertEquals(0, transactions.rollbacks);
     }
 
     @Test

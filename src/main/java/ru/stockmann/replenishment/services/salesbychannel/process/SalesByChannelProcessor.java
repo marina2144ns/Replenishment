@@ -103,11 +103,6 @@ public class SalesByChannelProcessor {
                 return result(loadSessionId, false, totalRows, stagedRows, 0, errorRows,
                         "Validation failed; target was not changed");
             }
-            if (totalRows == 0 || stagedRows == 0) {
-                return result(loadSessionId, false, totalRows, stagedRows, 0, 0,
-                        "Publication is impossible because stage contains no rows and "
-                                + "the year/month publication scope is undefined");
-            }
             if (stagedRows != totalRows) {
                 throw new IllegalStateException(
                         "SalesByChannel processing counter mismatch. loadSessionId=" + loadSessionId
