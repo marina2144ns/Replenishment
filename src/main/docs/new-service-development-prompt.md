@@ -51,15 +51,48 @@ BUSINESS_DELETE_CRITERIA:
 
 Значение колонок таблицы:
 
-* `#` — физический порядок source column; позиции должны образовывать однозначную последовательность без дублей;
+* `#` — физический порядок source column, всегда заданный пользователем в one-based numbering. Допустима только строгая последовательность `1..N`: начинать с `1`, без gaps и duplicates; строки таблицы должны идти в порядке `#`. Если внутренний Excel/parser API использует zero-based indexes, Codex преобразует их самостоятельно: input `#1 → index 0`, `#2 → index 1` и т. д. Пользователь никогда не передаёт zero-based indexes;
 * `Field` — canonical logical technical/business name для вывода Java/DB naming;
 * `Source header` — exact literal header в source file;
 * `SQL type` — canonical typed STAGE/TARGET type, например `INT`, `BIGINT`, `SMALLINT`, `DECIMAL(18,2)`, `NVARCHAR(255)`, `DATE`, `DATETIME2`, `BIT`;
 * `Role` — один из фиксированных business roles: `DIMENSION`, `METRIC`, `IDENTIFIER`, `ATTRIBUTE`;
 * `Required` — только `YES` или `NO`;
 * `Missing behavior` — только `ERROR`, `ZERO` или `NULL`;
-* `Format / constraints` — только явно заданные дополнительные ограничения, например `max length 255`, `YYYY-MM-DD`, `scale 2`, `allowed values A/B/C`, `range 1..12`;
-* `Notes` — дополнительная business information, не отменяющая значения остальных contract columns.
+* `Format / constraints` — опциональные явно заданные дополнительные ограничения в deterministic syntax `key=value`. Рекомендуемые формы: `maxLength=255`, `range=1..12`, `dateFormat=yyyy-MM-dd`, `allowed=A|B|C`, `scale=2`. Несколько constraints разделяются `;`, например `range=0..100; scale=2`;
+* `Notes` — свободная поясняющая business information. Она не может silently переопределять structured contract fields.
+
+Если `Format / constraints` пуст, специальных business constraints нет. Применять только SQL type contract, `Required`, `Missing behavior` и standard project parsing/technical validation. Запрещено выводить дополнительные ограничения из `Field`, `Source header`, `Role` или SQL type. Например:
+
+```text
+Field = Month
+SQL type = INT
+Format / constraints = empty
+```
+
+не означает автоматически `range=1..12`.
+
+Canonical example:
+
+```text
+SERVICE_NAME:
+ExampleService
+
+SOURCE_FORMAT:
+XLSX
+
+BUSINESS_DELETE_CRITERIA:
+- Year + Month
+```
+
+| # | Field | Source header | SQL type | Role | Required | Missing behavior | Format / constraints | Notes |
+|---|---|---|---|---|---|---|---|---|
+| 1 | year | Year | NVARCHAR(50) | DIMENSION | YES | ERROR | | |
+| 2 | month | Month | NVARCHAR(50) | DIMENSION | YES | ERROR | | |
+| 3 | sku | SKU | BIGINT | IDENTIFIER | NO | NULL | | |
+| 4 | sales | Sales | DECIMAL(18,2) | METRIC | NO | ZERO | | |
+| 5 | brand | Brand | NVARCHAR(255) | ATTRIBUTE | NO | NULL | | |
+
+Этот пример только иллюстрирует формат и semantics. Он не является источником hardcoded field names, delete criteria или business rules для других сервисов.
 
 Technical metadata пользователь в таблицу не добавляет. Codex самостоятельно добавляет `Id`, `LoadSessionId`, `ExcelRowNum`, `RawRowId` или их фактические equivalents согласно текущей архитектуре.
 
@@ -111,24 +144,43 @@ ZERO:  missing/blank/supported null-equivalent → typed numeric zero
 NULL:  missing/blank/supported null-equivalent → typed null
 ```
 
-Не придумывать четвёртую semantics. `ZERO` допустим только когда он явно указан во входной таблице; обычно это metric, но unusual technically valid combination не является ошибкой только из-за role.
+Не придумывать четвёртую semantics. Единственные допустимые combinations:
+
+| Required | Missing behavior | Meaning |
+|---|---|---|
+| YES | ERROR | поле обязательно; отсутствие создаёт validation error |
+| NO | ZERO | поле optional at source; отсутствие становится canonical numeric zero |
+| NO | NULL | поле optional; отсутствие становится typed null |
+
+Все остальные combinations (`YES + ZERO`, `YES + NULL`, `NO + ERROR`) являются `Input contract conflict`. Codex не должен reinterpret их самостоятельно. Clarification по такой строке допустим, потому что explicit contract противоречив; независимо реализуемые части сервиса при этом не блокировать.
+
+`NO + ZERO` допустим только для numeric SQL type, поддерживаемого current project parser, например `SMALLINT`, `INT`, `BIGINT`, `DECIMAL(...)` или другого фактически поддерживаемого numeric type. `ZERO` с явно nonnumeric `NVARCHAR`, `DATE`, `DATETIME2`, `BIT` и подобным типом является `Input contract conflict`; не придумывать zero semantics для таких domains без explicit расширения input contract. Business role сам по себе не запрещает numeric `ZERO`: unusual `ATTRIBUTE + DECIMAL(...) + NO + ZERO` технически допустим, если остальные structured fields согласованы.
 
 ## 0.3. Проверка input contract и derived contract
 
 До создания файлов проверить:
 
-* обязательные sections и columns таблицы;
-* уникальность `#`, `Field` и однозначность source positions;
-* допустимые значения `Role`, `Required`, `Missing behavior`;
-* синтаксис и поддерживаемость SQL types;
-* внутреннюю логическую согласованность.
+* `SERVICE_NAME` присутствует;
+* все обязательные columns canonical table присутствуют;
+* `#` образует strict one-based sequence `1..N`, без gaps/duplicates, и порядок строк соответствует `#`;
+* `Field` unique;
+* `Source header` задан для каждой позиции и однозначно соответствует ей;
+* `SQL type` поддерживается current project architecture/parser;
+* `Role` входит в `DIMENSION/METRIC/IDENTIFIER/ATTRIBUTE`;
+* `Required` входит в `YES/NO`;
+* `Missing behavior` входит в `ERROR/ZERO/NULL`;
+* combination `Required/Missing behavior` входит ровно в три допустимых варианта;
+* `ZERO` используется только с supported numeric SQL type;
+* `Format / constraints` пуст либо syntactically understandable в deterministic `key=value; key=value` form;
+* `Notes` не противоречит `SQL type`, `Role`, `Required`, `Missing behavior` или `Format / constraints`;
+* весь input contract внутренне логически согласован.
 
 Различать:
 
 * реальное противоречие business contract;
 * необычный, но технически безопасно реализуемый contract.
 
-`Required` и `Missing behavior` должны описывать одну operational semantics. `Required = YES + Missing behavior = NULL` или `ZERO` противоречит обязательности; `Required = NO + Missing behavior = ERROR` фактически делает поле обязательным и также требует clarification как explicit conflict. `ZERO` применим только к поддерживаемому numeric SQL type. При этом `Role = ATTRIBUTE + DECIMAL(...) + ZERO` необычно, но не обязательно конфликтует: если это технически реализуемо, следовать явному contract.
+Если `Notes` прямо противоречит structured field, считать это `Input contract conflict`, а не выбирать трактовку самостоятельно. Notes не имеет приоритета над structured contract и structured contract не используется для silent игнорирования явного противоречия в Notes.
 
 Только реальное противоречие отражать в финальном блоке `Input contract conflict`. Не останавливаться из-за unusual, но допустимого contract.
 
