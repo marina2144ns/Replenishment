@@ -212,7 +212,7 @@ class CDEcomStageSchemaContractTest {
     }
 
     @Test
-    void requiredDeleteFieldsMigrationIsGuardedIdempotentAndNonDestructive() throws Exception {
+    void requiredDeleteFieldsMigrationIsAtomicAndGuardsDependentIndexes() throws Exception {
         String migration = normalizeSql(read(REQUIRED_FIELDS_MIGRATION));
 
         assertTrue(migration.contains("from dbo.cd_ecom where year is null"));
@@ -239,7 +239,16 @@ class CDEcomStageSchemaContractTest {
         }
 
         assertEquals(8, occurrences(migration, "alter table dbo.cd_ecom"));
-        assertEquals(8, occurrences(migration, "is_nullable = 1"));
+        assertTrue(migration.contains("set xact_abort on"));
+        assertTrue(migration.contains("begin transaction"));
+        assertTrue(migration.contains("commit transaction"));
+        assertTrue(migration.contains("rollback transaction"));
+        assertTrue(migration.contains("name in (n'year', n'season') and is_nullable = 1"));
+        assertTrue(migration.contains("name in (n'name', n'day') and is_nullable = 1"));
+        assertEquals(1, occurrences(migration, "drop index ix_cd_ecom_year_season"));
+        assertEquals(1, occurrences(migration, "drop index ix_cd_ecom_name_day"));
+        assertEquals(1, occurrences(migration, "create nonclustered index ix_cd_ecom_year_season"));
+        assertEquals(1, occurrences(migration, "create nonclustered index ix_cd_ecom_name_day"));
         assertFalse(migration.contains("drop table"));
         assertFalse(migration.contains("delete from"));
         assertFalse(migration.contains("update "));

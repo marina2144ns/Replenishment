@@ -257,7 +257,7 @@ class CDDataStageSchemaContractTest {
     }
 
     @Test
-    void requiredDeleteFieldsMigrationIsGuardedIdempotentAndNonDestructive() throws Exception {
+    void requiredDeleteFieldsMigrationGuardsColumnChangesAndDependentIndex() throws Exception {
         String migration = normalizeSql(read(REQUIRED_FIELDS_MIGRATION));
 
         assertTrue(migration.contains("from dbo.cd_data where god is null"));
@@ -280,7 +280,9 @@ class CDDataStageSchemaContractTest {
         }
 
         assertEquals(8, occurrences(migration, "alter table dbo.cd_data"));
-        assertEquals(8, occurrences(migration, "is_nullable = 1"));
+        assertTrue(migration.contains("name in (n'god', n'sezon') and is_nullable = 1"));
+        assertEquals(1, occurrences(migration, "drop index ix_cd_data_god_sezon"));
+        assertEquals(1, occurrences(migration, "create nonclustered index ix_cd_data_god_sezon"));
         assertFalse(migration.contains("drop table"));
         assertFalse(migration.contains("delete from"));
         assertFalse(migration.contains("update "));
