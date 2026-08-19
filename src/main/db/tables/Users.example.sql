@@ -1,91 +1,115 @@
 /* ============================================================
-   1. SERVER LOGINS
-   Выполнять в master
+   Replenishment project users and permissions
+
+   This script is intentionally destructive ONLY for the three
+   project-specific principals listed below. It can be rerun after
+   database structure changes to rebuild their users and permissions
+   from a clean state.
+
+   Project principals:
+     - Repl_Service      Java service account
+     - ReplenishmentREAD legacy/project-wide read-only account
+     - repl              target-table read-only account
+
+   IMPORTANT:
+     - Run with an administrative account, not with one of the logins
+       that this script drops.
+     - The script does not touch any other server logins or DB users.
+     - ReplenishmentREAD is kept temporarily for backward compatibility.
    ============================================================ */
 
-USE master;
-GO
-
-/* Java service user */
-IF NOT EXISTS (
-        SELECT 1
-        FROM sys.server_principals
-        WHERE name = N'Repl_Service'
-    )
-    BEGIN
-        CREATE LOGIN [Repl_Service]
-            WITH PASSWORD = '<REPL_SERVICE_PASSWORD>';
-    END;
-GO
-
-/* Project-wide read-only user */
-IF NOT EXISTS (
-        SELECT 1
-        FROM sys.server_principals
-        WHERE name = N'ReplenishmentREAD'
-    )
-    BEGIN
-        CREATE LOGIN [ReplenishmentREAD]
-            WITH PASSWORD = '<REPLENISHMENT_READ_PASSWORD>';
-    END;
-GO
-
-/* Additional read-only user */
-IF NOT EXISTS (
-        SELECT 1
-        FROM sys.server_principals
-        WHERE name = N'repl'
-    )
-    BEGIN
-        CREATE LOGIN [repl]
-            WITH PASSWORD = '<REPL_PASSWORD>', CHECK_POLICY = OFF;
-    END;
-GO
-
 /* ============================================================
-   2. DATABASE USERS
-   Выполнять в рабочей базе
+   1. RESET DATABASE USERS AND ALL OF THEIR DATABASE PERMISSIONS
    ============================================================ */
 
 USE [ReplenishmentDWH];
 GO
 
-IF NOT EXISTS (
-        SELECT 1
-        FROM sys.database_principals
-        WHERE name = N'Repl_Service'
-    )
-    BEGIN
-        CREATE USER [Repl_Service]
-            FOR LOGIN [Repl_Service];
-    END;
+IF USER_ID(N'Repl_Service') IS NOT NULL
+    DROP USER [Repl_Service];
 GO
 
-IF NOT EXISTS (
-        SELECT 1
-        FROM sys.database_principals
-        WHERE name = N'ReplenishmentREAD'
-    )
-    BEGIN
-        CREATE USER [ReplenishmentREAD]
-            FOR LOGIN [ReplenishmentREAD];
-    END;
+IF USER_ID(N'ReplenishmentREAD') IS NOT NULL
+    DROP USER [ReplenishmentREAD];
 GO
 
-IF NOT EXISTS (
-        SELECT 1
-        FROM sys.database_principals
-        WHERE name = N'repl'
-    )
-    BEGIN
-        CREATE USER [repl]
-            FOR LOGIN [repl];
-    END;
+IF USER_ID(N'repl') IS NOT NULL
+    DROP USER [repl];
 GO
-
 
 /* ============================================================
-   3. RIGHTS FOR JAVA SERVICE USER: Repl_Service
+   2. RESET SERVER LOGINS
+   ============================================================ */
+
+USE master;
+GO
+
+IF EXISTS (
+        SELECT 1
+        FROM sys.server_principals
+        WHERE name = N'Repl_Service'
+    )
+    DROP LOGIN [Repl_Service];
+GO
+
+IF EXISTS (
+        SELECT 1
+        FROM sys.server_principals
+        WHERE name = N'ReplenishmentREAD'
+    )
+    DROP LOGIN [ReplenishmentREAD];
+GO
+
+IF EXISTS (
+        SELECT 1
+        FROM sys.server_principals
+        WHERE name = N'repl'
+    )
+    DROP LOGIN [repl];
+GO
+
+/* ============================================================
+   3. SERVER LOGINS
+   Password placeholders must be replaced before execution.
+   ============================================================ */
+
+/* Java service user */
+CREATE LOGIN [Repl_Service]
+    WITH PASSWORD = '<REPL_SERVICE_PASSWORD>';
+GO
+
+/* Project-wide read-only user.
+   Kept temporarily for backward compatibility. */
+CREATE LOGIN [ReplenishmentREAD]
+    WITH PASSWORD = '<REPLENISHMENT_READ_PASSWORD>';
+GO
+
+/* Additional read-only user */
+CREATE LOGIN [repl]
+    WITH PASSWORD = '<REPL_PASSWORD>', CHECK_POLICY = OFF;
+GO
+
+/* ============================================================
+   4. DATABASE USERS
+   ============================================================ */
+
+USE [ReplenishmentDWH];
+GO
+
+CREATE USER [Repl_Service]
+    FOR LOGIN [Repl_Service];
+GO
+
+CREATE USER [ReplenishmentREAD]
+    FOR LOGIN [ReplenishmentREAD];
+GO
+
+CREATE USER [repl]
+    FOR LOGIN [repl];
+GO
+
+/* ============================================================
+   5. RIGHTS FOR JAVA SERVICE USER: Repl_Service
    ============================================================ */
 
 GRANT SELECT, INSERT, UPDATE, DELETE
@@ -201,7 +225,7 @@ GRANT SHOWPLAN TO [Repl_Service];
 GO
 
 /* ============================================================
-   4. RIGHTS FOR PROJECT-WIDE READ-ONLY USER: ReplenishmentREAD
+   6. RIGHTS FOR PROJECT-WIDE READ-ONLY USER: ReplenishmentREAD
    ============================================================ */
 
 /* SELECT covers all current and future project tables in dbo. */
@@ -212,7 +236,7 @@ GRANT SHOWPLAN TO [ReplenishmentREAD];
 GO
 
 /* ============================================================
-   5. RIGHTS FOR TARGET TABLE READER: repl
+   7. RIGHTS FOR TARGET TABLE READER: repl
    ============================================================ */
 
 GRANT SELECT ON OBJECT::dbo.Weekly_data TO [repl];
