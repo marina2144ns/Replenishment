@@ -3,6 +3,8 @@ package ru.stockmann.replenishment.services;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
@@ -17,6 +19,7 @@ import java.util.List;
 @Service
 public class ABCBulkLoader {
 
+    private static final Logger log = LoggerFactory.getLogger(ABCBulkLoader.class);
     private static final int BATCH = 10_000; // размер пачки вставок в STG
 
     private final DataSource dataSource;
@@ -27,10 +30,19 @@ public class ABCBulkLoader {
 
     /** CSV -> STG JDBC batch -> MERGE */
     public LoadResult bulkLoad(String filePath, String timePeriod) {
+        long totalStartedAt = System.nanoTime();
+        long fileValidationMs = 0;
+        long dbSetupMs = 0;
+        long stageClearMs = 0;
+        long csvStageMs = 0;
+        long mergeMs = 0;
+        long csvStageNanos = 0;
         List<String> errors = new ArrayList<>();
         long stagedRows = 0;
+        int batchCount = 0;
 
         // базовые проверки файла
+        long phaseStartedAt = System.nanoTime();
         try {
             if (filePath == null || filePath.isBlank())
                 return LoadResult.error("filePath is empty");
@@ -42,7 +54,9 @@ public class ABCBulkLoader {
         } catch (Exception ex) {
             return LoadResult.error("failed to access file: " + ex.getMessage());
         }
+        fileValidationMs = elapsedMs(phaseStartedAt);
 
+        phaseStartedAt = System.nanoTime();
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
 
@@ -55,8 +69,10 @@ public class ABCBulkLoader {
                     }
                 }
             }
+            dbSetupMs = elapsedMs(phaseStartedAt);
 
             // 1) очистка STG: сначала пробуем TRUNCATE, если нет прав — DELETE
+            phaseStartedAt = System.nanoTime();
             try (Statement st = c.createStatement()) {
                 try {
                     st.execute("TRUNCATE TABLE dbo.ABCData_STG");
@@ -64,6 +80,7 @@ public class ABCBulkLoader {
                     st.executeUpdate("DELETE FROM dbo.ABCData_STG");
                 }
             }
+            stageClearMs = elapsedMs(phaseStartedAt);
 
             // 2) вставка CSV -> STG порциями
             String sql = """
@@ -74,6 +91,7 @@ public class ABCBulkLoader {
                     """;
 
             int inBatch = 0;
+            phaseStartedAt = System.nanoTime();
             try (BufferedReader br = Files.newBufferedReader(Path.of(filePath), StandardCharsets.UTF_8);
                  CSVReader reader = new CSVReaderBuilder(br)
                          .withCSVParser(new CSVParserBuilder().withSeparator(';').build())
@@ -104,6 +122,7 @@ public class ABCBulkLoader {
                     if (inBatch >= BATCH) {
                         ps.executeBatch();
                         c.commit();
+                        batchCount++;
                         stagedRows += inBatch;
                         inBatch = 0;
                     }
@@ -112,16 +131,24 @@ public class ABCBulkLoader {
                 if (inBatch > 0) {
                     ps.executeBatch();
                     c.commit();
+                    batchCount++;
                     stagedRows += inBatch;
                 }
             }
+            csvStageNanos = System.nanoTime() - phaseStartedAt;
+            csvStageMs = nanosToMs(csvStageNanos);
 
             // 3) MERGE через хранимую процедуру
+            phaseStartedAt = System.nanoTime();
             try (CallableStatement cs = c.prepareCall("{ call dbo.usp_ABCData_Merge(?) }")) {
                 cs.setString(1, timePeriod);
                 cs.execute();
             }
             c.commit();
+            mergeMs = elapsedMs(phaseStartedAt);
+
+            logTiming(fileValidationMs, dbSetupMs, stageClearMs, csvStageMs, mergeMs,
+                    totalStartedAt, stagedRows, batchCount, rowsPerSecond(stagedRows, csvStageNanos), timePeriod);
 
             return LoadResult.ok(stagedRows);
 
@@ -158,6 +185,37 @@ public class ABCBulkLoader {
         if (s == null) return null;
         String cleaned = s.replaceAll("[^\\d]", ""); // оставляем только цифры
         return cleaned.isEmpty() ? null : cleaned;
+    }
+
+    private static long elapsedMs(long startedAt) {
+        return nanosToMs(System.nanoTime() - startedAt);
+    }
+
+    private static long nanosToMs(long nanos) {
+        return nanos / 1_000_000L;
+    }
+
+    private static long rowsPerSecond(long rows, long elapsedNanos) {
+        return elapsedNanos == 0 ? 0 : Math.round(rows * 1_000_000_000.0 / elapsedNanos);
+    }
+
+    private static void logTiming(
+            long fileValidationMs,
+            long dbSetupMs,
+            long stageClearMs,
+            long csvStageMs,
+            long mergeMs,
+            long totalStartedAt,
+            long stagedRows,
+            int batchCount,
+            long rowsPerSecond,
+            String mode
+    ) {
+        log.info("ABCData load timing: fileValidationMs={}, dbSetupMs={}, stageClearMs={}, "
+                        + "csvStageMs={}, mergeMs={}, totalMs={}, stagedRows={}, batchCount={}, "
+                        + "rowsPerSecond={}, mode={}",
+                fileValidationMs, dbSetupMs, stageClearMs, csvStageMs, mergeMs,
+                elapsedMs(totalStartedAt), stagedRows, batchCount, rowsPerSecond, mode);
     }
 
 }
