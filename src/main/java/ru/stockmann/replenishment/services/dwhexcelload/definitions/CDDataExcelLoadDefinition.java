@@ -42,66 +42,98 @@ public class CDDataExcelLoadDefinition implements DWHExcelLoadDefinition {
     public List<DWHExcelColumnSpec> columns() {
         return List.of(
                 DWHExcelColumns.text(
-                        0, "nazvanie", "nazvanie", "nazvanie", RAW_TEXT_LENGTH,
+                        0, "название", "nazvanie", "nazvanie", RAW_TEXT_LENGTH,
                         true, DWHExcelNullHandling.KEEP_NULL
                 ),
 
                 DWHExcelColumns.intNumber(
-                        1, "god", "god", "god", 50, true, DWHExcelNullHandling.KEEP_NULL
+                        1, "ГОД", "god", "god", 50, true, DWHExcelNullHandling.KEEP_NULL
                 ),
                 DWHExcelColumns.intNumber(
-                        2, "sezon", "sezon", "sezon", 50, true, DWHExcelNullHandling.KEEP_NULL
+                        2, "Сезон", "sezon", "sezon", 50, true, DWHExcelNullHandling.KEEP_NULL
                 ),
                 DWHExcelColumns.intNumber(
-                        3, "den", "den", "den", 50, true, DWHExcelNullHandling.KEEP_NULL
+                        3, "день", "den", "den", 50, true, DWHExcelNullHandling.KEEP_NULL
                 ),
 
-                DWHExcelColumns.date(4, "data", 50),
+                DWHExcelColumns.date(
+                        4, "дата", "data", "data", 50,
+                        false, DWHExcelNullHandling.KEEP_NULL
+                ),
 
-                DWHExcelColumns.text(5,  "sales_channel", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(6,  "store_rus", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(7,  "mfp_division", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(8,  "mfp_department", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(9,  "mfp_sub_department", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(10, "sku_brand_type", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(11, "sku_tm", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(12, "mfp_node", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(13, "section", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(14, "merchandise_sub_group", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(15, "campaign_sales", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(5, "Sales Channel_BPO", "sales_channel", "sales_channel",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(6, "StoreRUS", "store_rus", "store_rus",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(7, "MFP Division", "mfp_division", "mfp_division",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(8, "MFP Department", "mfp_department", "mfp_department",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(9, "MFP SubDepartment", "mfp_sub_department", "mfp_sub_department",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(10, "SKU Brand type", "sku_brand_type", "sku_brand_type",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(11, "SKU TM", "sku_tm", "sku_tm",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(12, "MFP Node", "mfp_node", "mfp_node",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(13, "Section", "section", "section",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(14, "MerchandiseSubGroup", "merchandise_sub_group",
+                        "merchandise_sub_group", RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(15, "Campaign Sales Type", "campaign_sales", "campaign_sales",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
 
-                DWHExcelColumns.intNumber(16, "sku_style_color", 50, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.intNumber(16, "SKU StyleColor", "sku_style_color", "sku_style_color",
+                        50, false, DWHExcelNullHandling.KEEP_NULL),
 
-                DWHExcelColumns.text(17, "sku_phase", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(17, "SKU Phase", "sku_phase", "sku_phase",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
 
-                DWHExcelColumns.decimal(18, "stock_start_pcs", 50, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(19, "stock_start_dd", 50, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(20, "sales_pcs", 50, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(21, "sales_rub", 50, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(22, "revenue", 50, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(23, "gp", 50, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(18, "Stock Start, pcs", "stock_start_pcs", "stock_start_pcs",
+                        50, false, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(19, "Stock Start, DDP", "stock_start_dd", "stock_start_dd",
+                        50, false, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(20, "Sales, Pcs", "sales_pcs", "sales_pcs",
+                        50, false, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(21, "Sales, rub", "sales_rub", "sales_rub",
+                        50, false, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(22, "Revenue", "revenue", "revenue",
+                        50, false, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(23, "GP", "gp", "gp",
+                        50, false, DWHExcelNullHandling.ZERO),
 
                 DWHExcelColumns.decimalFloatValidation(
-                        24,
-                        "cogs",
-                        50,
-                        DWHExcelNullHandling.ZERO
+                        24, "Cogs", "cogs", "cogs", 50,
+                        false, DWHExcelNullHandling.ZERO
                 ),
 
-                DWHExcelColumns.decimal(25, "sales_frp_price", 50, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(26, "sales_discount", 50, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(27, "stock_stores_pcs", 50, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(28, "stock_stores_dd", 50, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(25, "Sales FRP Price, rub", "sales_frp_price", "sales_frp_price",
+                        50, false, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(26, "Sales Discount", "sales_discount", "sales_discount",
+                        50, false, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(27, "Stock Stores, Pcs", "stock_stores_pcs", "stock_stores_pcs",
+                        50, false, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(28, "Stock Stores, DDP", "stock_stores_dd", "stock_stores_dd",
+                        50, false, DWHExcelNullHandling.ZERO),
 
-                DWHExcelColumns.intNumber(29, "plan_rub", 50, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.intNumber(29, "Plan, rub", "plan_rub", "plan_rub",
+                        50, false, DWHExcelNullHandling.ZERO),
 
-                DWHExcelColumns.text(30, "draivery_cd", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(31, "sku_color_rus", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(32, "sku_composition", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(33, "sku_supplier", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(34, "sku_name", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(35, "sku_collection", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(36, "sku_comment", RAW_TEXT_LENGTH)
+                DWHExcelColumns.text(30, "Драйверы CD", "draivery_cd", "draivery_cd",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(31, "SKU Color Russian", "sku_color_rus", "sku_color_rus",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(32, "SKU Composition", "sku_composition", "sku_composition",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(33, "SKU Supplier model", "sku_supplier", "sku_supplier",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(34, "SKU Name", "sku_name", "sku_name",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(35, "SKU Collection", "sku_collection", "sku_collection",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(36, "SKU Comment (buyer)", "sku_comment", "sku_comment",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL)
         );
     }
 
