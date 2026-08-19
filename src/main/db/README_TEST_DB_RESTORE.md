@@ -2,6 +2,8 @@
 
 Эта инструкция описывает фактически проверенный порядок создания backup рабочей базы `ReplenishmentDWH` и восстановления его на тестовом SQL Server.
 
+Главный принцип после восстановления: **не использовать пользователей и права из backup как итоговую конфигурацию тестового сервера**. После restore проектные logins/users/permissions приводятся к чистому воспроизводимому состоянию проектными SQL-скриптами — так же, как при установке проекта на пустой SQL Server.
+
 > Внимание: восстановление на тестовом сервере выполняется с `REPLACE` и полностью заменяет существующую тестовую базу `ReplenishmentDWH` содержимым backup. Перед выполнением внимательно проверьте, что подключение открыто именно к тестовому SQL Server.
 
 ## 1. Создать backup на рабочем сервере
@@ -167,32 +169,19 @@ DBCC CHECKDB WITH NO_INFOMSGS;
 
 Команда должна завершиться без сообщений об ошибках целостности.
 
-## 10. Проверить логины и пользователей после восстановления на другом SQL Server
+## 10. После restore пересоздать проектных пользователей и права
 
-Backup базы переносит вместе с базой database users и их database-level permissions, но server logins принадлежат экземпляру SQL Server и в backup базы не входят.
+Restore переносит database users и database-level permissions из рабочей базы. Для тестового сервера это считается только промежуточным состоянием.
 
-Поэтому после восстановления рабочей базы на тестовом сервере необходимо отдельно проверить соответствие server logins и database users.
+После восстановления необходимо привести security configuration к проектному эталону:
 
-Сначала посмотреть пользователей базы и связанные с ними server logins:
+1. удалить project-specific database users, если они пришли из backup;
+2. удалить project-specific server logins, если они уже существуют на тестовом SQL Server;
+3. создать server logins заново;
+4. создать database users для этих logins заново;
+5. выдать права заново по актуальному deployment contract проекта.
 
-```sql
-USE [ReplenishmentDWH];
-GO
-
-SELECT
-    dp.name AS DatabaseUser,
-    dp.sid AS DatabaseUserSid,
-    sp.name AS ServerLogin,
-    sp.sid AS ServerLoginSid
-FROM sys.database_principals dp
-LEFT JOIN sys.server_principals sp
-    ON dp.sid = sp.sid
-WHERE dp.type IN ('S', 'U', 'G')
-  AND dp.name NOT IN ('dbo', 'guest', 'INFORMATION_SCHEMA', 'sys')
-ORDER BY dp.name;
-```
-
-Для проекта в первую очередь проверить:
+Для проекта это относится к следующим principals:
 
 ```text
 Repl_Service
@@ -200,45 +189,65 @@ ReplenishmentREAD
 repl
 ```
 
-### Если server login отсутствует
+Именно такой подход исключает зависимость от SID, старых GRANT/DENY и других настроек безопасности, случайно попавших в backup.
 
-Создать отсутствующий login на тестовом SQL Server с помощью локального административного `Users.sql`.
+### Пароли и локальный Users.sql
 
-Этот файл находится в `.gitignore`, содержит реальные `CREATE LOGIN ...` с паролями и не должен попадать в Git. Например, для пользователя `repl` в нём хранится фактический:
+Реальные пароли не хранятся в Git.
+
+Локальный `Users.sql` находится в `.gitignore` и содержит реальные `CREATE LOGIN ...`, например:
 
 ```sql
 CREATE LOGIN [repl] ...
 ```
 
-Локальный `Users.sql` в этом сценарии используется именно для создания server-level login. Он не должен автоматически удалять восстановленных database users и не предназначен для повторной выдачи всех database-level прав после каждого restore.
+Он используется как локальная административная часть установки server-level logins и не должен коммититься.
 
-### Если database user существует, но не связан с нужным login
+### Tracked deployment contract
 
-Не удалять пользователя базы только ради перепривязки: при удалении database user можно потерять выданные ему database-level permissions.
+Tracked-файл:
 
-Перепривязать существующего пользователя к login:
-
-```sql
-USE [ReplenishmentDWH];
-GO
-
-ALTER USER [Repl_Service] WITH LOGIN = [Repl_Service];
-ALTER USER [ReplenishmentREAD] WITH LOGIN = [ReplenishmentREAD];
-ALTER USER [repl] WITH LOGIN = [repl];
-GO
+```text
+src/main/db/tables/Users.example.sql
 ```
 
-Выполнять только для реально существующих на тестовом server logins.
+должен описывать воспроизводимую структуру project principals и актуальные права без реальных секретов.
 
-После этого повторить запрос соответствия `database user ↔ server login` и убедиться, что пользователи больше не orphaned.
+Его назначение — быть эталоном, по которому security setup можно воспроизвести:
 
-### Важно про права
+- после восстановления backup на тестовом сервере;
+- при развертывании проекта на новом/пустом SQL Server;
+- после изменения состава таблиц, процедур или требуемых runtime permissions.
 
-После обычного restore database-level права из backup уже находятся в восстановленной базе. Поэтому в рамках этого сценария **не требуется автоматически пересоздавать все GRANT-ы после каждого restore**, если пользователи базы сохранены и корректно перепривязаны к server logins.
+После выполнения security setup итог не должен зависеть от того, какие project users/permissions находились в backup до restore.
 
-Если пользователь базы был удалён и создан заново, его прежние object/schema permissions необходимо выдавать повторно отдельным permissions/deployment script.
+## 11. Требование к установке на пустом SQL Server
 
-## Полный порядок действий
+DB-скрипты проекта должны позволять воспроизвести окружение с нуля.
+
+Для чистой установки последовательность должна быть концептуально такой:
+
+```text
+пустой SQL Server
+    ↓
+создание ReplenishmentDWH
+    ↓
+создание таблиц / индексов / constraints / procedures
+    ↓
+создание server logins из локального ignored Users.sql
+    ↓
+создание database users
+    ↓
+выдача актуальных permissions
+    ↓
+готовая база для запуска приложения
+```
+
+Backup рабочего сервера не является обязательной частью deployment contract. Он используется только для переноса production-like данных на тестовый сервер.
+
+Таким образом, восстановление тестовой базы и fresh installation должны приходить к одному и тому же итоговому состоянию схемы и security configuration.
+
+## Полный порядок восстановления тестовой базы
 
 1. На рабочем сервере создать `COPY_ONLY` backup.
 2. На рабочем сервере выполнить `RESTORE VERIFYONLY`.
@@ -250,18 +259,19 @@ GO
 8. Вернуть базу в `MULTI_USER`.
 9. Проверить, что база `ONLINE`.
 10. Выполнить `DBCC CHECKDB WITH NO_INFOMSGS`.
-11. Проверить наличие project server logins на тестовом SQL Server.
-12. При необходимости создать отсутствующие logins локальным ignored `Users.sql`.
-13. Проверить соответствие database users и server logins.
-14. При несовпадении SID перепривязать существующих database users через `ALTER USER ... WITH LOGIN` вместо их удаления.
+11. Удалить project-specific users/logins, пришедшие из backup или уже существующие на test instance.
+12. Создать project server logins заново с локальными реальными паролями.
+13. Создать database users заново.
+14. Выдать все актуальные project permissions заново.
+15. После этого запускать приложение и функциональные тесты.
 
 ## Важные замечания
 
-- Команды `SINGLE_USER`, `RESTORE ... REPLACE` и `MULTI_USER` предназначены только для тестового сервера в рамках этого сценария.
+- Команды `SINGLE_USER`, `RESTORE ... REPLACE` и security reset предназначены только для тестового сервера в рамках этого сценария.
 - Перед запуском destructive-части обязательно проверить имя SQL Server instance.
 - Путь к `.bak` на рабочем и тестовом серверах различается.
 - Дата в имени backup-файла должна соответствовать фактически созданному файлу; при следующем восстановлении заменить `ReplenishmentDWH_2026-08-19.bak` на актуальное имя.
 - `RESTORE FILELISTONLY` следует выполнять перед restore нового backup, а logical names в `MOVE` использовать из фактического результата.
-- Backup базы переносит database users и database-level permissions, но не переносит server logins SQL Server instance.
 - Локальный `Users.sql` с реальными `CREATE LOGIN` находится в `.gitignore` и не должен коммититься.
-- Не удалять восстановленных database users без необходимости: это может удалить связанные с ними database-level permissions.
+- После restore не считать project users/permissions из backup итоговой конфигурацией: они пересоздаются по актуальному проектному contract.
+- Цель DB deployment scripts — одинаково воспроизводимое состояние и после restore, и на новом пустом SQL Server.
