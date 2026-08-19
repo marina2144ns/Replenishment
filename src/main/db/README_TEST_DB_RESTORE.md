@@ -156,7 +156,7 @@ WHERE name = N'ReplenishmentDWH';
 state_desc = ONLINE
 ```
 
-## 9. Проверить логическую целостность базы
+## 9. Проверить целостность базы
 
 ```sql
 USE [ReplenishmentDWH];
@@ -166,6 +166,71 @@ DBCC CHECKDB WITH NO_INFOMSGS;
 ```
 
 Команда должна завершиться без сообщений об ошибках целостности.
+
+## 10. Проверить логины и пользователей после восстановления на другом SQL Server
+
+Backup базы переносит вместе с базой database users и их database-level permissions, но server logins принадлежат экземпляру SQL Server и в backup базы не входят.
+
+Поэтому после восстановления рабочей базы на тестовом сервере необходимо отдельно проверить соответствие server logins и database users.
+
+Сначала посмотреть пользователей базы и связанные с ними server logins:
+
+```sql
+USE [ReplenishmentDWH];
+GO
+
+SELECT
+    dp.name AS DatabaseUser,
+    dp.sid AS DatabaseUserSid,
+    sp.name AS ServerLogin,
+    sp.sid AS ServerLoginSid
+FROM sys.database_principals dp
+LEFT JOIN sys.server_principals sp
+    ON dp.sid = sp.sid
+WHERE dp.type IN ('S', 'U', 'G')
+  AND dp.name NOT IN ('dbo', 'guest', 'INFORMATION_SCHEMA', 'sys')
+ORDER BY dp.name;
+```
+
+Для проекта в первую очередь проверить:
+
+```text
+Repl_Service
+ReplenishmentREAD
+repl
+```
+
+### Если server login отсутствует
+
+Создать необходимые project logins на тестовом SQL Server с помощью локального `Users.sql` с реальными паролями.
+
+`Users.sql` предназначен для локального/административного использования и не должен попадать в Git с реальными паролями.
+
+### Если database user существует, но не связан с нужным login
+
+Не удалять пользователя базы только ради перепривязки: при удалении database user можно потерять выданные ему database-level permissions.
+
+Перепривязать существующего пользователя к login:
+
+```sql
+USE [ReplenishmentDWH];
+GO
+
+ALTER USER [Repl_Service] WITH LOGIN = [Repl_Service];
+ALTER USER [ReplenishmentREAD] WITH LOGIN = [ReplenishmentREAD];
+ALTER USER [repl] WITH LOGIN = [repl];
+GO
+```
+
+Выполнять только для реально существующих на тестовом server logins.
+
+После этого повторить запрос соответствия `database user ↔ server login` и убедиться, что пользователи больше не orphaned.
+
+### Важно про права
+
+После обычного restore database-level права из backup уже находятся в восстановленной базе. Поэтому в рамках этого сценария **не требуется автоматически пересоздавать все GRANT-ы после каждого restore**, если пользователи базы сохранены и корректно перепривязаны к server logins.
+
+Если пользователь базы был удалён и создан заново, его прежние object/schema permissions необходимо выдавать повторно отдельным permissions/deployment script.
 
 ## Полный порядок действий
 
@@ -179,6 +244,10 @@ DBCC CHECKDB WITH NO_INFOMSGS;
 8. Вернуть базу в `MULTI_USER`.
 9. Проверить, что база `ONLINE`.
 10. Выполнить `DBCC CHECKDB WITH NO_INFOMSGS`.
+11. Проверить наличие project server logins на тестовом SQL Server.
+12. При необходимости создать отсутствующие logins локальным `Users.sql`.
+13. Проверить соответствие database users и server logins.
+14. При несовпадении SID перепривязать существующих database users через `ALTER USER ... WITH LOGIN` вместо их удаления.
 
 ## Важные замечания
 
@@ -187,4 +256,5 @@ DBCC CHECKDB WITH NO_INFOMSGS;
 - Путь к `.bak` на рабочем и тестовом серверах различается.
 - Дата в имени backup-файла должна соответствовать фактически созданному файлу; при следующем восстановлении заменить `ReplenishmentDWH_2026-08-19.bak` на актуальное имя.
 - `RESTORE FILELISTONLY` следует выполнять перед restore нового backup, а logical names в `MOVE` использовать из фактического результата.
-- После переноса базы на другой SQL Server instance при необходимости отдельно проверить server-level logins и их сопоставление с database users.
+- Backup базы переносит database users и database-level permissions, но не переносит server logins SQL Server instance.
+- Не удалять восстановленных database users без необходимости: это может удалить связанные с ними database-level permissions.
