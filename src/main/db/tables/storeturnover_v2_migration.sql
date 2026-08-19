@@ -30,9 +30,14 @@ BEGIN
                 THEN CONVERT(NVARCHAR(20), @SkuMaxLength)
             ELSE N'255'
         END;
-    EXEC sys.sp_executesql
+
+    DECLARE @SkuAlterSql NVARCHAR(MAX);
+    SET @SkuAlterSql =
         N'ALTER TABLE dbo.StoreTurnover ALTER COLUMN SKU NVARCHAR('
-        + @SkuTargetLength + N') NULL';
+        + @SkuTargetLength
+        + N') NULL';
+
+    EXEC sys.sp_executesql @SkuAlterSql;
 END;
 GO
 
@@ -64,9 +69,14 @@ BEGIN
                 THEN CONVERT(NVARCHAR(20), @StoreRusMaxLength)
             ELSE N'255'
         END;
-    EXEC sys.sp_executesql
+
+    DECLARE @StoreRusAlterSql NVARCHAR(MAX);
+    SET @StoreRusAlterSql =
         N'ALTER TABLE dbo.StoreTurnover ALTER COLUMN StoreRus NVARCHAR('
-        + @StoreRusTargetLength + N') NULL';
+        + @StoreRusTargetLength
+        + N') NULL';
+
+    EXEC sys.sp_executesql @StoreRusAlterSql;
 END;
 GO
 
