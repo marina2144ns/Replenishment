@@ -218,9 +218,11 @@ IF OBJECT_ID(N'dbo.LoadStoreTurnoverFromCSV', N'P') IS NOT NULL
     GRANT EXECUTE ON OBJECT::dbo.LoadStoreTurnoverFromCSV TO [Repl_Service];
 GO
 
+USE master;
 GRANT ADMINISTER BULK OPERATIONS TO [Repl_Service];
 GO
 
+USE [ReplenishmentDWH];
 GRANT SHOWPLAN TO [Repl_Service];
 GO
 
