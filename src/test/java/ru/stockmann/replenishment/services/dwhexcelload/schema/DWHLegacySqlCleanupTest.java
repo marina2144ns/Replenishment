@@ -98,12 +98,34 @@ class DWHLegacySqlCleanupTest {
     }
 
     @Test
-    void usersScriptDoesNotContainPermissionMigrations() throws Exception {
+    void usersScriptDeterministicallyRecreatesProjectPrincipals() throws Exception {
         String users = normalizeSql(read("src/main/db/tables/Users.example.sql"));
 
-        assertFalse(users.contains("revoke "));
-        assertFalse(users.contains("drop user"));
-        assertFalse(users.contains("drop login"));
+        for (String principal : Set.of("repl_service", "replenishmentread", "repl")) {
+            assertTrue(users.contains("drop user " + principal + " ; go"), principal);
+            assertTrue(users.contains("drop login " + principal + " ; go"), principal);
+            assertTrue(users.contains("create login " + principal + " with password"), principal);
+            assertTrue(users.contains("create user " + principal + " for login " + principal), principal);
+        }
+        assertTrue(users.contains("<repl_service_password>"));
+        assertTrue(users.contains("<replenishment_read_password>"));
+        assertTrue(users.contains("<repl_password>"));
+
+        assertTrue(users.indexOf("use replenishmentdwh") < users.indexOf("drop user repl_service"));
+        assertTrue(users.indexOf("drop user repl ; go") < users.indexOf("use master"));
+        assertTrue(users.indexOf("use master") < users.indexOf("drop login repl_service"));
+        assertTrue(users.indexOf("drop login repl ; go") < users.indexOf("create login repl_service"));
+
+        int databaseUserSetup = users.indexOf(
+                "use replenishmentdwh",
+                users.indexOf("use replenishmentdwh") + 1
+        );
+        assertTrue(users.indexOf("create login repl with password") < databaseUserSetup);
+        assertTrue(databaseUserSetup < users.indexOf("create user repl_service"));
+        assertTrue(users.indexOf("create user repl for login repl") < users.indexOf("grant select"));
+
+        assertTrue(countOccurrences(users, "drop user ") == 3);
+        assertTrue(countOccurrences(users, "drop login ") == 3);
     }
 
     @Test
@@ -146,5 +168,9 @@ class DWHLegacySqlCleanupTest {
                     .reduce("", (left, right) -> left + "\n" + right)
                     .toLowerCase(Locale.ROOT);
         }
+    }
+
+    private static int countOccurrences(String value, String token) {
+        return (value.length() - value.replace(token, "").length()) / token.length();
     }
 }

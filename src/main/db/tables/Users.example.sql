@@ -69,7 +69,7 @@ IF EXISTS (
 GO
 
 /* ============================================================
-   3. SERVER LOGINS
+   3. SERVER LOGINS - ЗАПУСКАТЬ ИЗ ФАЙЛА Users.sql
    Password placeholders must be replaced before execution.
    ============================================================ */
 
