@@ -202,9 +202,15 @@ repl
 
 ### Если server login отсутствует
 
-Создать необходимые project logins на тестовом SQL Server с помощью локального `Users.sql` с реальными паролями.
+Создать отсутствующий login на тестовом SQL Server с помощью локального административного `Users.sql`.
 
-`Users.sql` предназначен для локального/административного использования и не должен попадать в Git с реальными паролями.
+Этот файл находится в `.gitignore`, содержит реальные `CREATE LOGIN ...` с паролями и не должен попадать в Git. Например, для пользователя `repl` в нём хранится фактический:
+
+```sql
+CREATE LOGIN [repl] ...
+```
+
+Локальный `Users.sql` в этом сценарии используется именно для создания server-level login. Он не должен автоматически удалять восстановленных database users и не предназначен для повторной выдачи всех database-level прав после каждого restore.
 
 ### Если database user существует, но не связан с нужным login
 
@@ -245,7 +251,7 @@ GO
 9. Проверить, что база `ONLINE`.
 10. Выполнить `DBCC CHECKDB WITH NO_INFOMSGS`.
 11. Проверить наличие project server logins на тестовом SQL Server.
-12. При необходимости создать отсутствующие logins локальным `Users.sql`.
+12. При необходимости создать отсутствующие logins локальным ignored `Users.sql`.
 13. Проверить соответствие database users и server logins.
 14. При несовпадении SID перепривязать существующих database users через `ALTER USER ... WITH LOGIN` вместо их удаления.
 
@@ -257,4 +263,5 @@ GO
 - Дата в имени backup-файла должна соответствовать фактически созданному файлу; при следующем восстановлении заменить `ReplenishmentDWH_2026-08-19.bak` на актуальное имя.
 - `RESTORE FILELISTONLY` следует выполнять перед restore нового backup, а logical names в `MOVE` использовать из фактического результата.
 - Backup базы переносит database users и database-level permissions, но не переносит server logins SQL Server instance.
+- Локальный `Users.sql` с реальными `CREATE LOGIN` находится в `.gitignore` и не должен коммититься.
 - Не удалять восстановленных database users без необходимости: это может удалить связанные с ними database-level permissions.
