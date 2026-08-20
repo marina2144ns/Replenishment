@@ -35,7 +35,7 @@ class SalesByChannelExcelLoadDefinitionTest {
                 "Sum([Sales Curr])", "GM", "Discount TTL", "Sum([Turnover Curr])",
                 "SKU SeasonBudget", "StoreRus_BPO", "Sales Channel_BPO", "MFP SubDepartment",
                 "SKU TM", "MFP Node", "Section", "MerchandiseSubGroup", "SKU Phase",
-                "SKU   Product Class"
+                "SKU Product Class"
         ), definition.columns().stream().map(DWHExcelColumnSpec::excelColumnName).toList());
     }
 

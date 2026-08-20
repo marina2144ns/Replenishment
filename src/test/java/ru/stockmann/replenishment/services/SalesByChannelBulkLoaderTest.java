@@ -39,7 +39,7 @@ class SalesByChannelBulkLoaderTest {
             "Sum([Sales Curr])", "GM", "Discount TTL", "Sum([Turnover Curr])",
             "SKU SeasonBudget", "StoreRus_BPO", "Sales Channel_BPO", "MFP SubDepartment",
             "SKU TM", "MFP Node", "Section", "MerchandiseSubGroup", "SKU Phase",
-            "SKU   Product Class"
+            "SKU Product Class"
     );
 
     @TempDir
@@ -91,7 +91,7 @@ class SalesByChannelBulkLoaderTest {
         String[] missingMetricBrackets = valid.clone();
         missingMetricBrackets[14] = "Sum(Sales Quantity)";
         String[] wrongProductClassSpacing = valid.clone();
-        wrongProductClassSpacing[28] = "SKU Product Class";
+        wrongProductClassSpacing[28] = "SKU   Product Class";
         String[] swapped = valid.clone();
         swapped[6] = valid[7];
         swapped[7] = valid[6];

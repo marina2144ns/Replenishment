@@ -75,7 +75,7 @@ public class SalesByChannelExcelLoadDefinition implements DWHExcelLoadDefinition
                 text(25, "Section", "section"),
                 text(26, "MerchandiseSubGroup", "merchandiseSubGroup"),
                 text(27, "SKU Phase", "skuPhase"),
-                text(28, "SKU   Product Class", "skuProductClass")
+                text(28, "SKU Product Class", "skuProductClass")
         );
     }
 
