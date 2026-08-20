@@ -88,8 +88,18 @@ class CDEcomExcelLoadDefinitionTest {
                 "skuCollection"
         ), columns);
         assertEquals(columns, definition.columns().stream()
-                .map(DWHExcelColumnSpec::excelColumnName)
+                .map(DWHExcelColumnSpec::targetColumnName)
                 .toList());
+        assertEquals(List.of(
+                "название", "ГОД", "Сезон", "день", "дата", "Sales Channel_BPO", "StoreRUS",
+                "MFP Division", "MFP Department", "MFP SubDepartment", "SKU Brand type", "SKU TM",
+                "MFP Node", "Section", "Merchandise SubGroup", "Campaign Sales Type", "SKU StyleColor",
+                "SKU Phase", "Заказ, шт", "Заказ, руб", "Найдено,шт", "Найдено,руб", "Sales, Pcs",
+                "Sales, rub", "Revenue", "GP", "Cogs", "Sales Discount", "Plan, rub",
+                "Stock Stores, Pcs", "Stock Stores, DDP", "Драйверы CD", "SKU Supplier model",
+                "SKU Composition", "SKU Color Russian", "SKU Name", "SKU Comment (buyer)",
+                "SKU Collection"
+        ), definition.columns().stream().map(DWHExcelColumnSpec::excelColumnName).toList());
     }
 
     @Test

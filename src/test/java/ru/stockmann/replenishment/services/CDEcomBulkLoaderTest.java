@@ -10,6 +10,7 @@ import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDEcomExcelL
 import javax.sql.DataSource;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -21,18 +22,64 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CDEcomBulkLoaderTest {
 
+    private static final List<String> PRODUCTION_HEADERS = List.of(
+            "название", "ГОД", "Сезон", "день", "дата", "Sales Channel_BPO", "StoreRUS",
+            "MFP Division", "MFP Department", "MFP SubDepartment", "SKU Brand type", "SKU TM",
+            "MFP Node", "Section", "Merchandise SubGroup", "Campaign Sales Type", "SKU StyleColor",
+            "SKU Phase", "Заказ, шт", "Заказ, руб", "Найдено,шт", "Найдено,руб", "Sales, Pcs",
+            "Sales, rub", "Revenue", "GP", "Cogs", "Sales Discount", "Plan, rub",
+            "Stock Stores, Pcs", "Stock Stores, DDP", "Драйверы CD", "SKU Supplier model",
+            "SKU Composition", "SKU Color Russian", "SKU Name", "SKU Comment (buyer)",
+            "SKU Collection"
+    );
+
     @Test
-    void rejectsWrongLiteralHeader() {
+    void acceptsExactProductionHeader() {
         TestCDEcomBulkLoader loader = new TestCDEcomBulkLoader(
                 null, new CDEcomExcelLoadDefinition(), fakeProcessor(true)
         );
-        List<String> headers = loader.getDefinition().columns().stream()
-                .map(column -> column.excelColumnName())
-                .toList();
-        String[] actual = headers.toArray(String[]::new);
-        actual[1] = "Year";
 
-        assertThrows(IllegalArgumentException.class, () -> loader.validate(actual));
+        loader.validate(PRODUCTION_HEADERS.toArray(String[]::new));
+    }
+
+    @Test
+    void rejectsEveryProductionHeaderContractMismatch() {
+        TestCDEcomBulkLoader loader = new TestCDEcomBulkLoader(
+                null, new CDEcomExcelLoadDefinition(), fakeProcessor(true)
+        );
+        String[] valid = PRODUCTION_HEADERS.toArray(String[]::new);
+
+        String[] internalName = valid.clone();
+        internalName[0] = "nazvanie";
+        String[] wrongCase = valid.clone();
+        wrongCase[1] = "Год";
+        String[] missingSubGroupSpace = valid.clone();
+        missingSubGroupSpace[14] = "MerchandiseSubGroup";
+        String[] addedFoundSpace = valid.clone();
+        addedFoundSpace[20] = "Найдено, шт";
+        String[] swapped = valid.clone();
+        swapped[10] = valid[11];
+        swapped[11] = valid[10];
+        String[] missingLast = Arrays.copyOf(valid, valid.length - 1);
+        String[] extra = Arrays.copyOf(valid, valid.length + 1);
+        extra[valid.length] = "Extra";
+        String[] blank = valid.clone();
+        blank[25] = "";
+        String[] leadingSpace = valid.clone();
+        leadingSpace[16] = " " + leadingSpace[16];
+        String[] trailingSpace = valid.clone();
+        trailingSpace[16] = trailingSpace[16] + " ";
+
+        for (String[] invalid : List.of(
+                internalName, wrongCase, missingSubGroupSpace, addedFoundSpace, swapped,
+                missingLast, extra, blank, leadingSpace, trailingSpace
+        )) {
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> loader.validate(invalid),
+                    Arrays.toString(invalid)
+            );
+        }
     }
 
     @Test
