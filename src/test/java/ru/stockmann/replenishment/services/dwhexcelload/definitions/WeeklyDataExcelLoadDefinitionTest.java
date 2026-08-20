@@ -39,13 +39,26 @@ class WeeklyDataExcelLoadDefinitionTest {
 
         assertEquals(25, definition.expectedColumnCount());
         assertEquals(List.of(
+                "Year 21", "Week 21", "Year _corr", "Week_corr", "Year", "Week",
+                "Sales Channel_BPO", "StoreRus_BPO", "StoreRUS", "MFP Division_new",
+                "MFP Department", "SKU SeasonBudget", "TypeOfSales", "Total Stock, Pcs",
+                "Total Stock, DDP", "Sales, Pcs", "Sales, rub", "Revenue, rur", "GP",
+                "Discount Total, rub", "MFP Division", "Сезон", "Месяц", "Сцепка",
+                "Seasonality"
+        ), definition.columns().stream().map(column -> column.excelColumnName()).toList());
+
+        List<String> internalNames = List.of(
                 "Year21", "Week21", "YearCorr", "WeekCorr", "Year", "Week",
                 "SalesChannelBpo", "StoreRusBpo", "StoreRus", "MfpDivisionNew",
                 "MfpDepartment", "SkuSeasonBudget", "TypeOfSales", "TotalStockPcs",
                 "TotalStockDdp", "SalesPcs", "SalesRub", "Revenue", "Gp",
                 "DiscountTotalRub", "MfpDivision", "Season", "Month", "Bundle",
                 "Seasonality"
-        ), definition.columns().stream().map(column -> column.excelColumnName()).toList());
+        );
+        assertEquals(internalNames,
+                definition.columns().stream().map(column -> column.rawColumnName()).toList());
+        assertEquals(internalNames,
+                definition.columns().stream().map(column -> column.targetColumnName()).toList());
     }
 
     @Test

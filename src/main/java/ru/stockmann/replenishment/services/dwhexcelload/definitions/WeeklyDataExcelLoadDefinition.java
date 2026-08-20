@@ -41,10 +41,18 @@ public class WeeklyDataExcelLoadDefinition implements DWHExcelLoadDefinition {
     @Override
     public List<DWHExcelColumnSpec> columns() {
         return List.of(
-                DWHExcelColumns.intNumber(0, "Year21", 50, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.intNumber(1, "Week21", 50, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.intNumber(2, "YearCorr", 50, DWHExcelNullHandling.KEEP_NULL),
-                DWHExcelColumns.intNumber(3, "WeekCorr", 50, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.intNumber(
+                        0, "Year 21", "Year21", "Year21", 50, false, DWHExcelNullHandling.KEEP_NULL
+                ),
+                DWHExcelColumns.intNumber(
+                        1, "Week 21", "Week21", "Week21", 50, false, DWHExcelNullHandling.KEEP_NULL
+                ),
+                DWHExcelColumns.intNumber(
+                        2, "Year _corr", "YearCorr", "YearCorr", 50, false, DWHExcelNullHandling.KEEP_NULL
+                ),
+                DWHExcelColumns.intNumber(
+                        3, "Week_corr", "WeekCorr", "WeekCorr", 50, false, DWHExcelNullHandling.KEEP_NULL
+                ),
                 DWHExcelColumns.intNumber(
                         4, "Year", "Year", "Year", 50, true, DWHExcelNullHandling.KEEP_NULL
                 ),
@@ -52,27 +60,46 @@ public class WeeklyDataExcelLoadDefinition implements DWHExcelLoadDefinition {
                         5, "Week", "Week", "Week", 50, true, DWHExcelNullHandling.KEEP_NULL
                 ),
 
-                DWHExcelColumns.text(6, "SalesChannelBpo", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(7, "StoreRusBpo", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(8, "StoreRus", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(9, "MfpDivisionNew", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(10, "MfpDepartment", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(11, "SkuSeasonBudget", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(12, "TypeOfSales", RAW_TEXT_LENGTH),
+                DWHExcelColumns.text(6, "Sales Channel_BPO", "SalesChannelBpo", "SalesChannelBpo",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(7, "StoreRus_BPO", "StoreRusBpo", "StoreRusBpo",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(8, "StoreRUS", "StoreRus", "StoreRus",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(9, "MFP Division_new", "MfpDivisionNew", "MfpDivisionNew",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(10, "MFP Department", "MfpDepartment", "MfpDepartment",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(11, "SKU SeasonBudget", "SkuSeasonBudget", "SkuSeasonBudget",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(12, "TypeOfSales", "TypeOfSales", "TypeOfSales",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
 
-                DWHExcelColumns.decimal(13, "TotalStockPcs", 255, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(14, "TotalStockDdp", 255, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(15, "SalesPcs", 255, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(16, "SalesRub", 255, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(17, "Revenue", 255, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(18, "Gp", 255, DWHExcelNullHandling.ZERO),
-                DWHExcelColumns.decimal(19, "DiscountTotalRub", 255, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(13, "Total Stock, Pcs", "TotalStockPcs", "TotalStockPcs",
+                        255, false, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(14, "Total Stock, DDP", "TotalStockDdp", "TotalStockDdp",
+                        255, false, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(15, "Sales, Pcs", "SalesPcs", "SalesPcs",
+                        255, false, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(16, "Sales, rub", "SalesRub", "SalesRub",
+                        255, false, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(17, "Revenue, rur", "Revenue", "Revenue",
+                        255, false, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(18, "GP", "Gp", "Gp",
+                        255, false, DWHExcelNullHandling.ZERO),
+                DWHExcelColumns.decimal(19, "Discount Total, rub", "DiscountTotalRub", "DiscountTotalRub",
+                        255, false, DWHExcelNullHandling.ZERO),
 
-                DWHExcelColumns.text(20, "MfpDivision", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(21, "Season", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(22, "Month", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(23, "Bundle", RAW_TEXT_LENGTH),
-                DWHExcelColumns.text(24, "Seasonality", RAW_TEXT_LENGTH)
+                DWHExcelColumns.text(20, "MFP Division", "MfpDivision", "MfpDivision",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(21, "Сезон", "Season", "Season",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(22, "Месяц", "Month", "Month",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(23, "Сцепка", "Bundle", "Bundle",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
+                DWHExcelColumns.text(24, "Seasonality", "Seasonality", "Seasonality",
+                        RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL)
         );
     }
 }
