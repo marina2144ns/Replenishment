@@ -14,15 +14,30 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class StoreTurnoverCsvLoaderTest {
-    private static final String HEADER="Sku;Period;StoreRus;RemainingSum;RemainingDays;SalesQuantity;Sales;Asp;Revenue;Gp;DiscountTotal";
+    private static final String HEADER="SKUItem;MonthYear;StoreRus_BPO;СуммаОстатковНаКаждуюДатуВыбранногоПериода;Кол_воДнейСОстатками_0;SalesQuantity;Sales;ASP;Revenue;GP;DiscountTotal";
     @TempDir Path temp;
 
+    @Test void acceptsExactProductionHeader(){
+        TestLoader loader=new TestLoader(null);loader.header(HEADER.split(";",-1));
+    }
+
     @Test void strictHeaderRejectsEverySchemaMismatch(){
-        TestLoader loader=new TestLoader(null);String[] valid=HEADER.split(";",-1);loader.header(valid);
+        TestLoader loader=new TestLoader(null);String[] valid=HEADER.split(";",-1);
         List<String[]> invalid=new ArrayList<>();
-        invalid.add(Arrays.copyOf(valid,10));invalid.add(new String[]{"Sku","Period","StoreRus","RemainingSum","RemainingDays","SalesQuantity","Sales","Asp","Revenue","Gp","DiscountTotal","Extra"});
-        String[] extraMiddle=new String[12];System.arraycopy(valid,0,extraMiddle,0,5);extraMiddle[5]="Extra";System.arraycopy(valid,5,extraMiddle,6,6);invalid.add(extraMiddle);
-        for(int i=0;i<8;i++){String[] copy=valid.clone();if(i==0)copy[0]="sku";if(i==1)copy[0]=" Sku";if(i==2)copy[0]="Sku ";if(i==3)copy[0]="S ku";if(i==4)copy[0]="";if(i==5)copy[0]="Renamed";if(i==6){copy[0]="Period";copy[1]="Sku";}if(i==7){copy[5]="Extra";}invalid.add(copy);}
+        invalid.add(Arrays.copyOf(valid,10));
+        String[] extra=Arrays.copyOf(valid,12);extra[11]="Extra";invalid.add(extra);
+        for(int i=0;i<8;i++){
+            String[] copy=valid.clone();
+            if(i==0)copy[0]="Sku";
+            if(i==1)copy[1]="Period";
+            if(i==2)copy[2]="StoreRus";
+            if(i==3)copy[7]="Asp";
+            if(i==4)copy[9]="Gp";
+            if(i==5)copy[3]="Сумма Остатков На Каждую Дату Выбранного Периода";
+            if(i==6){copy[0]=valid[1];copy[1]=valid[0];}
+            if(i==7)copy[4]="";
+            invalid.add(copy);
+        }
         for(String[] headers:invalid)assertThrows(IllegalArgumentException.class,()->loader.header(headers));
     }
 

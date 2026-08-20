@@ -15,8 +15,20 @@ class StoreTurnoverExcelLoadDefinitionTest {
         assertEquals("STORE_TURNOVER", definition.loadCode());
         assertEquals("dbo.StoreTurnover_raw", definition.rawTableName());
         assertEquals(11, definition.expectedColumnCount());
-        assertEquals(List.of("Sku","Period","StoreRus","RemainingSum","RemainingDays","SalesQuantity","Sales","Asp","Revenue","Gp","DiscountTotal"),
+        assertEquals(List.of(
+                        "SKUItem", "MonthYear", "StoreRus_BPO",
+                        "СуммаОстатковНаКаждуюДатуВыбранногоПериода", "Кол_воДнейСОстатками_0",
+                        "SalesQuantity", "Sales", "ASP", "Revenue", "GP", "DiscountTotal"
+                ),
                 definition.columns().stream().map(DWHExcelColumnSpec::excelColumnName).toList());
+        List<String> internalNames = List.of(
+                "sku", "period", "storeRus", "remainingSum", "remainingDays",
+                "salesQuantity", "sales", "asp", "revenue", "gp", "discountTotal"
+        );
+        assertEquals(internalNames,
+                definition.columns().stream().map(DWHExcelColumnSpec::rawColumnName).toList());
+        assertEquals(internalNames,
+                definition.columns().stream().map(DWHExcelColumnSpec::targetColumnName).toList());
         assertEquals(List.of(0,1,2,3,4,5,6,7,8,9,10), definition.columns().stream().map(DWHExcelColumnSpec::excelIndex).toList());
     }
 

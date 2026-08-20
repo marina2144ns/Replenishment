@@ -23,16 +23,16 @@ public class StoreTurnoverExcelLoadDefinition implements DWHExcelLoadDefinition 
     @Override
     public List<DWHExcelColumnSpec> columns() {
         return List.of(
-                text(0, "Sku", "sku", true),
-                date(1, "Period", "period"),
-                text(2, "StoreRus", "storeRus", true),
-                metric(3, "RemainingSum", "remainingSum"),
-                metric(4, "RemainingDays", "remainingDays"),
+                text(0, "SKUItem", "sku", true),
+                date(1, "MonthYear", "period"),
+                text(2, "StoreRus_BPO", "storeRus", true),
+                metric(3, "СуммаОстатковНаКаждуюДатуВыбранногоПериода", "remainingSum"),
+                metric(4, "Кол_воДнейСОстатками_0", "remainingDays"),
                 metric(5, "SalesQuantity", "salesQuantity"),
                 metric(6, "Sales", "sales"),
-                metric(7, "Asp", "asp"),
+                metric(7, "ASP", "asp"),
                 metric(8, "Revenue", "revenue"),
-                metric(9, "Gp", "gp"),
+                metric(9, "GP", "gp"),
                 metric(10, "DiscountTotal", "discountTotal")
         );
     }
