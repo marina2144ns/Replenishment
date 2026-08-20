@@ -35,7 +35,7 @@ class SalesByChannelExcelLoadDefinitionTest {
                 "Sum([Sales Curr])", "GM", "Discount TTL", "Sum([Turnover Curr])",
                 "SKU SeasonBudget", "StoreRus_BPO", "Sales Channel_BPO", "MFP SubDepartment",
                 "SKU TM", "MFP Node", "Section", "MerchandiseSubGroup", "SKU Phase",
-                "SKU Product Class"
+                "SKU   Product Class"
         ), definition.columns().stream().map(DWHExcelColumnSpec::excelColumnName).toList());
     }
 
@@ -49,6 +49,10 @@ class SalesByChannelExcelLoadDefinitionTest {
                 "salesChannelBpo", "mfpSubDepartment", "skuTm", "mfpNode", "section",
                 "merchandiseSubGroup", "skuPhase", "skuProductClass"
         ), definition.columns().stream().map(DWHExcelColumnSpec::rawColumnName).toList());
+        assertEquals(
+                definition.columns().stream().map(DWHExcelColumnSpec::rawColumnName).toList(),
+                definition.columns().stream().map(DWHExcelColumnSpec::targetColumnName).toList()
+        );
 
         definition.columns().forEach(column -> {
             assertEquals(4000, column.rawMaxLength());

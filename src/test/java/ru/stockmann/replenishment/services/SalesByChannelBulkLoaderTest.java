@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.List;
@@ -30,6 +31,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SalesByChannelBulkLoaderTest {
+
+    private static final List<String> PRODUCTION_HEADERS = List.of(
+            "Сезон_Year", "Сезон (6м)", "Year_month", "Year_сезон", "Year", "Month",
+            "Sales Channel type", "StoreRUS", "TypeOfSales", "MFP Division", "MFP Department",
+            "Campaign Sales Type", "Seasonality", "SKU Brand type", "Sum([Sales Quantity])",
+            "Sum([Sales Curr])", "GM", "Discount TTL", "Sum([Turnover Curr])",
+            "SKU SeasonBudget", "StoreRus_BPO", "Sales Channel_BPO", "MFP SubDepartment",
+            "SKU TM", "MFP Node", "Section", "MerchandiseSubGroup", "SKU Phase",
+            "SKU   Product Class"
+    );
 
     @TempDir
     Path tempDir;
@@ -62,19 +73,49 @@ class SalesByChannelBulkLoaderTest {
     }
 
     @Test
-    void headerComparisonIsLiteral() {
+    void acceptsExactProductionHeader() {
         TestLoader loader = new TestLoader(null);
-        String[] headers = loader.expectedHeaders();
 
-        loader.validateHeaders(headers);
-        headers[7] = "StoreRus";
+        loader.validateHeaders(PRODUCTION_HEADERS.toArray(String[]::new));
+    }
 
-        IllegalArgumentException error = assertThrows(
-                IllegalArgumentException.class,
-                () -> loader.validateHeaders(headers)
-        );
-        assertTrue(error.getMessage().contains("column 8"));
-        assertTrue(error.getMessage().contains("StoreRUS"));
+    @Test
+    void rejectsEveryProductionHeaderContractMismatch() {
+        TestLoader loader = new TestLoader(null);
+        String[] valid = PRODUCTION_HEADERS.toArray(String[]::new);
+
+        String[] translatedSeason = valid.clone();
+        translatedSeason[0] = "Season_Year";
+        String[] translatedYearSeason = valid.clone();
+        translatedYearSeason[3] = "Year_season";
+        String[] missingMetricBrackets = valid.clone();
+        missingMetricBrackets[14] = "Sum(Sales Quantity)";
+        String[] wrongProductClassSpacing = valid.clone();
+        wrongProductClassSpacing[28] = "SKU Product Class";
+        String[] swapped = valid.clone();
+        swapped[6] = valid[7];
+        swapped[7] = valid[6];
+        String[] missingLast = Arrays.copyOf(valid, valid.length - 1);
+        String[] extra = Arrays.copyOf(valid, valid.length + 1);
+        extra[valid.length] = "Extra";
+        String[] blank = valid.clone();
+        blank[12] = "";
+        String[] leadingSpace = valid.clone();
+        leadingSpace[20] = " " + leadingSpace[20];
+        String[] trailingSpace = valid.clone();
+        trailingSpace[20] = trailingSpace[20] + " ";
+
+        for (String[] invalid : List.of(
+                translatedSeason, translatedYearSeason, missingMetricBrackets,
+                wrongProductClassSpacing, swapped, missingLast, extra, blank,
+                leadingSpace, trailingSpace
+        )) {
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> loader.validateHeaders(invalid),
+                    Arrays.toString(invalid)
+            );
+        }
     }
 
     @Test
