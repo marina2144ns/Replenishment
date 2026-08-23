@@ -104,7 +104,7 @@ BEGIN
         ExcelRowNum BIGINT NULL,
         sku NVARCHAR(255) NOT NULL,
         period DATE NOT NULL,
-        storeRus NVARCHAR(255) NOT NULL,
+        storeRus NVARCHAR(255) NULL,
         remainingSum INT NOT NULL, remainingDays INT NOT NULL, salesQuantity INT NOT NULL,
         sales INT NOT NULL, asp INT NOT NULL, revenue INT NOT NULL, gp INT NOT NULL,
         discountTotal INT NOT NULL,
@@ -115,6 +115,16 @@ BEGIN
             REFERENCES dbo.StoreTurnover_raw(Id)
     );
 END;
+GO
+
+IF EXISTS (
+    SELECT 1
+    FROM sys.columns
+    WHERE object_id = OBJECT_ID(N'dbo.StoreTurnover_stage')
+      AND name = N'storeRus'
+      AND is_nullable = 0
+)
+    ALTER TABLE dbo.StoreTurnover_stage ALTER COLUMN storeRus NVARCHAR(255) NULL;
 GO
 
 IF COL_LENGTH(N'dbo.StoreTurnover', N'LoadSessionId') IS NULL

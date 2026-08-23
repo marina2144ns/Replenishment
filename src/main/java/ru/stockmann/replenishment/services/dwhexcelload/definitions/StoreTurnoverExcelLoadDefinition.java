@@ -25,7 +25,7 @@ public class StoreTurnoverExcelLoadDefinition implements DWHExcelLoadDefinition 
         return List.of(
                 text(0, "SKUItem", "sku", true),
                 date(1, "MonthYear", "period"),
-                text(2, "StoreRus_BPO", "storeRus", true),
+                text(2, "StoreRus_BPO", "storeRus", false),
                 metric(3, "СуммаОстатковНаКаждуюДатуВыбранногоПериода", "remainingSum"),
                 metric(4, "Кол_воДнейСОстатками_0", "remainingDays"),
                 metric(5, "SalesQuantity", "salesQuantity"),

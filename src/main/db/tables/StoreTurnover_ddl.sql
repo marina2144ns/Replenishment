@@ -1,7 +1,7 @@
 CREATE TABLE dbo.StoreTurnover (
     Id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
     -- Transitional coexistence contract: legacy v1 may still insert nullable business values.
-    -- Successful v2 rows remain non-null through Java validation and strict STAGE schema.
+    -- Successful v2 rows follow the typed STAGE contract; optional storeRus may remain NULL.
     sku NVARCHAR(255) NULL,
     period DATE NULL,
     storeRus NVARCHAR(255) NULL,
@@ -49,7 +49,7 @@ CREATE TABLE dbo.StoreTurnover_stage (
     ExcelRowNum BIGINT NULL,
     sku NVARCHAR(255) NOT NULL,
     period DATE NOT NULL,
-    storeRus NVARCHAR(255) NOT NULL,
+    storeRus NVARCHAR(255) NULL,
     remainingSum INT NOT NULL,
     remainingDays INT NOT NULL,
     salesQuantity INT NOT NULL,

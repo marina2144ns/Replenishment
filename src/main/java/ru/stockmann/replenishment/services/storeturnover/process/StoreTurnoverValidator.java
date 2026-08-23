@@ -21,7 +21,7 @@ public class StoreTurnoverValidator {
         List<StoreTurnoverValidationError> errors = new ArrayList<>();
         String sku = requiredText(errors, row, "sku", row.sku(), 255);
         LocalDate period = period(errors, row, row.period());
-        String storeRus = requiredText(errors, row, "storeRus", row.storeRus(), 255);
+        String storeRus = optionalText(errors, row, "storeRus", row.storeRus(), 255);
         Integer remainingSum = integer(errors, row, "remainingSum", row.remainingSum());
         Integer remainingDays = integer(errors, row, "remainingDays", row.remainingDays());
         Integer salesQuantity = integer(errors, row, "salesQuantity", row.salesQuantity());
@@ -45,6 +45,18 @@ public class StoreTurnoverValidator {
             errors.add(error(row, field, "REQUIRED_FIELD_EMPTY", "Required value is empty"));
         }
         else if (value.length() > maxLength) errors.add(error(row, field, "TEXT_TOO_LONG", "Value exceeds max length " + maxLength));
+        return value;
+    }
+
+    private String optionalText(List<StoreTurnoverValidationError> errors, StoreTurnoverRawRow row,
+                                String field, String raw, int maxLength) {
+        String value = parser.cleanText(raw);
+        if (value == null || parser.isSpecialNull(value)) {
+            return null;
+        }
+        if (value.length() > maxLength) {
+            errors.add(error(row, field, "TEXT_TOO_LONG", "Value exceeds max length " + maxLength));
+        }
         return value;
     }
 

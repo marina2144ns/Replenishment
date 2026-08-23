@@ -14,14 +14,29 @@ class StoreTurnoverValidatorTest {
         assertEquals(List.of(0,0,0,0,0,-2,3,4),List.of(result.stageRow().remainingSum(),result.stageRow().remainingDays(),result.stageRow().salesQuantity(),result.stageRow().sales(),result.stageRow().asp(),result.stageRow().revenue(),result.stageRow().gp(),result.stageRow().discountTotal()));
     }
 
-    @Test void requiredTextAndPeriodRejectMissingValues(){
+    @Test void requiredSkuAndPeriodRejectMissingValuesWhileStoreRusRemainsOptional(){
         StoreTurnoverRowValidationResult result=validator.validateAndMap(row("\u00a0"," ","\u202f",null,null,null,null,null,null,null,null));
-        assertFalse(result.valid());assertEquals(List.of("sku","period","storeRus"),result.errors().stream().map(StoreTurnoverValidationError::fieldName).toList());
+        assertFalse(result.valid());assertEquals(List.of("sku","period"),result.errors().stream().map(StoreTurnoverValidationError::fieldName).toList());
     }
 
     @Test void requiredFieldsRejectSupportedNullMarkers(){
         StoreTurnoverRowValidationResult result=validator.validateAndMap(row("N/A","NULL","—",null,null,null,null,null,null,null,null));
-        assertFalse(result.valid());assertEquals(List.of("sku","period","storeRus"),result.errors().stream().map(StoreTurnoverValidationError::fieldName).toList());
+        assertFalse(result.valid());assertEquals(List.of("sku","period"),result.errors().stream().map(StoreTurnoverValidationError::fieldName).toList());
+    }
+
+    @Test void optionalStoreRusPreservesTextAndMapsMissingValuesToNull(){
+        StoreTurnoverRowValidationResult text=validator.validateAndMap(row("sku","08.2026","Store 123",null,null,null,null,null,null,null,null));
+        assertTrue(text.valid());assertEquals("Store 123",text.stageRow().storeRus());
+
+        for(String missing:new String[]{null,"","   ","-","N/A"}){
+            StoreTurnoverRowValidationResult result=validator.validateAndMap(row("sku","08.2026",missing,null,null,null,null,null,null,null,null));
+            assertTrue(result.valid(),String.valueOf(missing));assertNull(result.stageRow().storeRus(),String.valueOf(missing));
+        }
+    }
+
+    @Test void optionalStoreRusStillRejectsTextLongerThan255(){
+        StoreTurnoverRowValidationResult result=validator.validateAndMap(row("sku","08.2026","x".repeat(256),null,null,null,null,null,null,null,null));
+        assertFalse(result.valid());assertEquals("storeRus",result.errors().get(0).fieldName());assertEquals("TEXT_TOO_LONG",result.errors().get(0).errorCode());
     }
 
     @Test void periodUsesStrictMonthYearContract(){

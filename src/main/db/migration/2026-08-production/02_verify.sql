@@ -101,6 +101,19 @@ WHERE t.name IN (N'StoreTurnover',N'StoreTurnover_raw',N'StoreTurnover_stage')
 ORDER BY t.name, c.column_id;
 GO
 
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.columns c
+    JOIN sys.types ty ON ty.user_type_id = c.user_type_id
+    WHERE c.object_id = OBJECT_ID(N'dbo.StoreTurnover_stage')
+      AND c.name = N'storeRus'
+      AND ty.name = N'nvarchar'
+      AND c.max_length = 510
+      AND c.is_nullable = 1
+)
+    THROW 52001, 'Verification failed: dbo.StoreTurnover_stage.storeRus must be NVARCHAR(255) NULL', 1;
+GO
+
 /* ============================================================================
    5. StoreTurnover v2 foreign keys
    ============================================================================ */

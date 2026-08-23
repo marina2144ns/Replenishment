@@ -380,7 +380,7 @@ BEGIN
         ExcelRowNum BIGINT NULL,
         sku NVARCHAR(255) NOT NULL,
         period DATE NOT NULL,
-        storeRus NVARCHAR(255) NOT NULL,
+        storeRus NVARCHAR(255) NULL,
         remainingSum INT NOT NULL,
         remainingDays INT NOT NULL,
         salesQuantity INT NOT NULL,
@@ -394,6 +394,11 @@ BEGIN
         CONSTRAINT FK_StoreTurnover_stage_RawRow FOREIGN KEY (RawRowId) REFERENCES dbo.StoreTurnover_raw(Id)
     );
 END;
+GO
+
+IF OBJECT_ID(N'dbo.StoreTurnover_stage', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.StoreTurnover_stage', N'storeRus') IS NOT NULL
+    ALTER TABLE dbo.StoreTurnover_stage ALTER COLUMN storeRus NVARCHAR(255) NULL;
 GO
 
 IF COL_LENGTH(N'dbo.StoreTurnover', N'LoadSessionId') IS NULL

@@ -35,7 +35,8 @@ class StoreTurnoverExcelLoadDefinitionTest {
     @Test void requiredFieldsAndZeroMetricsMatchInputContract() {
         assertTrue(definition.columns().get(0).required());
         assertTrue(definition.columns().get(1).required());
-        assertTrue(definition.columns().get(2).required());
+        assertFalse(definition.columns().get(2).required());
+        assertEquals(DWHExcelNullHandling.KEEP_NULL, definition.columns().get(2).nullHandling());
         assertEquals(DWHExcelValueKind.TEXT, definition.columns().get(0).valueKind());
         assertEquals(DWHExcelValueKind.DATE, definition.columns().get(1).valueKind());
         for (DWHExcelColumnSpec metric : definition.columns().subList(3,11)) {
