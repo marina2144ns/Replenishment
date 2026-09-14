@@ -222,12 +222,8 @@ class CDDataValidatorTest {
                 CDDataRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
 
                 assertTrue(result.valid(), field + "=" + value + ": " + result.errors());
-                if ("planRub".equals(field)) {
-                    assertEquals(0, result.stageRow().planRub(), field + "=" + value);
-                } else {
-                    assertEquals(0, metricValue(result.stageRow(), field).compareTo(BigDecimal.ZERO),
-                            field + "=" + value);
-                }
+                assertEquals(0, metricValue(result.stageRow(), field).compareTo(BigDecimal.ZERO),
+                        field + "=" + value);
             }
         }
     }
@@ -239,11 +235,7 @@ class CDDataValidatorTest {
                 CDDataRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
 
                 assertTrue(result.valid(), field + "=" + value + ": " + result.errors());
-                if ("planRub".equals(field)) {
-                    assertEquals(Integer.valueOf(value), result.stageRow().planRub(), field);
-                } else {
-                    assertEquals(0, metricValue(result.stageRow(), field).compareTo(new BigDecimal(value)), field);
-                }
+                assertEquals(0, metricValue(result.stageRow(), field).compareTo(new BigDecimal(value)), field);
             }
         }
     }
@@ -255,12 +247,46 @@ class CDDataValidatorTest {
                 CDDataRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
 
                 assertTrue(result.stageRow() == null, field + "=" + value);
-                String errorCode = "planRub".equals(field) ? "INVALID_INTEGER" : "INVALID_DECIMAL";
                 assertTrue(result.errors().stream().anyMatch(error ->
-                        field.equals(error.fieldName()) && errorCode.equals(error.errorCode())),
+                        field.equals(error.fieldName()) && "INVALID_DECIMAL".equals(error.errorCode())),
                         field + "=" + value + ": " + result.errors());
             }
         }
+    }
+
+    @Test
+    void planRubUsesStandardDecimal18Scale2Parsing() {
+        List<String> values = List.of("123", "123.45", "123,45", "1 234,56", "123.456");
+        List<BigDecimal> expected = List.of(
+                new BigDecimal("123.00"),
+                new BigDecimal("123.45"),
+                new BigDecimal("123.45"),
+                new BigDecimal("1234.56"),
+                new BigDecimal("123.46")
+        );
+
+        for (int i = 0; i < values.size(); i++) {
+            CDDataRowValidationResult result = validator.validateAndMap(
+                    rowBuilder().planRub(values.get(i)).build()
+            );
+
+            assertTrue(result.valid(), values.get(i) + ": " + result.errors());
+            assertEquals(expected.get(i), result.stageRow().planRub(), values.get(i));
+        }
+    }
+
+    @Test
+    void planRubRejectsInvalidAndOverflowValues() {
+        assertSingleError(
+                validator.validate(rowBuilder().planRub("not-a-number").build()),
+                "planRub",
+                "INVALID_DECIMAL"
+        );
+        assertSingleError(
+                validator.validate(rowBuilder().planRub("9999999999999999.995").build()),
+                "planRub",
+                "NUMERIC_OVERFLOW"
+        );
     }
 
     @Test
@@ -360,9 +386,9 @@ class CDDataValidatorTest {
         assertEquals(10L, result.stageRow().rawRowId());
 
         assertTrue(result.valid());
-        assertEquals(4, parser.integerCalls);
+        assertEquals(3, parser.integerCalls);
         assertEquals(1, parser.longCalls);
-        assertEquals(11, parser.decimalCalls);
+        assertEquals(12, parser.decimalCalls);
         assertEquals(1, parser.dateCalls);
         assertEquals(2025, result.stageRow().god());
         assertEquals(LocalDate.of(2025, 1, 31), result.stageRow().data().toLocalDate());
@@ -489,6 +515,7 @@ class CDDataValidatorTest {
             case "salesDiscount" -> row.salesDiscount();
             case "stockStoresPcs" -> row.stockStoresPcs();
             case "stockStoresDd" -> row.stockStoresDd();
+            case "planRub" -> row.planRub();
             default -> throw new IllegalArgumentException(fieldName);
         };
     }

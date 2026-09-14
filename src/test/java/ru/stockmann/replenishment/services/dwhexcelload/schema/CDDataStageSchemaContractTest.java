@@ -29,6 +29,8 @@ class CDDataStageSchemaContractTest {
             "src/main/db/tables/cddata_required_delete_fields_migration.sql";
     private static final String ZERO_METRICS_MIGRATION =
             "src/main/db/tables/cddata_zero_metrics_migration.sql";
+    private static final String PLAN_RUB_MIGRATION_DIRECTORY =
+            "src/main/db/migration/2026-09-cddata-plan-rub/";
 
     private static final List<String> BUSINESS_COLUMNS = List.of(
             "nazvanie",
@@ -83,7 +85,7 @@ class CDDataStageSchemaContractTest {
             assertColumn(columns, name, "int", false);
         }
         assertColumn(columns, "nazvanie", "nvarchar(255)", false);
-        assertColumn(columns, "plan_rub", "int", false);
+        assertColumn(columns, "plan_rub", "decimal(18,2)", false);
         assertColumn(columns, "data", "date", true);
         assertColumn(columns, "sku_style_color", "bigint", true);
         assertColumn(columns, "rawrowid", "bigint", true);
@@ -148,8 +150,15 @@ class CDDataStageSchemaContractTest {
             assertColumn(stage, name, "decimal(18,2)", false);
             assertColumn(target, name, "decimal(18,2)", false);
         }
-        assertColumn(stage, "plan_rub", "int", false);
-        assertColumn(target, "plan_rub", "int", false);
+        assertColumn(stage, "plan_rub", "decimal(18,2)", false);
+        assertColumn(target, "plan_rub", "decimal(18,2)", false);
+    }
+
+    @Test
+    void rawPlanRubRemainsNullableText() throws Exception {
+        List<DWHSchemaTestSupport.ColumnDef> raw = tableColumns(CD_DATA_DDL, "dbo.CD_data_raw");
+
+        assertColumn(raw, "plan_rub", "nvarchar(50)", true);
     }
 
     @Test
@@ -321,6 +330,44 @@ class CDDataStageSchemaContractTest {
         assertFalse(migration.contains("drop "));
         assertFalse(migration.contains("truncate "));
         assertFalse(migration.contains("default"));
+    }
+
+    @Test
+    void planRubMigrationPackGuardsMigratesAndStrictlyVerifiesDecimalContract() throws Exception {
+        String precheck = normalizeSql(read(PLAN_RUB_MIGRATION_DIRECTORY + "00_precheck.sql"));
+        String migration = normalizeSql(read(
+                PLAN_RUB_MIGRATION_DIRECTORY + "01_production_migration.sql"
+        ));
+        String verify = normalizeSql(read(PLAN_RUB_MIGRATION_DIRECTORY + "02_verify.sql"));
+
+        for (String table : List.of("dbo.cd_data", "dbo.cd_data_stage")) {
+            assertTrue(precheck.contains("object_id(n'" + table + "')"), table);
+            assertTrue(precheck.contains("int not null or decimal(18,2) not null"), table);
+
+            assertTrue(migration.contains("object_id(n'" + table + "')"), table);
+            assertTrue(migration.contains(
+                    "alter table " + table
+                            + " alter column plan_rub decimal(18,2) not null"
+            ), table);
+
+            assertTrue(verify.contains("object_id(n'" + table + "')"), table);
+            assertTrue(verify.contains(table + ".plan_rub is not decimal(18,2) not null"), table);
+        }
+
+        assertTrue(migration.contains("set xact_abort on"));
+        assertTrue(migration.contains("begin transaction"));
+        assertTrue(migration.contains("commit transaction"));
+        assertTrue(migration.contains("rollback transaction"));
+        assertEquals(2, occurrences(migration, "alter table dbo.cd_data"));
+        assertFalse(migration.contains("update "));
+        assertFalse(migration.contains("delete "));
+        assertFalse(migration.contains("truncate "));
+        assertFalse(migration.contains("drop "));
+
+        assertTrue(verify.contains("type_name(c.user_type_id) = n'decimal'"));
+        assertEquals(2, occurrences(verify, "c.precision = 18"));
+        assertEquals(2, occurrences(verify, "c.scale = 2"));
+        assertEquals(2, occurrences(verify, "c.is_nullable = 0"));
     }
 
     private static List<String> decimalMetrics() {

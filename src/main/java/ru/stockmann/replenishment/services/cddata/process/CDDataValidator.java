@@ -39,7 +39,8 @@ public class CDDataValidator {
         DWHParseResult<LocalDate> data = parseDate(errors, row, "data", row.data());
         DWHParseResult<Long> skuStyleColor =
                 parseLong(errors, row, "skuStyleColor", row.skuStyleColor());
-        DWHParseResult<Integer> planRub = parseInteger(errors, row, "planRub", row.planRub(), false);
+        DWHParseResult<BigDecimal> planRub =
+                parseDecimal(errors, row, "planRub", row.planRub());
 
         DWHParseResult<BigDecimal> stockStartPcs =
                 parseDecimal(errors, row, "stockStartPcs", row.stockStartPcs());
@@ -118,7 +119,7 @@ public class CDDataValidator {
                 decimalValueOrZero(salesDiscount),
                 decimalValueOrZero(stockStoresPcs),
                 decimalValueOrZero(stockStoresDd),
-                integerValueOrZero(planRub),
+                decimalValueOrZero(planRub),
                 draiveryCd,
                 skuColorRus,
                 skuComposition,
@@ -233,10 +234,6 @@ public class CDDataValidator {
 
     private BigDecimal decimalValueOrZero(DWHParseResult<BigDecimal> result) {
         return result.value() != null ? result.value() : BigDecimal.ZERO;
-    }
-
-    private Integer integerValueOrZero(DWHParseResult<Integer> result) {
-        return result.value() != null ? result.value() : 0;
     }
 
     private CDDataValidationError parseError(

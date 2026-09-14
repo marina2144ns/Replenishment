@@ -32,6 +32,7 @@ class CDDataTargetRepositoryTest {
         assertTrue(publishSql.contains("insert into dbo.cd_data"));
         assertTrue(publishSql.contains("select loadsessionid, nazvanie, god"));
         assertTrue(publishSql.contains("from dbo.cd_data_stage where loadsessionid = ?"));
+        assertEquals(2, occurrences(publishSql, "plan_rub"));
         assertFalse(publishSql.contains("select *"));
         assertFalse(publishSql.contains("excelrownum"));
         assertFalse(publishSql.contains("createdat"));
@@ -69,6 +70,10 @@ class CDDataTargetRepositoryTest {
 
     private static String normalize(String sql) {
         return sql.replaceAll("\\s+", " ").trim().toLowerCase();
+    }
+
+    private static int occurrences(String value, String token) {
+        return (value.length() - value.replace(token, "").length()) / token.length();
     }
 
     private static final class RecordingJdbc {

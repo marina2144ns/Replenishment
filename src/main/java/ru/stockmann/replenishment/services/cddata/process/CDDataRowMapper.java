@@ -54,7 +54,7 @@ public class CDDataRowMapper {
                 parseDecimal(row.salesDiscount(), "salesDiscount"),
                 parseDecimal(row.stockStoresPcs(), "stockStoresPcs"),
                 parseDecimal(row.stockStoresDd(), "stockStoresDd"),
-                parseInteger(row.planRub(), "planRub"),
+                parseDecimal(row.planRub(), "planRub"),
                 parser.cleanText(row.draiveryCd()),
                 parser.cleanText(row.skuColorRus()),
                 parser.cleanText(row.skuComposition()),

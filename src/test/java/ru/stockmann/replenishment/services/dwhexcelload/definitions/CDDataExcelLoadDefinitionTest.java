@@ -96,10 +96,8 @@ class CDDataExcelLoadDefinitionTest {
         definition.columns().stream()
                 .filter(column -> ZERO_METRICS.contains(column.rawColumnName()))
                 .forEach(column -> {
-                    DWHExcelValueKind expectedKind = "plan_rub".equals(column.rawColumnName())
-                            ? DWHExcelValueKind.INT
-                            : DWHExcelValueKind.DECIMAL;
-                    assertEquals(expectedKind, column.valueKind(), column.rawColumnName());
+                    assertEquals(DWHExcelValueKind.DECIMAL,
+                            column.valueKind(), column.rawColumnName());
                     assertEquals(false, column.required(), column.rawColumnName());
                     assertEquals(DWHExcelNullHandling.ZERO, column.nullHandling(), column.rawColumnName());
                 });

@@ -142,7 +142,7 @@ public class CDDataStageRepository {
         setNullableDecimal(ps, 29, row.salesDiscount());
         setNullableDecimal(ps, 30, row.stockStoresPcs());
         setNullableDecimal(ps, 31, row.stockStoresDd());
-        setNullableInteger(ps, 32, row.planRub());
+        setNullableDecimal(ps, 32, row.planRub());
         setNullableString(ps, 33, row.draiveryCd());
         setNullableString(ps, 34, row.skuColorRus());
         setNullableString(ps, 35, row.skuComposition());

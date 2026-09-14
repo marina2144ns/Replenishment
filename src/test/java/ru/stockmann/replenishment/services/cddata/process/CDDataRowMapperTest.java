@@ -48,7 +48,7 @@ class CDDataRowMapperTest {
         assertEquals(new BigDecimal("10.00"), target.salesDiscount());
         assertEquals(new BigDecimal("3.00"), target.stockStoresPcs());
         assertEquals(new BigDecimal("4.00"), target.stockStoresDd());
-        assertEquals(123, target.planRub());
+        assertEquals(new BigDecimal("123.00"), target.planRub());
         assertEquals("Driver", target.draiveryCd());
         assertEquals("Color", target.skuColorRus());
         assertEquals("Composition", target.skuComposition());
@@ -101,6 +101,34 @@ class CDDataRowMapperTest {
         assertTrue(exception.getMessage().contains("field [god]"));
         assertTrue(exception.getMessage().contains("INVALID_INTEGER"));
         assertTrue(exception.getMessage().contains("originalValue=[12.5]"));
+    }
+
+    @Test
+    void mapsPlanRubUsingStandardDecimalRules() {
+        assertEquals(new BigDecimal("123.45"),
+                mapper.toTargetRow(rowBuilder().planRub("123,45").build()).planRub());
+        assertEquals(new BigDecimal("1234.56"),
+                mapper.toTargetRow(rowBuilder().planRub("1 234,56").build()).planRub());
+        assertEquals(new BigDecimal("123.46"),
+                mapper.toTargetRow(rowBuilder().planRub("123.456").build()).planRub());
+    }
+
+    @Test
+    void invalidPlanRubContainsDecimalParserDetails() {
+        IllegalStateException invalid = assertThrows(
+                IllegalStateException.class,
+                () -> mapper.toTargetRow(rowBuilder().planRub("bad").build())
+        );
+        IllegalStateException overflow = assertThrows(
+                IllegalStateException.class,
+                () -> mapper.toTargetRow(rowBuilder()
+                        .planRub("9999999999999999.995")
+                        .build())
+        );
+
+        assertTrue(invalid.getMessage().contains("field [planRub]"));
+        assertTrue(invalid.getMessage().contains("INVALID_DECIMAL"));
+        assertTrue(overflow.getMessage().contains("NUMERIC_OVERFLOW"));
     }
 
     @Test

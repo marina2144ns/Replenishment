@@ -46,7 +46,7 @@ CREATE TABLE dbo.CD_data (
                              stock_stores_dd         DECIMAL(18,2)        NOT NULL,
 
     -- План
-                             plan_rub                INT                  NOT NULL,
+                             plan_rub                DECIMAL(18,2)        NOT NULL,
 
     -- Доп. аналитика
                              draivery_cd             NVARCHAR(255)        NULL,
@@ -185,7 +185,7 @@ CREATE TABLE dbo.CD_data_stage (
                                    stock_stores_dd         DECIMAL(18,2)        NOT NULL,
 
     -- План
-                                   plan_rub                INT                  NOT NULL,
+                                   plan_rub                DECIMAL(18,2)        NOT NULL,
 
     -- Доп. аналитика
                                    draivery_cd             NVARCHAR(255)        NULL,

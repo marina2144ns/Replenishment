@@ -35,6 +35,7 @@ class CDDataStageRepositoryTest {
         assertEquals("setDate:7:2025-01-31", jdbc.calls.get(6));
         assertEquals("setLong:19:123", jdbc.calls.get(18));
         assertEquals("setBigDecimal:21:1.25", jdbc.calls.get(20));
+        assertEquals("setBigDecimal:32:100.25", jdbc.calls.get(31));
         assertEquals("setLong:40:99", jdbc.calls.get(39));
         assertEquals(1, jdbc.addBatchCalls);
         assertEquals(1, jdbc.executeBatchCalls);
@@ -48,6 +49,19 @@ class CDDataStageRepositoryTest {
         new CDDataStageRepository().insertBatch(jdbc.connection(), 10L, List.of(stageRow(null)));
 
         assertEquals("setNull:2:" + Types.BIGINT, jdbc.calls.get(1));
+    }
+
+    @Test
+    void nullablePlanRubUsesDecimalBinding() {
+        RecordingJdbc jdbc = new RecordingJdbc(new int[]{1});
+
+        new CDDataStageRepository().insertBatch(
+                jdbc.connection(),
+                10L,
+                List.of(stageRow(25L, null))
+        );
+
+        assertEquals("setNull:32:" + Types.DECIMAL, jdbc.calls.get(31));
     }
 
     @Test
@@ -76,13 +90,18 @@ class CDDataStageRepositoryTest {
     }
 
     private static CDDataStageRow stageRow(Long excelRowNum) {
+        return stageRow(excelRowNum, new BigDecimal("100.25"));
+    }
+
+    private static CDDataStageRow stageRow(Long excelRowNum, BigDecimal planRub) {
         BigDecimal decimal = new BigDecimal("1.25");
         return new CDDataStageRow(
                 10L, excelRowNum, "name", 2025, 1, 31, Date.valueOf("2025-01-31"),
                 "channel", "store", "division", "department", "subDepartment", "brand", "tm",
                 "node", "section", "group", "campaign", 123L, "phase",
                 decimal, decimal, decimal, decimal, decimal, decimal, decimal, decimal, decimal,
-                decimal, decimal, 100, "drivers", "color", "composition", "supplier", "sku",
+                decimal, decimal, planRub,
+                "drivers", "color", "composition", "supplier", "sku",
                 "collection", "comment", 99L
         );
     }

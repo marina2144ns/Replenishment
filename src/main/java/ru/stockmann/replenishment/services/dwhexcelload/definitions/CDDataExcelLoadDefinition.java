@@ -117,7 +117,7 @@ public class CDDataExcelLoadDefinition implements DWHExcelLoadDefinition {
                 DWHExcelColumns.decimal(28, "Stock Stores, DDP", "stock_stores_dd", "stock_stores_dd",
                         50, false, DWHExcelNullHandling.ZERO),
 
-                DWHExcelColumns.intNumber(29, "Plan, rub", "plan_rub", "plan_rub",
+                DWHExcelColumns.decimal(29, "Plan, rub", "plan_rub", "plan_rub",
                         50, false, DWHExcelNullHandling.ZERO),
 
                 DWHExcelColumns.text(30, "Драйверы CD", "draivery_cd", "draivery_cd",

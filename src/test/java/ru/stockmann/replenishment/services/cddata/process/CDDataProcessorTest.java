@@ -35,7 +35,7 @@ class CDDataProcessorTest {
         )) {
             assertEquals(0, value.compareTo(BigDecimal.ZERO));
         }
-        assertEquals(0, row.planRub());
+        assertEquals(0, row.planRub().compareTo(BigDecimal.ZERO));
     }
 
     @Test

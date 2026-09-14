@@ -34,7 +34,7 @@ public record CDDataTargetRow(
         BigDecimal salesDiscount,
         BigDecimal stockStoresPcs,
         BigDecimal stockStoresDd,
-        Integer planRub,
+        BigDecimal planRub,
         String draiveryCd,
         String skuColorRus,
         String skuComposition,
