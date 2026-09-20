@@ -29,6 +29,9 @@ public class CDEcomBulkLoader extends AbstractDWHExcelLoader {
         return new DWHExcelLoadSessionResult(
                 loadSessionId,
                 result.success(),
+                result.totalRows(),
+                result.loadedRows(),
+                result.errorRows(),
                 result.message()
         );
     }

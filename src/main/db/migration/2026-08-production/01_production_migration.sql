@@ -263,6 +263,19 @@ GO
    6. Deletion metadata
    ============================================================================ */
 
+IF COL_LENGTH(N'dbo.DWH_Excel_Load_Session', N'TotalRows') IS NULL
+    ALTER TABLE dbo.DWH_Excel_Load_Session ADD TotalRows BIGINT NULL;
+GO
+IF COL_LENGTH(N'dbo.DWH_Excel_Load_Session', N'LoadedRows') IS NULL
+    ALTER TABLE dbo.DWH_Excel_Load_Session ADD LoadedRows BIGINT NULL;
+GO
+IF COL_LENGTH(N'dbo.DWH_Excel_Load_Session', N'ErrorRows') IS NULL
+    ALTER TABLE dbo.DWH_Excel_Load_Session ADD ErrorRows BIGINT NULL;
+GO
+IF COL_LENGTH(N'dbo.DWH_Excel_Load_Session', N'RequestedBy') IS NULL
+    ALTER TABLE dbo.DWH_Excel_Load_Session ADD RequestedBy NVARCHAR(100) NULL;
+GO
+
 IF COL_LENGTH(N'dbo.DWH_Excel_Load_Session', N'DeleteMonth') IS NULL
     ALTER TABLE dbo.DWH_Excel_Load_Session ADD DeleteMonth INT NULL;
 GO

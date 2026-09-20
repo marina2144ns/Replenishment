@@ -8,6 +8,7 @@ import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelAsyncLoadSe
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDataDeleteResult;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadRequest;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadResult;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHRequestedBy;
 import ru.stockmann.replenishment.services.weeklydata.process.WeeklyDataDeletionService;
 
 import java.util.Map;
@@ -39,7 +40,9 @@ public class WeeklyDataController {
                     .body(DWHExcelLoadResult.error(null, "filePath is empty"));
         }
 
-        DWHExcelLoadResult result = bulkLoader.acceptFile(req.getFilePath());
+        DWHExcelLoadResult result = req.getRequestedBy() == null
+                ? bulkLoader.acceptFile(req.getFilePath())
+                : bulkLoader.acceptFile(req.getFilePath(), req.getRequestedBy());
 
         if ("OK".equals(result.status()) && result.loadSessionId() != null) {
             asyncLoadService.startAsync(
@@ -64,7 +67,10 @@ public class WeeklyDataController {
         if (year == null || week == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "year and week are required"));
         }
-        return ResponseEntity.ok(deletionService.deleteByPeriod(year, week));
+        String requestedBy = DWHRequestedBy.fromCurrentRequest();
+        return ResponseEntity.ok(requestedBy == null
+                ? deletionService.deleteByPeriod(year, week)
+                : deletionService.deleteByPeriod(year, week, requestedBy));
     }
 
     @DeleteMapping("/session")
@@ -72,7 +78,10 @@ public class WeeklyDataController {
         if (loadSessionId == null || loadSessionId <= 0) {
             return ResponseEntity.badRequest().body(Map.of("error", "loadSessionId must be positive"));
         }
-        DWHDataDeleteResult result = deletionService.deleteByLoadSessionId(loadSessionId);
+        String requestedBy = DWHRequestedBy.fromCurrentRequest();
+        DWHDataDeleteResult result = requestedBy == null
+                ? deletionService.deleteByLoadSessionId(loadSessionId)
+                : deletionService.deleteByLoadSessionId(loadSessionId, requestedBy);
         return ResponseEntity.ok(result);
     }
 }

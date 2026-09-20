@@ -25,6 +25,10 @@ CREATE TABLE dbo.DWH_Excel_Load_Session
     DeleteParameter2Name NVARCHAR(50) NULL,
     DeleteParameter2Value NVARCHAR(1000) NULL,
     DeletedRows     BIGINT NULL,
+    TotalRows       BIGINT NULL,
+    LoadedRows      BIGINT NULL,
+    ErrorRows       BIGINT NULL,
+    RequestedBy     NVARCHAR(100) NULL,
 
     Status          NVARCHAR(30) NOT NULL
         CONSTRAINT DF_DWH_Excel_Load_Session_Status DEFAULT ('RUNNING'),

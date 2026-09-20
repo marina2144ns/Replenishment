@@ -21,13 +21,13 @@ public class StoreTurnoverProcessor {
             if(!sessions.existsById(id))return result(id,false,0,0,0,0,"Load session not found or has unexpected LoadTypeCode");
             validated=true;cleanup(id);long last=StoreTurnoverRawRepository.INITIAL_LAST_RAW_ID;
             while(true){List<StoreTurnoverRawRow> chunk=raw.findChunk(id,last);if(chunk.isEmpty())break;
-                List<StoreTurnoverStageRow> valid=new ArrayList<>();List<StoreTurnoverValidationError> invalid=new ArrayList<>();
-                for(StoreTurnoverRawRow row:chunk){StoreTurnoverRowValidationResult r=validator.validateAndMap(row);if(r.valid())valid.add(r.stageRow());else invalid.addAll(r.errors());}
-                write(id,valid,invalid);total+=chunk.size();staged+=valid.size();errorCount+=invalid.size();last=chunk.get(chunk.size()-1).id();
+                List<StoreTurnoverStageRow> valid=new ArrayList<>();List<StoreTurnoverValidationError> invalid=new ArrayList<>();long invalidRows=0;
+                for(StoreTurnoverRawRow row:chunk){StoreTurnoverRowValidationResult r=validator.validateAndMap(row);if(r.valid())valid.add(r.stageRow());else{invalidRows++;invalid.addAll(r.errors());}}
+                write(id,valid,invalid);total+=chunk.size();staged+=valid.size();errorCount+=invalidRows;last=chunk.get(chunk.size()-1).id();
             }
-            if(errorCount>0)return result(id,false,total,staged,0,errorCount,"Validation failed; target was not changed");
+            if(errorCount>0)return result(id,false,total,staged,0,errorCount,null);
             if(staged!=total)throw new IllegalStateException("StoreTurnover processing counter mismatch");
-            long loaded=publish(id,staged);return result(id,true,total,staged,loaded,0,"StoreTurnover processed and published successfully");
+            long loaded=publish(id,staged);return result(id,true,total,staged,loaded,0,null);
         }catch(RuntimeException e){if(validated)errors.insertBestEffort(new StoreTurnoverValidationError(id,0L,null,"PROCESSING",null,"UNEXPECTED_PROCESSING_ERROR",e.getMessage(),"Unexpected processing error: "+e.getMessage()));return result(id,false,total,staged,0,errorCount+1,e.getMessage());}
     }
     private void cleanup(long id){transaction(c->{stage.deleteByLoadSessionId(c,id);errors.deleteByLoadSessionId(c,id);});}

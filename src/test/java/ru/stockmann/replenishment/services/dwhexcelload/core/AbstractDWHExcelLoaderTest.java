@@ -7,7 +7,9 @@ import ru.stockmann.replenishment.services.dwhexcelload.definitions.WeeklyDataEx
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.sql.PreparedStatement;
+import java.sql.Connection;
 import java.sql.SQLException;
+import javax.sql.DataSource;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +19,32 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class AbstractDWHExcelLoaderTest {
+
+    @Test
+    void commonCompletionPersistsStatisticsAndBuildsMessages() throws SQLException {
+        RecordingStatement recording = new RecordingStatement();
+        PreparedStatement statement = recording.proxy();
+        Connection connection = (Connection) Proxy.newProxyInstance(
+                getClass().getClassLoader(), new Class<?>[]{Connection.class},
+                (proxy, method, args) -> "prepareStatement".equals(method.getName())
+                        ? statement : defaultValue(method.getReturnType()));
+        DataSource dataSource = (DataSource) Proxy.newProxyInstance(
+                getClass().getClassLoader(), new Class<?>[]{DataSource.class},
+                (proxy, method, args) -> "getConnection".equals(method.getName())
+                        ? connection : defaultValue(method.getReturnType()));
+
+        TestLoader loader = new TestLoader(dataSource);
+        DWHExcelLoadSessionResult result = new DWHExcelLoadSessionResult(
+                10L, true, 7300L, 7300L, 0L, null);
+        loader.finish(result, "SUCCESS");
+
+        assertEquals(7300L, recording.values.get(1));
+        assertEquals(7300L, recording.values.get(2));
+        assertEquals(0L, recording.values.get(3));
+        assertEquals("Success. Total raw rows: 7300. Loaded rows: 7300. Error rows: 0.",
+                recording.values.get(4));
+        assertEquals(10L, recording.values.get(5));
+    }
 
     @Test
     void bindRawRowBindsExcelRowNumAsBigint() throws SQLException {
@@ -128,6 +156,10 @@ class AbstractDWHExcelLoaderTest {
             super(null, new TestDefinition());
         }
 
+        private TestLoader(DataSource dataSource) {
+            super(dataSource, new TestDefinition());
+        }
+
         private TestLoader(DWHExcelLoadDefinition definition) {
             super(null, definition);
         }
@@ -138,6 +170,11 @@ class AbstractDWHExcelLoaderTest {
 
         private ExcelRowData normalize(int rowNum, String[] row) {
             return normalizeRow(rowNum, row);
+        }
+
+        private void finish(DWHExcelLoadSessionResult result, String status) {
+            finishLoadSession(result.loadSessionId(), status, result.totalRows(), result.loadedRows(),
+                    result.errorRows(), buildProcessingMessage(result.success(), result));
         }
     }
 

@@ -25,6 +25,9 @@ public class WeeklyDataBulkLoader extends AbstractDWHExcelLoader {
         return new DWHExcelLoadSessionResult(
                 loadSessionId,
                 result.success(),
+                result.totalRows(),
+                result.loadedRows(),
+                result.errorRows(),
                 result.message()
         );
     }

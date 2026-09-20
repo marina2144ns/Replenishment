@@ -94,6 +94,7 @@ public class WeeklyDataProcessor {
                 long chunkStartedAt = System.nanoTime();
                 List<WeeklyDataStageRow> stageRows = new ArrayList<>(rawChunk.size());
                 List<WeeklyDataValidationError> errors = new ArrayList<>();
+                long invalidRows = 0;
 
                 phaseStartedAt = System.nanoTime();
                 log.info("WeeklyData validation and typing started. loadSessionId={}, chunkNumber={}, rows={}",
@@ -103,6 +104,7 @@ public class WeeklyDataProcessor {
                     if (result.valid()) {
                         stageRows.add(result.stageRow());
                     } else {
+                        invalidRows++;
                         errors.addAll(result.errors());
                     }
                 }
@@ -116,7 +118,8 @@ public class WeeklyDataProcessor {
                 lastRawId = rawChunk.get(rawChunk.size() - 1).rawId();
                 totalRows += rawChunk.size();
                 stagedRows += stageRows.size();
-                errorRows += errors.size();
+                // Session statistics count invalid source rows, not generated error records.
+                errorRows += invalidRows;
 
                 log.info("WeeklyData chunk completed. loadSessionId={}, chunkNumber={}, lastRawId={}, "
                                 + "chunkRows={}, cumulativeTotalRows={}, cumulativeStagedRows={}, "
@@ -143,7 +146,7 @@ public class WeeklyDataProcessor {
                         stagedRows,
                         0,
                         errorRows,
-                        "Validation failed; target was not changed"
+                        null
                 );
             }
 
@@ -163,7 +166,7 @@ public class WeeklyDataProcessor {
                     stagedRows,
                     loadedRows,
                     errorRows,
-                    "WeeklyData load session processed and published successfully"
+                    null
             );
         } catch (RuntimeException e) {
             insertUnexpectedProcessingError(loadSessionId, e);

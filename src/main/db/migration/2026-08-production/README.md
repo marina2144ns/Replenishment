@@ -11,7 +11,7 @@ The migration brings the existing production database to the current contracts f
 1. `Weekly_data` / `Weekly_data_stage` zero-metric contract.
 2. `CD_data` / `CD_data_stage` required delete keys and zero-metric contract.
 3. `CD_ecom` / `CD_ecom_stage` required delete keys and zero-metric contract.
-4. `DWH_Excel_Load_Session` deletion metadata.
+4. `DWH_Excel_Load_Session` processing statistics, `RequestedBy` and deletion metadata.
 5. `DWH_Excel_Load_Error` lookup index.
 6. Required CDData/CDEcom delete-key indexes.
 7. `StoreTurnover` v2 coexistence migration, including `StoreTurnover_raw`, `StoreTurnover_stage`, `LoadSessionId`, `RawRowId`, foreign keys and indexes.
@@ -67,7 +67,7 @@ Verification must show:
 - CDData zero metrics are `NOT NULL` in target and stage.
 - CDEcom `name/year/season/day` are `NOT NULL` in target and stage.
 - CDEcom zero metrics are `NOT NULL` in target and stage.
-- current deletion metadata columns exist in `DWH_Excel_Load_Session`.
+- processing statistics, `RequestedBy` and current deletion metadata columns exist in `DWH_Excel_Load_Session`.
 - `IX_DWH_Excel_Load_Error_LoadSessionId` exists.
 - `IX_CD_data_nazvanie_den`, `IX_CD_data_god_sezon`, `IX_CD_ecom_name_day`, `IX_CD_ecom_year_season` exist and are enabled.
 - `StoreTurnover_raw` and `StoreTurnover_stage` exist with the v2 columns.

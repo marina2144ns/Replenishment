@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -173,8 +174,21 @@ class SalesByChannelBulkLoaderTest {
         assertEquals("SalesByChannel", dataSource.parameters.get(2));
         assertEquals("source.xlsx", dataSource.parameters.get(3));
         assertEquals("/tmp/source.xlsx", dataSource.parameters.get(4));
-        assertEquals("QUEUED", dataSource.parameters.get(5));
+        assertEquals(Types.NVARCHAR, dataSource.parameters.get(5));
+        assertEquals("QUEUED", dataSource.parameters.get(6));
         assertEquals(1, dataSource.commits);
+    }
+
+    @Test
+    void commonSessionCreationPersistsRequestedBy() {
+        SessionRecordingDataSource dataSource = new SessionRecordingDataSource();
+        TestLoader loader = new TestLoader(dataSource);
+
+        DWHExcelLoadSessionResult result = loader.createSession("/tmp/source.xlsx", "one-c-user");
+
+        assertTrue(result.success());
+        assertEquals("one-c-user", dataSource.parameters.get(5));
+        assertEquals("QUEUED", dataSource.parameters.get(6));
     }
 
     @Test
@@ -239,7 +253,7 @@ class SalesByChannelBulkLoaderTest {
                 "status:RUNNING",
                 "raw",
                 "processor:55",
-                "finish:SUCCESS:published 2 rows"
+                "finish:SUCCESS:Success. Total raw rows: 2. Loaded rows: 2. Error rows: 0."
         ), events);
         assertEquals(1, processor.calls);
     }
@@ -248,7 +262,7 @@ class SalesByChannelBulkLoaderTest {
     void validationOrEmptyFailureBecomesSessionErrorWithoutSecondProcessorCall() {
         List<String> events = new ArrayList<>();
         EventProcessor processor = new EventProcessor(events, new SalesByChannelProcessResult(
-                56L, false, 1, 0, 0, 1, "Validation failed; target was not changed"
+                56L, false, 1, 0, 0, 1, null
         ));
         FlowLoader loader = new FlowLoader(processor, events, false);
 
@@ -258,7 +272,7 @@ class SalesByChannelBulkLoaderTest {
                 "status:RUNNING",
                 "raw",
                 "processor:56",
-                "finish:ERROR:Validation failed; target was not changed"
+                "finish:ERROR:Validation failed. Total raw rows: 1. Loaded rows: 0. Error rows: 1."
         ), events);
         assertEquals(1, processor.calls);
     }
@@ -329,6 +343,10 @@ class SalesByChannelBulkLoaderTest {
         private DWHExcelLoadSessionResult createSession(String path) {
             return createLoadSession(path);
         }
+
+        private DWHExcelLoadSessionResult createSession(String path, String requestedBy) {
+            return createLoadSession(path, requestedBy);
+        }
     }
 
     private static final class FakeProcessor extends SalesByChannelProcessor {
@@ -393,6 +411,12 @@ class SalesByChannelBulkLoaderTest {
 
         @Override
         protected void finishLoadSession(Long loadSessionId, String status, String message) {
+            events.add("finish:" + status + ":" + message);
+        }
+
+        @Override
+        protected void finishLoadSession(Long loadSessionId, String status, Long totalRows,
+                                         Long loadedRows, Long errorRows, String message) {
             events.add("finish:" + status + ":" + message);
         }
 

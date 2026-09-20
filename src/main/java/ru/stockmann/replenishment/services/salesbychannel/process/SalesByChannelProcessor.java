@@ -74,11 +74,13 @@ public class SalesByChannelProcessor {
                 long chunkStartedAt = System.nanoTime();
                 List<SalesByChannelStageRow> stageChunk = new ArrayList<>(rawChunk.size());
                 List<SalesByChannelValidationError> errorChunk = new ArrayList<>();
+                long invalidRows = 0;
                 for (SalesByChannelRawRow rawRow : rawChunk) {
                     SalesByChannelRowValidationResult validation = validator.validateAndMap(rawRow);
                     if (validation.valid()) {
                         stageChunk.add(validation.stageRow());
                     } else {
+                        invalidRows++;
                         errorChunk.addAll(validation.errors());
                     }
                 }
@@ -91,7 +93,8 @@ public class SalesByChannelProcessor {
                         .orElseThrow();
                 totalRows += rawChunk.size();
                 stagedRows += stageChunk.size();
-                errorRows += errorChunk.size();
+                // Session statistics count invalid source rows, not generated error records.
+                errorRows += invalidRows;
                 log.info("SalesByChannel chunk completed. loadSessionId={}, chunkNumber={}, lastRawId={}, "
                                 + "chunkRows={}, cumulativeTotalRows={}, cumulativeStagedRows={}, "
                                 + "cumulativeErrorRows={}, elapsedMs={}, usedMemoryMb={}",
@@ -101,7 +104,7 @@ public class SalesByChannelProcessor {
 
             if (errorRows > 0) {
                 return result(loadSessionId, false, totalRows, stagedRows, 0, errorRows,
-                        "Validation failed; target was not changed");
+                        null);
             }
             if (stagedRows != totalRows) {
                 throw new IllegalStateException(
@@ -112,7 +115,7 @@ public class SalesByChannelProcessor {
 
             loadedRows = publish(loadSessionId, stagedRows);
             return result(loadSessionId, true, totalRows, stagedRows, loadedRows, 0,
-                    "SalesByChannel processed and published successfully");
+                    null);
         } catch (RuntimeException e) {
             errorRows++;
             if (sessionValidated) {

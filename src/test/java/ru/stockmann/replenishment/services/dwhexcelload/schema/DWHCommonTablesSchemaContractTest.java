@@ -38,6 +38,10 @@ class DWHCommonTablesSchemaContractTest {
                 "deleteparameter2name",
                 "deleteparameter2value",
                 "deletedrows",
+                "totalrows",
+                "loadedrows",
+                "errorrows",
+                "requestedby",
                 "status",
                 "startedat",
                 "finishedat",
@@ -48,6 +52,10 @@ class DWHCommonTablesSchemaContractTest {
         assertColumn(columns, "servicename", "nvarchar(200)", "not null");
         assertColumn(columns, "filename", "nvarchar(500)", "null");
         assertColumn(columns, "filepath", "nvarchar(1000)", "null");
+        assertColumn(columns, "totalrows", "bigint", "null");
+        assertColumn(columns, "loadedrows", "bigint", "null");
+        assertColumn(columns, "errorrows", "bigint", "null");
+        assertColumn(columns, "requestedby", "nvarchar(100)", "null");
         assertColumn(columns, "operationtype", "nvarchar(30)", "not null", "default ('load')");
         assertColumn(columns, "operationmode", "nvarchar(30)", "null");
         assertColumn(columns, "deleteyear", "int", "null");

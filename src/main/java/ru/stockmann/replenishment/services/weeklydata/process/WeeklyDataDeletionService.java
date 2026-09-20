@@ -30,18 +30,26 @@ public class WeeklyDataDeletionService {
     }
 
     public DWHDataDeleteResult deleteByPeriod(short year, short week) {
+        return deleteByPeriod(year, week, null);
+    }
+
+    public DWHDataDeleteResult deleteByPeriod(short year, short week, String requestedBy) {
         return delete(
-                DWHDeletionSession.byPeriod(DWHExcelLoadType.WEEKLY_DATA, year, week),
+                DWHDeletionSession.byPeriod(DWHExcelLoadType.WEEKLY_DATA, year, week).withRequestedBy(requestedBy),
                 connection -> repository.deleteByPeriod(connection, year, week)
         );
     }
 
     public DWHDataDeleteResult deleteByLoadSessionId(long loadSessionId) {
+        return deleteByLoadSessionId(loadSessionId, null);
+    }
+
+    public DWHDataDeleteResult deleteByLoadSessionId(long loadSessionId, String requestedBy) {
         if (loadSessionId <= 0) {
             throw new IllegalArgumentException("loadSessionId must be positive");
         }
         return delete(
-                DWHDeletionSession.byLoadSession(DWHExcelLoadType.WEEKLY_DATA, loadSessionId),
+                DWHDeletionSession.byLoadSession(DWHExcelLoadType.WEEKLY_DATA, loadSessionId).withRequestedBy(requestedBy),
                 connection -> repository.deleteByLoadSessionId(connection, loadSessionId)
         );
     }

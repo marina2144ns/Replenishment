@@ -10,6 +10,7 @@ import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDataDeleteResult
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelAsyncLoadService;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadRequest;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadResult;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHRequestedBy;
 
 import java.util.Map;
 
@@ -39,7 +40,9 @@ public class CDDataController {
                     .body(DWHExcelLoadResult.error(null, "filePath is empty"));
         }
 
-        DWHExcelLoadResult result = bulkLoader.acceptFile(req.getFilePath());
+        DWHExcelLoadResult result = req.getRequestedBy() == null
+                ? bulkLoader.acceptFile(req.getFilePath())
+                : bulkLoader.acceptFile(req.getFilePath(), req.getRequestedBy());
 
         if ("OK".equals(result.status()) && result.loadSessionId() != null) {
             asyncLoadService.startAsync(
@@ -64,7 +67,10 @@ public class CDDataController {
         if (god == null || sezon == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "god and sezon are required"));
         }
-        return ResponseEntity.ok(deletionService.deleteByPeriod(god, sezon));
+        String requestedBy = DWHRequestedBy.fromCurrentRequest();
+        return ResponseEntity.ok(requestedBy == null
+                ? deletionService.deleteByPeriod(god, sezon)
+                : deletionService.deleteByPeriod(god, sezon, requestedBy));
     }
 
     @DeleteMapping("/session")
@@ -72,13 +78,17 @@ public class CDDataController {
         if (loadSessionId == null || loadSessionId <= 0) {
             return ResponseEntity.badRequest().body(Map.of("error", "loadSessionId must be positive"));
         }
-        DWHDataDeleteResult result = deletionService.deleteByLoadSessionId(loadSessionId);
+        String requestedBy = DWHRequestedBy.fromCurrentRequest();
+        DWHDataDeleteResult result = requestedBy == null
+                ? deletionService.deleteByLoadSessionId(loadSessionId)
+                : deletionService.deleteByLoadSessionId(loadSessionId, requestedBy);
         return ResponseEntity.ok(result);
     }
 
     @DeleteMapping("/nazvanie-den")
     public ResponseEntity<?> deleteByNazvanieAndDen(@RequestParam Map<String, String> parameters) {
-        if (!parameters.keySet().equals(java.util.Set.of("nazvanie", "den"))) {
+        if (!java.util.Set.of("nazvanie", "den").equals(parameters.keySet())
+                && !java.util.Set.of("nazvanie", "den", "requestedBy").equals(parameters.keySet())) {
             return ResponseEntity.badRequest().body(
                     Map.of("error", "exactly nazvanie and den are required")
             );
@@ -91,7 +101,10 @@ public class CDDataController {
         }
         try {
             int den = Integer.parseInt(parameters.get("den"));
-            return ResponseEntity.ok(deletionService.deleteByNazvanieAndDen(nazvanie, den));
+            String requestedBy = parameters.get("requestedBy");
+            return ResponseEntity.ok(requestedBy == null
+                    ? deletionService.deleteByNazvanieAndDen(nazvanie, den)
+                    : deletionService.deleteByNazvanieAndDen(nazvanie, den, requestedBy));
         } catch (NumberFormatException e) {
             return ResponseEntity.badRequest().body(Map.of("error", "den must be an integer"));
         }

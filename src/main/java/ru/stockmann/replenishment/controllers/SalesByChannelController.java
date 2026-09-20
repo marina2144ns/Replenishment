@@ -12,6 +12,7 @@ import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDataDeleteResult
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelAsyncLoadService;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadRequest;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadResult;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHRequestedBy;
 import ru.stockmann.replenishment.services.salesbychannel.SalesByChannelBulkLoader;
 import ru.stockmann.replenishment.services.salesbychannel.process.SalesByChannelDeletionService;
 
@@ -43,7 +44,9 @@ public class SalesByChannelController {
                     .body(DWHExcelLoadResult.error(null, "filePath is empty"));
         }
 
-        DWHExcelLoadResult result = bulkLoader.acceptFile(request.getFilePath());
+        DWHExcelLoadResult result = request.getRequestedBy() == null
+                ? bulkLoader.acceptFile(request.getFilePath())
+                : bulkLoader.acceptFile(request.getFilePath(), request.getRequestedBy());
         if ("OK".equals(result.status()) && result.loadSessionId() != null) {
             asyncLoadService.startAsync(
                     bulkLoader,
@@ -65,13 +68,17 @@ public class SalesByChannelController {
                     Map.of("error", "loadSessionId must be positive")
             );
         }
-        DWHDataDeleteResult result = deletionService.deleteByLoadSessionId(loadSessionId);
+        String requestedBy = DWHRequestedBy.fromCurrentRequest();
+        DWHDataDeleteResult result = requestedBy == null
+                ? deletionService.deleteByLoadSessionId(loadSessionId)
+                : deletionService.deleteByLoadSessionId(loadSessionId, requestedBy);
         return ResponseEntity.ok(result);
     }
 
     @DeleteMapping("/year-month")
     public ResponseEntity<?> deleteByYearAndMonth(@RequestParam Map<String, String> parameters) {
-        if (!parameters.keySet().equals(java.util.Set.of("year", "month"))) {
+        if (!java.util.Set.of("year", "month").equals(parameters.keySet())
+                && !java.util.Set.of("year", "month", "requestedBy").equals(parameters.keySet())) {
             return ResponseEntity.badRequest().body(
                     Map.of("error", "exactly year and month are required")
             );
@@ -84,6 +91,9 @@ public class SalesByChannelController {
                     Map.of("error", "year and month must not be blank or longer than 50 characters")
             );
         }
-        return ResponseEntity.ok(deletionService.deleteByYearAndMonth(year, month));
+        String requestedBy = parameters.get("requestedBy");
+        return ResponseEntity.ok(requestedBy == null
+                ? deletionService.deleteByYearAndMonth(year, month)
+                : deletionService.deleteByYearAndMonth(year, month, requestedBy));
     }
 }

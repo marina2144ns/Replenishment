@@ -47,7 +47,8 @@ class DWHDeletionSessionRepositoryTest {
                 "setNull:13:" + Types.NVARCHAR,
                 "setNull:14:" + Types.NVARCHAR,
                 "setNull:15:" + Types.NVARCHAR,
-                "setString:16:RUNNING"
+                "setNull:16:" + Types.NVARCHAR,
+                "setString:17:RUNNING"
         ), jdbc.calls);
     }
 
@@ -66,7 +67,8 @@ class DWHDeletionSessionRepositoryTest {
         assertEquals("setNull:7:" + Types.INTEGER, jdbc.calls.get(6));
         assertEquals("setString:8:FY2025", jdbc.calls.get(7));
         assertEquals("setString:9:April", jdbc.calls.get(8));
-        assertEquals("setString:16:RUNNING", jdbc.calls.get(15));
+        assertEquals("setNull:16:" + Types.NVARCHAR, jdbc.calls.get(15));
+        assertEquals("setString:17:RUNNING", jdbc.calls.get(16));
     }
 
     @Test
@@ -86,7 +88,8 @@ class DWHDeletionSessionRepositoryTest {
         assertEquals("setString:13:Main", jdbc.calls.get(12));
         assertEquals("setString:14:den", jdbc.calls.get(13));
         assertEquals("setString:15:15", jdbc.calls.get(14));
-        assertEquals("setString:16:RUNNING", jdbc.calls.get(15));
+        assertEquals("setNull:16:" + Types.NVARCHAR, jdbc.calls.get(15));
+        assertEquals("setString:17:RUNNING", jdbc.calls.get(16));
     }
 
     @Test
@@ -105,6 +108,20 @@ class DWHDeletionSessionRepositoryTest {
         assertEquals("setNull:6:" + Types.INTEGER, jdbc.calls.get(5));
         assertEquals("setNull:7:" + Types.INTEGER, jdbc.calls.get(6));
         assertEquals("setLong:10:10521", jdbc.calls.get(9));
+    }
+
+    @Test
+    void createsDeleteSessionWithRequestedBy() {
+        RecordingJdbc jdbc = new RecordingJdbc(7007L, 1);
+        DWHDeletionSessionRepository repository =
+                new DWHDeletionSessionRepository(jdbc.dataSource());
+
+        repository.create(DWHDeletionSession.byLoadSession(
+                DWHExcelLoadType.CD_DATA, 10521L
+        ).withRequestedBy("postman-user"));
+
+        assertEquals("setString:16:postman-user", jdbc.calls.get(15));
+        assertEquals("setString:17:RUNNING", jdbc.calls.get(16));
     }
 
     @Test

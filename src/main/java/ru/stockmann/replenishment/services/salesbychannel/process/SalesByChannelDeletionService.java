@@ -33,18 +33,26 @@ public class SalesByChannelDeletionService {
     }
 
     public DWHDataDeleteResult deleteByLoadSessionId(long loadSessionId) {
+        return deleteByLoadSessionId(loadSessionId, null);
+    }
+
+    public DWHDataDeleteResult deleteByLoadSessionId(long loadSessionId, String requestedBy) {
         if (loadSessionId <= 0) {
             throw new IllegalArgumentException("loadSessionId must be positive");
         }
         return delete(
                 DWHDeletionSession.byLoadSession(
                         DWHExcelLoadType.SALES_BY_CHANNEL, loadSessionId
-                ),
+                ).withRequestedBy(requestedBy),
                 connection -> repository.deleteByLoadSessionId(connection, loadSessionId)
         );
     }
 
     public DWHDataDeleteResult deleteByYearAndMonth(String year, String month) {
+        return deleteByYearAndMonth(year, month, null);
+    }
+
+    public DWHDataDeleteResult deleteByYearAndMonth(String year, String month, String requestedBy) {
         requireText(year, "year");
         requireText(month, "month");
         requireMaxLength(year, "year", 50);
@@ -54,7 +62,7 @@ public class SalesByChannelDeletionService {
                         DWHExcelLoadType.SALES_BY_CHANNEL,
                         year,
                         month
-                ),
+                ).withRequestedBy(requestedBy),
                 connection -> repository.deleteByYearAndMonth(connection, year, month)
         );
     }

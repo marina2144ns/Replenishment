@@ -20,9 +20,44 @@ public record DWHExcelLoadStatusResult(
         String deleteParameter2Name,
         String deleteParameter2Value,
         Long deletedRows,
+        Long totalRows,
+        Long loadedRows,
+        Long errorRows,
+        String requestedBy,
         String status,
         String message,
         String startedAt,
         String finishedAt
 ) {
+    public DWHExcelLoadStatusResult(
+            Long loadSessionId,
+            String loadTypeCode,
+            String serviceName,
+            String fileName,
+            String filePath,
+            String operationType,
+            String operationMode,
+            Integer deleteYear,
+            Integer deleteWeek,
+            Integer deleteMonth,
+            String deleteYearText,
+            String deleteMonthText,
+            Long sourceLoadSessionId,
+            String deleteCriterion,
+            String deleteParameter1Name,
+            String deleteParameter1Value,
+            String deleteParameter2Name,
+            String deleteParameter2Value,
+            Long deletedRows,
+            String status,
+            String message,
+            String startedAt,
+            String finishedAt
+    ) {
+        this(loadSessionId, loadTypeCode, serviceName, fileName, filePath, operationType,
+                operationMode, deleteYear, deleteWeek, deleteMonth, deleteYearText,
+                deleteMonthText, sourceLoadSessionId, deleteCriterion, deleteParameter1Name,
+                deleteParameter1Value, deleteParameter2Name, deleteParameter2Value, deletedRows,
+                null, null, null, null, status, message, startedAt, finishedAt);
+    }
 }

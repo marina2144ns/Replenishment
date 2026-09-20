@@ -84,6 +84,7 @@ public class CDEcomProcessor {
                 long chunkStartedAt = System.nanoTime();
                 List<CDEcomStageRow> stageRows = new ArrayList<>(rawChunk.size());
                 List<CDEcomValidationError> errors = new ArrayList<>();
+                long invalidRows = 0;
 
                 phaseStartedAt = System.nanoTime();
                 log.info("CDEcom validation and typing started. loadSessionId={}, chunkNumber={}, rows={}",
@@ -93,6 +94,7 @@ public class CDEcomProcessor {
                     if (validationResult.valid()) {
                         stageRows.add(validationResult.stageRow());
                     } else {
+                        invalidRows++;
                         errors.addAll(validationResult.errors());
                     }
                 }
@@ -106,7 +108,8 @@ public class CDEcomProcessor {
                 lastRawId = rawChunk.get(rawChunk.size() - 1).id();
                 totalRows += rawChunk.size();
                 stagedRows += stageRows.size();
-                errorRows += errors.size();
+                // Session statistics count invalid source rows, not generated error records.
+                errorRows += invalidRows;
                 log.info("CDEcom chunk completed. loadSessionId={}, chunkNumber={}, lastRawId={}, chunkRows={}, "
                                 + "cumulativeTotalRows={}, cumulativeStagedRows={}, cumulativeErrorRows={}, "
                                 + "elapsedMs={}, usedMemoryMb={}",
@@ -119,12 +122,12 @@ public class CDEcomProcessor {
                     loadSessionId, totalRows, stagedRows, errorRows);
             if (errorRows > 0) {
                 return result(loadSessionId, false, totalRows, stagedRows, 0, errorRows,
-                        "Validation failed; target was not changed");
+                        null);
             }
             validatePublishCounters(loadSessionId, totalRows, stagedRows);
             loadedRows = publish(loadSessionId, stagedRows);
             return result(loadSessionId, true, totalRows, stagedRows, loadedRows, 0,
-                    "CDEcom load session processed and published successfully");
+                    null);
         } catch (RuntimeException e) {
             log.info("CDEcom processing failed. loadSessionId={}, reason={}", loadSessionId, e.getMessage());
             insertUnexpectedProcessingError(loadSessionId, e);

@@ -87,7 +87,7 @@ class CDDataProcessorTest {
         assertEquals(4, result.totalRows());
         assertEquals(2, result.stagedRows());
         assertEquals(0, result.loadedRows());
-        assertEquals(3, result.errorRows());
+        assertEquals(2, result.errorRows());
         assertEquals(List.of(List.of(1L), List.of(3L)), context.stageRepository.insertedRawIds);
         assertEquals(List.of(List.of(2L), List.of(4L, 4L)), context.errorRepository.insertedRawIds);
         assertEquals(3, context.connection.commits);

@@ -70,6 +70,27 @@ class DWHExcelStatusServiceTest {
         assertNull(result.deleteWeek());
         assertNull(result.deleteMonth());
         assertNull(result.deletedRows());
+        assertNull(result.totalRows());
+        assertNull(result.loadedRows());
+        assertNull(result.errorRows());
+        assertNull(result.requestedBy());
+    }
+
+    @Test
+    void returnsProcessingStatisticsAndRequestedBy() {
+        Map<String, Object> row = row("SUCCESS");
+        row.put("TotalRows", 7300L);
+        row.put("LoadedRows", 7286L);
+        row.put("ErrorRows", 14L);
+        row.put("RequestedBy", "one-c-user");
+
+        DWHExcelLoadStatusResult result =
+                new DWHExcelStatusService(new FakeDataSource(row)).getStatus(10L);
+
+        assertEquals(7300L, result.totalRows());
+        assertEquals(7286L, result.loadedRows());
+        assertEquals(14L, result.errorRows());
+        assertEquals("one-c-user", result.requestedBy());
     }
 
     @Test
@@ -135,6 +156,10 @@ class DWHExcelStatusServiceTest {
         values.put("DeleteParameter2Name", null);
         values.put("DeleteParameter2Value", null);
         values.put("DeletedRows", null);
+        values.put("TotalRows", null);
+        values.put("LoadedRows", null);
+        values.put("ErrorRows", null);
+        values.put("RequestedBy", null);
         values.put("Status", status);
         values.put("Message", "message");
         values.put("StartedAt", Timestamp.valueOf(LocalDateTime.of(2026, 1, 1, 10, 0)));

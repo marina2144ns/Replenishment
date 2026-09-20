@@ -45,9 +45,25 @@ WHERE c.object_id = OBJECT_ID(N'dbo.DWH_Excel_Load_Session')
       N'OperationType', N'OperationMode', N'DeleteYear', N'DeleteWeek', N'DeleteMonth',
       N'DeleteYearText', N'DeleteMonthText', N'SourceLoadSessionId',
       N'DeleteCriterion', N'DeleteParameter1Name', N'DeleteParameter1Value',
-      N'DeleteParameter2Name', N'DeleteParameter2Value', N'DeletedRows'
+      N'DeleteParameter2Name', N'DeleteParameter2Value', N'DeletedRows',
+      N'TotalRows', N'LoadedRows', N'ErrorRows', N'RequestedBy'
   )
 ORDER BY c.column_id;
+GO
+
+IF (
+    SELECT COUNT(*)
+    FROM sys.columns c
+    WHERE c.object_id = OBJECT_ID(N'dbo.DWH_Excel_Load_Session')
+      AND (
+          (c.name IN (N'TotalRows', N'LoadedRows', N'ErrorRows')
+              AND TYPE_NAME(c.user_type_id) = N'bigint' AND c.is_nullable = 1)
+          OR
+          (c.name = N'RequestedBy' AND TYPE_NAME(c.user_type_id) = N'nvarchar'
+              AND c.max_length = 200 AND c.is_nullable = 1)
+      )
+) <> 4
+    THROW 51020, 'DWH_Excel_Load_Session statistics/RequestedBy contract is incomplete', 1;
 GO
 
 /* ============================================================================

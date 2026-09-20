@@ -30,28 +30,41 @@ public class CDEcomDeletionService {
     }
 
     public DWHDataDeleteResult deleteByPeriod(int year, int week) {
+        return deleteByPeriod(year, week, null);
+    }
+
+    public DWHDataDeleteResult deleteByPeriod(int year, int week, String requestedBy) {
         return delete(
-                DWHDeletionSession.byPeriod(DWHExcelLoadType.CD_ECOM, year, week),
+                DWHDeletionSession.byPeriod(DWHExcelLoadType.CD_ECOM, year, week).withRequestedBy(requestedBy),
                 connection -> repository.deleteByPeriod(connection, year, week)
         );
     }
 
     public DWHDataDeleteResult deleteByLoadSessionId(long loadSessionId) {
+        return deleteByLoadSessionId(loadSessionId, null);
+    }
+
+    public DWHDataDeleteResult deleteByLoadSessionId(long loadSessionId, String requestedBy) {
         if (loadSessionId <= 0) {
             throw new IllegalArgumentException("loadSessionId must be positive");
         }
         return delete(
-                DWHDeletionSession.byLoadSession(DWHExcelLoadType.CD_ECOM, loadSessionId),
+                DWHDeletionSession.byLoadSession(DWHExcelLoadType.CD_ECOM, loadSessionId).withRequestedBy(requestedBy),
                 connection -> repository.deleteByLoadSessionId(connection, loadSessionId)
         );
     }
 
     public DWHDataDeleteResult deleteByNazvanieAndDen(String nazvanie, int den) {
+        return deleteByNazvanieAndDen(nazvanie, den, null);
+    }
+
+    public DWHDataDeleteResult deleteByNazvanieAndDen(String nazvanie, int den, String requestedBy) {
         requireText(nazvanie, "nazvanie");
         requireMaxLength(nazvanie, "nazvanie", 255);
         return delete(
                 DWHDeletionSession.byCriteria(DWHExcelLoadType.CD_ECOM,
-                        "NAZVANIE_DEN", "nazvanie", nazvanie, "den", Integer.toString(den)),
+                        "NAZVANIE_DEN", "nazvanie", nazvanie, "den", Integer.toString(den))
+                        .withRequestedBy(requestedBy),
                 connection -> repository.deleteByNazvanieAndDen(connection, nazvanie, den)
         );
     }

@@ -7,6 +7,7 @@ import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDataDeleteResult
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelAsyncLoadService;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadRequest;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadResult;
+import ru.stockmann.replenishment.services.dwhexcelload.core.DWHRequestedBy;
 import ru.stockmann.replenishment.services.storeturnover.StoreTurnoverBulkLoader;
 import ru.stockmann.replenishment.services.storeturnover.process.StoreTurnoverDeletionService;
 
@@ -31,7 +32,9 @@ public class StoreTurnoverV2Controller {
         if (request == null || request.getFilePath() == null || request.getFilePath().isBlank()) {
             return ResponseEntity.badRequest().body(DWHExcelLoadResult.error(null, "filePath is empty"));
         }
-        DWHExcelLoadResult result = loader.acceptFile(request.getFilePath());
+        DWHExcelLoadResult result = request.getRequestedBy() == null
+                ? loader.acceptFile(request.getFilePath())
+                : loader.acceptFile(request.getFilePath(), request.getRequestedBy());
         if ("OK".equals(result.status()) && result.loadSessionId() != null) {
             async.startAsync(loader, result.loadSessionId(), request.getFilePath());
         }
@@ -44,7 +47,10 @@ public class StoreTurnoverV2Controller {
         if (loadSessionId == null || loadSessionId <= 0) {
             return ResponseEntity.badRequest().body(Map.of("error", "loadSessionId must be positive"));
         }
-        DWHDataDeleteResult result = deletionService.deleteByLoadSessionId(loadSessionId);
+        String requestedBy = DWHRequestedBy.fromCurrentRequest();
+        DWHDataDeleteResult result = requestedBy == null
+                ? deletionService.deleteByLoadSessionId(loadSessionId)
+                : deletionService.deleteByLoadSessionId(loadSessionId, requestedBy);
         return ResponseEntity.ok(result);
     }
 }

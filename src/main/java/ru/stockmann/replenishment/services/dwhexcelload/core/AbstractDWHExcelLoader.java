@@ -38,11 +38,18 @@ public abstract class AbstractDWHExcelLoader {
     }
 
     public DWHExcelLoadResult acceptFile(String filePath) {
+        return acceptFile(filePath, null);
+    }
+
+    public DWHExcelLoadResult acceptFile(String filePath, String requestedBy) {
 
         Long loadSessionId = null;
 
         try {
-            DWHExcelLoadSessionResult sessionResult = createLoadSession(filePath);
+            DWHExcelLoadSessionResult sessionResult = createLoadSession(
+                    filePath,
+                    DWHRequestedBy.normalizeAndValidate(requestedBy)
+            );
             loadSessionId = sessionResult.loadSessionId();
 
             if (!sessionResult.success()) {
@@ -142,13 +149,19 @@ public abstract class AbstractDWHExcelLoader {
                     finishLoadSession(
                             loadSessionId,
                             DWHExcelLoadStatus.SUCCESS.name(),
-                            processResult.message()
+                            processResult.totalRows(),
+                            processResult.loadedRows(),
+                            processResult.errorRows(),
+                            buildProcessingMessage(true, processResult)
                     );
                 } else {
                     finishLoadSession(
                             loadSessionId,
                             DWHExcelLoadStatus.ERROR.name(),
-                            processResult.message()
+                            processResult.totalRows(),
+                            processResult.loadedRows(),
+                            processResult.errorRows(),
+                            buildProcessingMessage(false, processResult)
                     );
                 }
 
@@ -215,8 +228,13 @@ public abstract class AbstractDWHExcelLoader {
 
                 boolean success = rs.getBoolean("Success");
                 String message = rs.getString("Message");
+                Long totalRows = getNullableLong(rs, "TotalRows");
+                Long loadedRows = getNullableLong(rs, "LoadedRows");
+                Long errorRows = getNullableLong(rs, "ErrorRows");
 
-                return new DWHExcelLoadSessionResult(loadSessionId, success, message);
+                return new DWHExcelLoadSessionResult(
+                        loadSessionId, success, totalRows, loadedRows, errorRows, message
+                );
             }
         }
     }
@@ -513,6 +531,10 @@ public abstract class AbstractDWHExcelLoader {
     }
 
     protected DWHExcelLoadSessionResult createLoadSession(String filePath) {
+        return createLoadSession(filePath, null);
+    }
+
+    protected DWHExcelLoadSessionResult createLoadSession(String filePath, String requestedBy) {
         Long loadSessionId = null;
         Connection c = null;
 
@@ -529,10 +551,11 @@ public abstract class AbstractDWHExcelLoader {
                     ServiceName,
                     FileName,
                     FilePath,
+                    RequestedBy,
                     Status
                 )
                 OUTPUT INSERTED.Id
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """;
 
             try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -540,7 +563,12 @@ public abstract class AbstractDWHExcelLoader {
                 ps.setString(2, definition.serviceName());
                 ps.setString(3, fileName);
                 ps.setString(4, filePath);
-                ps.setString(5, DWHExcelLoadStatus.QUEUED.name());
+                if (requestedBy == null) {
+                    ps.setNull(5, Types.NVARCHAR);
+                } else {
+                    ps.setString(5, requestedBy);
+                }
+                ps.setString(6, DWHExcelLoadStatus.QUEUED.name());
 
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
@@ -562,6 +590,17 @@ public abstract class AbstractDWHExcelLoader {
         }
     }
     protected void finishLoadSession(Long loadSessionId, String status, String message) {
+        finishLoadSession(loadSessionId, status, null, null, null, message);
+    }
+
+    protected void finishLoadSession(
+            Long loadSessionId,
+            String status,
+            Long totalRows,
+            Long loadedRows,
+            Long errorRows,
+            String message
+    ) {
         if (loadSessionId == null) {
             return;
         }
@@ -576,14 +615,20 @@ public abstract class AbstractDWHExcelLoader {
                 UPDATE dbo.DWH_Excel_Load_Session
                 SET Status = ?,
                     FinishedAt = SYSDATETIME(),
+                    TotalRows = ?,
+                    LoadedRows = ?,
+                    ErrorRows = ?,
                     Message = ?
                 WHERE Id = ?
                 """;
 
             try (PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setString(1, status);
-                ps.setString(2, message);
-                ps.setLong(3, loadSessionId);
+                setNullableLong(ps, 2, totalRows);
+                setNullableLong(ps, 3, loadedRows);
+                setNullableLong(ps, 4, errorRows);
+                ps.setString(5, message);
+                ps.setLong(6, loadSessionId);
                 ps.executeUpdate();
             }
 
@@ -601,6 +646,35 @@ public abstract class AbstractDWHExcelLoader {
         try {
             finishLoadSession(loadSessionId, DWHExcelLoadStatus.ERROR.name(), errorText);
         } catch (Exception ignored) {
+        }
+    }
+
+    protected String buildProcessingMessage(boolean success, DWHExcelLoadSessionResult result) {
+        if (result.totalRows() == null || result.loadedRows() == null || result.errorRows() == null) {
+            return result.message();
+        }
+        String prefix = success
+                ? "Success."
+                : result.message() == null ? "Validation failed." : "Processing failed.";
+        String statistics = prefix
+                + " Total raw rows: " + result.totalRows() + "."
+                + " Loaded rows: " + result.loadedRows() + "."
+                + " Error rows: " + result.errorRows() + ".";
+        return !success && result.message() != null
+                ? statistics + " " + result.message()
+                : statistics;
+    }
+
+    private Long getNullableLong(ResultSet rs, String column) throws SQLException {
+        long value = rs.getLong(column);
+        return rs.wasNull() ? null : value;
+    }
+
+    private void setNullableLong(PreparedStatement ps, int index, Long value) throws SQLException {
+        if (value == null) {
+            ps.setNull(index, Types.BIGINT);
+        } else {
+            ps.setLong(index, value);
         }
     }
 

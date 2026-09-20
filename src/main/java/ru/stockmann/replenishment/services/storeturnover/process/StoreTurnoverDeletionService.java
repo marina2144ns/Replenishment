@@ -11,8 +11,11 @@ public class StoreTurnoverDeletionService {
     public StoreTurnoverDeletionService(DataSource ds,StoreTurnoverDeletionRepository repository){this(ds,repository,new DWHDeletionSessionRepository(ds));}
     StoreTurnoverDeletionService(DataSource ds,StoreTurnoverDeletionRepository repository,DWHDeletionSessionRepository sessions){this.dataSource=ds;this.repository=repository;this.sessions=sessions;}
     public DWHDataDeleteResult deleteByLoadSessionId(long sourceSession){
+        return deleteByLoadSessionId(sourceSession,null);
+    }
+    public DWHDataDeleteResult deleteByLoadSessionId(long sourceSession,String requestedBy){
         if(sourceSession<=0)throw new IllegalArgumentException("loadSessionId must be positive");
-        long deletionSession=sessions.create(DWHDeletionSession.byLoadSession(DWHExcelLoadType.STORE_TURNOVER,sourceSession));
+        long deletionSession=sessions.create(DWHDeletionSession.byLoadSession(DWHExcelLoadType.STORE_TURNOVER,sourceSession).withRequestedBy(requestedBy));
         try(Connection c=dataSource.getConnection()){
             boolean old=c.getAutoCommit();try{c.setAutoCommit(false);int count=repository.deleteByLoadSessionId(c,sourceSession);sessions.completeSuccess(c,deletionSession,count);c.commit();return new DWHDataDeleteResult(count);}
             catch(RuntimeException|SQLException e){c.rollback();RuntimeException failure=e instanceof RuntimeException r?r:new RuntimeException(e);completeError(deletionSession,failure);throw failure;}

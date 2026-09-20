@@ -28,6 +28,7 @@ public class StoreTurnoverBulkLoader extends AbstractDWHCsvLoader {
     @Override
     protected DWHExcelLoadSessionResult processLoadSession(Long loadSessionId) {
         StoreTurnoverProcessResult result = processor.process(loadSessionId);
-        return new DWHExcelLoadSessionResult(loadSessionId, result.success(), result.message());
+        return new DWHExcelLoadSessionResult(loadSessionId, result.success(), result.totalRows(),
+                result.loadedRows(), result.errorRows(), result.message());
     }
 }
