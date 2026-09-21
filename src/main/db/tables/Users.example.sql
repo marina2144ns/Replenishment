@@ -1,25 +1,22 @@
 /* ============================================================
    Replenishment project users and permissions
 
-   This script rebuilds the Java service account, but MUST preserve
-   externally used read-only logins:
+   This script rebuilds all project accounts:
      - Repl_Service      Java service account
-     - ReplenishmentREAD 1C/project-wide read-only account
-     - repl              target-table read-only account
+     - ReplenishmentREAD 1C/project-wide read-only account (rebuilt)
+     - repl              target-table read-only account (rebuilt)
 
    IMPORTANT:
      - Run with an administrative account, not with Repl_Service.
-     - ReplenishmentREAD is used by 1C: NEVER DROP or reset its password
-       automatically. Preserve the existing server login/SID when present.
-     - repl must also be preserved when present.
-     - For preserved logins, database users are repaired with ALTER USER
-       ... WITH LOGIN so restores cannot leave orphaned/mismatched users.
+     - ReplenishmentREAD is recreated and its password placeholder must be
+       replaced before execution.
+     - repl is recreated and its password placeholder must be replaced before execution.
      - Password placeholders are used only when a login does not exist and
        must be replaced with the real password before execution.
    ============================================================ */
 
 /* ============================================================
-   1. RESET ONLY JAVA SERVICE DATABASE USER
+   1. RESET RECREATED DATABASE USERS
    ============================================================ */
 
 USE [ReplenishmentDWH];
@@ -29,10 +26,16 @@ IF USER_ID(N'Repl_Service') IS NOT NULL
     DROP USER [Repl_Service];
 GO
 
-/* ReplenishmentREAD and repl are intentionally NOT dropped. */
+IF USER_ID(N'ReplenishmentREAD') IS NOT NULL
+    DROP USER [ReplenishmentREAD];
+GO
+
+IF USER_ID(N'repl') IS NOT NULL
+    DROP USER [repl];
+GO
 
 /* ============================================================
-   2. RESET ONLY JAVA SERVICE SERVER LOGIN
+   2. RESET RECREATED SERVER LOGINS
    ============================================================ */
 
 USE master;
@@ -46,7 +49,21 @@ IF EXISTS (
     DROP LOGIN [Repl_Service];
 GO
 
-/* ReplenishmentREAD and repl are intentionally NOT dropped. */
+IF EXISTS (
+        SELECT 1
+        FROM sys.server_principals
+        WHERE name = N'ReplenishmentREAD'
+    )
+    DROP LOGIN [ReplenishmentREAD];
+GO
+
+IF EXISTS (
+        SELECT 1
+        FROM sys.server_principals
+        WHERE name = N'repl'
+    )
+    DROP LOGIN [repl];
+GO
 
 /* ============================================================
    3. SERVER LOGINS
@@ -60,46 +77,20 @@ CREATE LOGIN [Repl_Service]
          DEFAULT_DATABASE = [ReplenishmentDWH];
 GO
 
-/* 1C/project-wide read-only user: preserve existing login/password/SID. */
-IF NOT EXISTS (
-        SELECT 1
-        FROM sys.server_principals
-        WHERE name = N'ReplenishmentREAD'
-    )
-BEGIN
-    CREATE LOGIN [ReplenishmentREAD]
-        WITH PASSWORD = '<REPLENISHMENT_READ_PASSWORD>',
-             DEFAULT_DATABASE = [ReplenishmentDWH];
-END
-ELSE
-BEGIN
-    ALTER LOGIN [ReplenishmentREAD] ENABLE;
-    ALTER LOGIN [ReplenishmentREAD]
-        WITH DEFAULT_DATABASE = [ReplenishmentDWH];
-END;
+/* 1C/project-wide read-only user: recreated on every run. */
+CREATE LOGIN [ReplenishmentREAD]
+    WITH PASSWORD = '<REPLENISHMENT_READ_PASSWORD>',
+         DEFAULT_DATABASE = [ReplenishmentDWH];
 GO
 
 GRANT CONNECT SQL TO [ReplenishmentREAD];
 GO
 
-/* Additional target-table read-only user: preserve existing login/password/SID. */
-IF NOT EXISTS (
-        SELECT 1
-        FROM sys.server_principals
-        WHERE name = N'repl'
-    )
-BEGIN
-    CREATE LOGIN [repl]
-        WITH PASSWORD = '<REPL_PASSWORD>',
-             CHECK_POLICY = OFF,
-             DEFAULT_DATABASE = [ReplenishmentDWH];
-END
-ELSE
-BEGIN
-    ALTER LOGIN [repl] ENABLE;
-    ALTER LOGIN [repl]
-        WITH DEFAULT_DATABASE = [ReplenishmentDWH];
-END;
+/* Additional target-table read-only user: recreated on every run. */
+CREATE LOGIN [repl]
+    WITH PASSWORD = '<REPL_PASSWORD>',
+         CHECK_POLICY = OFF,
+         DEFAULT_DATABASE = [ReplenishmentDWH];
 GO
 
 GRANT CONNECT SQL TO [repl];
@@ -116,33 +107,15 @@ CREATE USER [Repl_Service]
     FOR LOGIN [Repl_Service];
 GO
 
-/* ReplenishmentREAD: create if missing, otherwise repair login mapping. */
-IF USER_ID(N'ReplenishmentREAD') IS NULL
-BEGIN
-    CREATE USER [ReplenishmentREAD]
-        FOR LOGIN [ReplenishmentREAD];
-END
-ELSE
-BEGIN
-    ALTER USER [ReplenishmentREAD]
-        WITH LOGIN = [ReplenishmentREAD];
-END;
+CREATE USER [ReplenishmentREAD]
+    FOR LOGIN [ReplenishmentREAD];
 GO
 
 GRANT CONNECT TO [ReplenishmentREAD];
 GO
 
-/* repl: create if missing, otherwise repair login mapping. */
-IF USER_ID(N'repl') IS NULL
-BEGIN
-    CREATE USER [repl]
-        FOR LOGIN [repl];
-END
-ELSE
-BEGIN
-    ALTER USER [repl]
-        WITH LOGIN = [repl];
-END;
+CREATE USER [repl]
+    FOR LOGIN [repl];
 GO
 
 GRANT CONNECT TO [repl];
@@ -177,11 +150,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE
     TO [Repl_Service];
 GO
 
-GRANT EXECUTE
-    ON OBJECT::dbo.usp_WeeklyData_ProcessLoadSession
-    TO [Repl_Service];
-GO
-
 IF OBJECT_ID(N'dbo.CD_data', N'U') IS NOT NULL
     GRANT SELECT, INSERT, UPDATE, DELETE ON OBJECT::dbo.CD_data TO [Repl_Service];
 GO
@@ -192,10 +160,6 @@ GO
 
 IF OBJECT_ID(N'dbo.CD_data_stage', N'U') IS NOT NULL
     GRANT SELECT, INSERT, UPDATE, DELETE ON OBJECT::dbo.CD_data_stage TO [Repl_Service];
-GO
-
-IF OBJECT_ID(N'dbo.usp_CDData_ProcessLoadSession', N'P') IS NOT NULL
-    GRANT EXECUTE ON OBJECT::dbo.usp_CDData_ProcessLoadSession TO [Repl_Service];
 GO
 
 IF OBJECT_ID(N'dbo.CD_ecom', N'U') IS NOT NULL
@@ -234,10 +198,6 @@ IF OBJECT_ID(N'dbo.ABCData_STG', N'U') IS NOT NULL
     GRANT ALTER ON OBJECT::dbo.ABCData_STG TO [Repl_Service];
 GO
 
-IF OBJECT_ID(N'dbo.usp_ABCData_Merge', N'P') IS NOT NULL
-    GRANT EXECUTE ON OBJECT::dbo.usp_ABCData_Merge TO [Repl_Service];
-GO
-
 IF OBJECT_ID(N'dbo.StoreTurnover', N'U') IS NOT NULL
     GRANT SELECT, INSERT, UPDATE, DELETE ON OBJECT::dbo.StoreTurnover TO [Repl_Service];
 GO
@@ -252,10 +212,6 @@ GO
 
 IF OBJECT_ID(N'dbo.BulkLoadErrors', N'U') IS NOT NULL
     GRANT SELECT, INSERT, UPDATE, DELETE ON OBJECT::dbo.BulkLoadErrors TO [Repl_Service];
-GO
-
-IF OBJECT_ID(N'dbo.LoadStoreTurnoverFromCSV', N'P') IS NOT NULL
-    GRANT EXECUTE ON OBJECT::dbo.LoadStoreTurnoverFromCSV TO [Repl_Service];
 GO
 
 USE master;

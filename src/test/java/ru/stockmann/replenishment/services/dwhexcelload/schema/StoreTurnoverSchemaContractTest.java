@@ -45,11 +45,11 @@ class StoreTurnoverSchemaContractTest {
         assertTrue(verification.contains("c.is_nullable = 1"));
         assertTrue(verification.contains("dbo.storeturnover_stage.storerus must be nvarchar(255) null"));
     }
-    @Test void permissionsCoverV2AndRetainLegacyRights()throws Exception{
+    @Test void permissionsCoverV2WithoutStoredProcedureExecution()throws Exception{
         String users=read("src/main/db/tables/Users.example.sql");
         assertTrue(users.contains("grant select, insert on object::dbo.storeturnover_raw"));
         assertTrue(users.contains("grant select, insert, delete on object::dbo.storeturnover_stage"));
-        assertTrue(users.contains("loadstoreturnoverfromcsv"));assertTrue(users.contains("administer bulk operations"));
+        assertFalse(users.contains("grant execute"));assertTrue(users.contains("administer bulk operations"));
     }
     private static String between(String value,String start,String end){int from=value.indexOf(start);int to=value.indexOf(end,from+start.length());assertTrue(from>=0&&to>from);return value.substring(from,to);}
 }

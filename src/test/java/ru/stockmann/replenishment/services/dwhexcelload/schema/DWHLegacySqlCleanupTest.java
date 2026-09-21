@@ -47,17 +47,10 @@ class DWHLegacySqlCleanupTest {
     }
 
     @Test
-    void usersScriptKeepsWeeklyAndCdDataProcedureGrantsButRemovesCdecomProcedureGrant() throws Exception {
+    void usersScriptDoesNotGrantStoredProcedureExecution() throws Exception {
         String users = normalizeSql(read("src/main/db/tables/Users.example.sql"));
 
-        assertTrue(users.contains("grant execute on object::dbo.usp_weeklydata_processloadsession"));
-        assertTrue(users.contains("grant execute on object::dbo.usp_cddata_processloadsession"));
-        assertFalse(users.contains("grant execute on object::dbo.usp_cdecom_processloadsession"));
-
-        assertTrue(users.contains("grant execute on object::dbo.usp_abcdata_merge"),
-                "unrelated active procedure grants should remain");
-        assertTrue(users.contains("grant execute on object::dbo.loadstoreturnoverfromcsv"),
-                "unrelated active procedure grants should remain");
+        assertFalse(users.contains("grant execute"));
     }
 
     @Test
@@ -80,16 +73,16 @@ class DWHLegacySqlCleanupTest {
     }
 
     @Test
-    void replCanReadOnlyReadyServiceTargetTables() throws Exception {
+    void replCanReadTargetTablesButNotLoadMetadata() throws Exception {
         String users = normalizeSql(read("src/main/db/tables/Users.example.sql"));
 
-        for (String target : Set.of("weekly_data", "cd_data", "cd_ecom", "salesbychannel")) {
+        for (String target : Set.of(
+                "weekly_data", "cd_data", "cd_ecom", "salesbychannel", "storeturnover", "abcdata"
+        )) {
             assertTrue(users.contains("grant select on object::dbo." + target + " to repl"), target);
         }
 
         for (String excluded : Set.of(
-                "abcdata",
-                "storeturnover",
                 "dwh_excel_load_session",
                 "dwh_excel_load_error"
         )) {
