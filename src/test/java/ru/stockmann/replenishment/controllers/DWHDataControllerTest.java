@@ -48,17 +48,18 @@ class DWHDataControllerTest {
     }
 
     @Test
-    void executesDeleteAndUsesExistingRequestedByQueryParameter() throws Exception {
+    void executesDeleteUsingBodyRequestedByAndIgnoresQueryParameter() throws Exception {
         FakeService service = new FakeService();
         service.result = DWHUniversalDeleteResult.deleted(91L, "CD_DATA", 18L);
         MockMvc mvc = mvc(service);
 
         mvc.perform(post("/data/v1.0/delete")
-                        .queryParam("requestedBy", "api-user")
+                        .queryParam("requestedBy", "url-user")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "dataset": "CD_DATA",
+                                  "requestedBy": "body-user",
                                   "filters": {"god": 2026, "sezon": 2}
                                 }
                                 """))
@@ -69,9 +70,31 @@ class DWHDataControllerTest {
                 .andExpect(jsonPath("$.dryRun").value(false))
                 .andExpect(jsonPath("$.status").value("SUCCESS"));
 
-        org.junit.jupiter.api.Assertions.assertEquals("api-user", service.requestedBy);
+        org.junit.jupiter.api.Assertions.assertEquals("body-user", service.requestedBy);
+        org.junit.jupiter.api.Assertions.assertEquals("body-user", service.request.requestedBy());
         org.junit.jupiter.api.Assertions.assertEquals("CD_DATA", service.request.dataset());
         org.junit.jupiter.api.Assertions.assertEquals(2026, service.request.filters().get("god"));
+    }
+
+    @Test
+    void rejectsRequestedByLongerThanOneHundredCharactersBeforeServiceCall() throws Exception {
+        FakeService service = new FakeService();
+
+        mvc(service).perform(post("/data/v1.0/delete")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "dataset": "CD_DATA",
+                                  "requestedBy": "%s",
+                                  "filters": {"god": 2026}
+                                }
+                                """.formatted("x".repeat(101))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value(
+                        "requestedBy must not be longer than 100 characters"
+                ));
+
+        org.junit.jupiter.api.Assertions.assertNull(service.request);
     }
 
     @Test

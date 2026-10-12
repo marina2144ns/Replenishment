@@ -2,6 +2,11 @@ package ru.stockmann.replenishment.services.dwhexcelload.delete;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import ru.stockmann.replenishment.controllers.DWHApiExceptionHandler;
+import ru.stockmann.replenishment.controllers.DWHDataController;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDeletionSession;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHDeletionSessionRepository;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelValueKind;
@@ -28,6 +33,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class DWHUniversalDeletionServiceTest {
 
@@ -68,28 +76,28 @@ class DWHUniversalDeletionServiceTest {
 
         assertCode("INVALID_DATASET", () -> service.fields("ABC_DATA"));
         assertCode("EMPTY_DELETE_FILTER", () -> service.execute(
-                new DWHUniversalDeleteRequest("CD_DATA", Map.of(), false), null
+                new DWHUniversalDeleteRequest("CD_DATA", null, Map.of(), false), null
         ));
         assertCode("EMPTY_DELETE_FILTER", () -> service.execute(
-                new DWHUniversalDeleteRequest("CD_DATA", null, false), null
+                new DWHUniversalDeleteRequest("CD_DATA", null, null, false), null
         ));
         assertCode("INVALID_DELETE_FIELD", () -> service.execute(
-                new DWHUniversalDeleteRequest("CD_DATA", Map.of("x] OR 1=1 --", 1), false), null
+                new DWHUniversalDeleteRequest("CD_DATA", null, Map.of("x] OR 1=1 --", 1), false), null
         ));
         assertCode("INVALID_FILTER_VALUE", () -> service.execute(
-                new DWHUniversalDeleteRequest("CD_DATA", Map.of("god", "abc"), false), null
+                new DWHUniversalDeleteRequest("CD_DATA", null, Map.of("god", "abc"), false), null
         ));
         assertCode("INVALID_FILTER_VALUE", () -> service.execute(
-                new DWHUniversalDeleteRequest("CD_DATA", Map.of("god", 2.5), false), null
+                new DWHUniversalDeleteRequest("CD_DATA", null, Map.of("god", 2.5), false), null
         ));
         assertCode("INVALID_FILTER_VALUE", () -> service.execute(
-                new DWHUniversalDeleteRequest("CD_DATA", Map.of("plan_rub", "100.50"), false), null
+                new DWHUniversalDeleteRequest("CD_DATA", null, Map.of("plan_rub", "100.50"), false), null
         ));
         assertCode("INVALID_FILTER_VALUE", () -> service.execute(
-                new DWHUniversalDeleteRequest("CD_DATA", Map.of("store_rus", 10), false), null
+                new DWHUniversalDeleteRequest("CD_DATA", null, Map.of("store_rus", 10), false), null
         ));
         assertCode("INVALID_FILTER_VALUE", () -> service.execute(
-                new DWHUniversalDeleteRequest("CD_DATA", Map.of("data", "06.10.2026"), false), null
+                new DWHUniversalDeleteRequest("CD_DATA", null, Map.of("data", "06.10.2026"), false), null
         ));
     }
 
@@ -108,7 +116,7 @@ class DWHUniversalDeletionServiceTest {
         filters.put("sku_comment", null);
 
         DWHUniversalDeleteResult result = service.execute(
-                new DWHUniversalDeleteRequest("CD_DATA", filters, false),
+                new DWHUniversalDeleteRequest("CD_DATA", "one-c-user", filters, false),
                 "one-c-user"
         );
 
@@ -135,6 +143,49 @@ class DWHUniversalDeletionServiceTest {
     }
 
     @Test
+    void httpBodyRequestedByReachesDeletionSessionAndUrlValueIsIgnored() throws Exception {
+        RecordingJdbc jdbc = new RecordingJdbc();
+        jdbc.updateCount = 5L;
+        Sessions sessions = new Sessions();
+        MockMvc mvc = mvc(service(jdbc, sessions));
+
+        mvc.perform(post("/data/v1.0/delete")
+                        .queryParam("requestedBy", "UrlUser")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "dataset": "CD_DATA",
+                                  "requestedBy": "TestUser",
+                                  "filters": {"god": 2026, "sezon": 2},
+                                  "dryRun": false
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deletedRows").value(5));
+
+        assertEquals("TestUser", sessions.created.requestedBy());
+    }
+
+    @Test
+    void httpUrlOnlyRequestedByIsIgnoredAndNullIsStored() throws Exception {
+        RecordingJdbc jdbc = new RecordingJdbc();
+        Sessions sessions = new Sessions();
+
+        mvc(service(jdbc, sessions)).perform(post("/data/v1.0/delete")
+                        .queryParam("requestedBy", "UrlOnlyUser")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "dataset": "CD_DATA",
+                                  "filters": {"god": 2026}
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        assertNull(sessions.created.requestedBy());
+    }
+
+    @Test
     void dryRunCountsWithoutCreatingDeletionSession() {
         RecordingJdbc jdbc = new RecordingJdbc();
         jdbc.count = 77L;
@@ -143,7 +194,7 @@ class DWHUniversalDeletionServiceTest {
 
         DWHUniversalDeleteResult result = service.execute(
                 new DWHUniversalDeleteRequest(
-                        "WEEKLY_DATA", Map.of("Year", 2026, "Week", 40), true
+                        "WEEKLY_DATA", "dry-run-user", Map.of("Year", 2026, "Week", 40), true
                 ),
                 "ignored-for-dry-run"
         );
@@ -165,7 +216,7 @@ class DWHUniversalDeletionServiceTest {
         DWHUniversalDeletionService service = service(jdbc, sessions);
 
         RuntimeException exception = assertThrows(RuntimeException.class, () -> service.execute(
-                new DWHUniversalDeleteRequest("CD_DATA", Map.of("god", 2026), false), null
+                new DWHUniversalDeleteRequest("CD_DATA", null, Map.of("god", 2026), false), null
         ));
 
         assertTrue(exception.getMessage().contains("Failed to delete rows"));
@@ -179,6 +230,12 @@ class DWHUniversalDeletionServiceTest {
                 jdbc.dataSource(), registry, new DWHUniversalDeletionRepository(),
                 sessions, new ObjectMapper()
         );
+    }
+
+    private MockMvc mvc(DWHUniversalDeletionService service) {
+        return MockMvcBuilders.standaloneSetup(new DWHDataController(service))
+                .setControllerAdvice(new DWHApiExceptionHandler())
+                .build();
     }
 
     private static void assertCode(String code, Runnable operation) {

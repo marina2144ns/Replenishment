@@ -38,6 +38,9 @@ public class DWHDataController {
     public ResponseEntity<DWHUniversalDeleteResult> delete(
             @RequestBody(required = false) DWHUniversalDeleteRequest request
     ) {
-        return ResponseEntity.ok(service.execute(request, DWHRequestedBy.fromCurrentRequest()));
+        String requestedBy = request == null
+                ? null
+                : DWHRequestedBy.normalizeAndValidate(request.requestedBy());
+        return ResponseEntity.ok(service.execute(request, requestedBy));
     }
 }

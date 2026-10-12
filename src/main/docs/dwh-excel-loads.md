@@ -53,14 +53,16 @@ GET /data/v1.0/datasets/CD_DATA/fields
 Delete by one field:
 
 ```http
-POST /data/v1.0/delete?requestedBy=one-c-user
+POST /data/v1.0/delete
 Content-Type: application/json
 
 {
   "dataset": "CD_DATA",
+  "requestedBy": "one-c-user",
   "filters": {
     "god": 2026
-  }
+  },
+  "dryRun": false
 }
 ```
 
@@ -69,11 +71,13 @@ Delete by multiple fields (all filters are combined with `AND`):
 ```json
 {
   "dataset": "CD_DATA",
+  "requestedBy": "one-c-user",
   "filters": {
     "god": 2026,
     "sezon": 2,
     "store_rus": "ЦС"
-  }
+  },
+  "dryRun": false
 }
 ```
 
@@ -96,4 +100,6 @@ Dates use strict `yyyy-MM-dd`. A JSON `null` filter generates `IS NULL`. Empty
 filters are rejected. Clients cannot provide table names, operators, or SQL
 fragments. A real deletion creates a row in `DWH_Excel_Load_Session` and stores
 the filter object as JSON in `DeleteCriteria`; dry-run intentionally does not
-create a session.
+create a session. For this endpoint, optional `requestedBy` is read only from
+the JSON body, validated with the shared 100-character limit, and stored in the
+existing session `RequestedBy` column. A query-string `requestedBy` is ignored.

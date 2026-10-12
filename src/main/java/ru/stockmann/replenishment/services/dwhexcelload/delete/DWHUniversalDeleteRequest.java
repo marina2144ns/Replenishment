@@ -4,6 +4,7 @@ import java.util.Map;
 
 public record DWHUniversalDeleteRequest(
         String dataset,
+        String requestedBy,
         Map<String, Object> filters,
         Boolean dryRun
 ) {

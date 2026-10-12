@@ -46,9 +46,9 @@
             "header": [{"key": "Content-Type", "value": "application/json"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"dataset\": \"CD_DATA\",\n  \"filters\": {\n    \"god\": 2026\n  }\n}"
+              "raw": "{\n  \"dataset\": \"CD_DATA\",\n  \"requestedBy\": \"postman-user\",\n  \"filters\": {\n    \"god\": 2026\n  },\n  \"dryRun\": false\n}"
             },
-            "url": "{{baseUrl}}/data/v1.0/delete?requestedBy=postman-user"
+            "url": "{{baseUrl}}/data/v1.0/delete"
           }
         },
         {
@@ -58,9 +58,9 @@
             "header": [{"key": "Content-Type", "value": "application/json"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"dataset\": \"CD_DATA\",\n  \"filters\": {\n    \"god\": 2026,\n    \"sezon\": 2,\n    \"store_rus\": \"ЦС\"\n  }\n}"
+              "raw": "{\n  \"dataset\": \"CD_DATA\",\n  \"requestedBy\": \"postman-user\",\n  \"filters\": {\n    \"god\": 2026,\n    \"sezon\": 2,\n    \"store_rus\": \"ЦС\"\n  },\n  \"dryRun\": false\n}"
             },
-            "url": "{{baseUrl}}/data/v1.0/delete?requestedBy=postman-user"
+            "url": "{{baseUrl}}/data/v1.0/delete"
           }
         },
         {
