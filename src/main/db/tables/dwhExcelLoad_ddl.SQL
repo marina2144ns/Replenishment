@@ -24,6 +24,7 @@ CREATE TABLE dbo.DWH_Excel_Load_Session
     DeleteParameter1Value NVARCHAR(1000) NULL,
     DeleteParameter2Name NVARCHAR(50) NULL,
     DeleteParameter2Value NVARCHAR(1000) NULL,
+    DeleteCriteria  NVARCHAR(MAX) NULL,
     DeletedRows     BIGINT NULL,
     TotalRows       BIGINT NULL,
     LoadedRows      BIGINT NULL,

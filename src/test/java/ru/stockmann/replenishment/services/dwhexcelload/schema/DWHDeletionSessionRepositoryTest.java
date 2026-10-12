@@ -48,7 +48,8 @@ class DWHDeletionSessionRepositoryTest {
                 "setNull:14:" + Types.NVARCHAR,
                 "setNull:15:" + Types.NVARCHAR,
                 "setNull:16:" + Types.NVARCHAR,
-                "setString:17:RUNNING"
+                "setNull:17:" + Types.NVARCHAR,
+                "setString:18:RUNNING"
         ), jdbc.calls);
     }
 
@@ -68,7 +69,7 @@ class DWHDeletionSessionRepositoryTest {
         assertEquals("setString:8:FY2025", jdbc.calls.get(7));
         assertEquals("setString:9:April", jdbc.calls.get(8));
         assertEquals("setNull:16:" + Types.NVARCHAR, jdbc.calls.get(15));
-        assertEquals("setString:17:RUNNING", jdbc.calls.get(16));
+        assertEquals("setString:18:RUNNING", jdbc.calls.get(17));
     }
 
     @Test
@@ -89,7 +90,7 @@ class DWHDeletionSessionRepositoryTest {
         assertEquals("setString:14:den", jdbc.calls.get(13));
         assertEquals("setString:15:15", jdbc.calls.get(14));
         assertEquals("setNull:16:" + Types.NVARCHAR, jdbc.calls.get(15));
-        assertEquals("setString:17:RUNNING", jdbc.calls.get(16));
+        assertEquals("setString:18:RUNNING", jdbc.calls.get(17));
     }
 
     @Test
@@ -121,7 +122,24 @@ class DWHDeletionSessionRepositoryTest {
         ).withRequestedBy("postman-user"));
 
         assertEquals("setString:16:postman-user", jdbc.calls.get(15));
-        assertEquals("setString:17:RUNNING", jdbc.calls.get(16));
+        assertEquals("setString:18:RUNNING", jdbc.calls.get(17));
+    }
+
+    @Test
+    void createsUniversalSessionWithJsonCriteria() {
+        RecordingJdbc jdbc = new RecordingJdbc(7008L, 1);
+        DWHDeletionSessionRepository repository =
+                new DWHDeletionSessionRepository(jdbc.dataSource());
+
+        repository.create(DWHDeletionSession.universal(
+                DWHExcelLoadType.CD_DATA, "{\"god\":2026}"
+        ).withRequestedBy("api-user"));
+
+        assertEquals("setString:4:BY_CRITERIA", jdbc.calls.get(3));
+        assertEquals("setString:11:UNIVERSAL", jdbc.calls.get(10));
+        assertEquals("setString:16:api-user", jdbc.calls.get(15));
+        assertEquals("setString:17:{\"god\":2026}", jdbc.calls.get(16));
+        assertEquals("setString:18:RUNNING", jdbc.calls.get(17));
     }
 
     @Test

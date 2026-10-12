@@ -1,0 +1,105 @@
+{
+  "info": {
+    "name": "Replenishment",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    }
+  ],
+  "item": [
+    {
+      "name": "Universal deletion",
+      "item": [
+        {
+          "name": "GET datasets",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/data/v1.0/datasets"
+          }
+        },
+        {
+          "name": "GET dataset fields",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/data/v1.0/datasets/CD_DATA/fields"
+          }
+        },
+        {
+          "name": "DELETE dry-run",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dataset\": \"CD_DATA\",\n  \"filters\": {\n    \"god\": 2026,\n    \"sezon\": 2\n  },\n  \"dryRun\": true\n}"
+            },
+            "url": "{{baseUrl}}/data/v1.0/delete"
+          }
+        },
+        {
+          "name": "DELETE one filter",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dataset\": \"CD_DATA\",\n  \"filters\": {\n    \"god\": 2026\n  }\n}"
+            },
+            "url": "{{baseUrl}}/data/v1.0/delete?requestedBy=postman-user"
+          }
+        },
+        {
+          "name": "DELETE multiple filters",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dataset\": \"CD_DATA\",\n  \"filters\": {\n    \"god\": 2026,\n    \"sezon\": 2,\n    \"store_rus\": \"ЦС\"\n  }\n}"
+            },
+            "url": "{{baseUrl}}/data/v1.0/delete?requestedBy=postman-user"
+          }
+        },
+        {
+          "name": "Invalid dataset",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\"dataset\":\"UNKNOWN\",\"filters\":{\"god\":2026}}"},
+            "url": "{{baseUrl}}/data/v1.0/delete"
+          }
+        },
+        {
+          "name": "Invalid field",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\"dataset\":\"CD_DATA\",\"filters\":{\"unknown\":1}}"},
+            "url": "{{baseUrl}}/data/v1.0/delete"
+          }
+        },
+        {
+          "name": "Empty filters",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\"dataset\":\"CD_DATA\",\"filters\":{}}"},
+            "url": "{{baseUrl}}/data/v1.0/delete"
+          }
+        },
+        {
+          "name": "Invalid value type",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\"dataset\":\"CD_DATA\",\"filters\":{\"god\":\"abc\"}}"},
+            "url": "{{baseUrl}}/data/v1.0/delete"
+          }
+        }
+      ]
+    }
+  ]
+}

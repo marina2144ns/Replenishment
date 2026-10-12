@@ -71,6 +71,30 @@ public final class DWHExcelColumns {
                 "TRY_CONVERT(INT)"
         );
     }
+
+    public static DWHExcelColumnSpec bigint(
+            int index,
+            String excelColumnName,
+            String rawColumnName,
+            String targetColumnName,
+            int rawLength,
+            boolean required,
+            DWHExcelNullHandling nullHandling
+    ) {
+        return new DWHExcelColumnSpec(
+                index,
+                excelColumnName,
+                rawColumnName,
+                targetColumnName,
+                DWHExcelValueKind.BIGINT,
+                rawLength,
+                required,
+                DWHExcelNormalizers.NUMERIC_TEXT,
+                nullHandling,
+                "trim numeric text + remove NBSP/narrow NBSP",
+                "TRY_CONVERT(BIGINT)"
+        );
+    }
     public static DWHExcelColumnSpec decimal(
             int index,
             String name,

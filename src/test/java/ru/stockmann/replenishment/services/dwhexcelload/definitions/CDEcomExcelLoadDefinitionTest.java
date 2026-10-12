@@ -123,7 +123,7 @@ class CDEcomExcelLoadDefinitionTest {
                 .forEach(column -> {
                     DWHExcelValueKind expected = Set.of("planRub", "stockStoresPcs", "stockStoresDdp")
                             .contains(column.rawColumnName())
-                            ? DWHExcelValueKind.INT
+                            ? DWHExcelValueKind.BIGINT
                             : DWHExcelValueKind.DECIMAL;
                     assertEquals(expected, column.valueKind(), column.rawColumnName());
                     assertEquals(false, column.required(), column.rawColumnName());

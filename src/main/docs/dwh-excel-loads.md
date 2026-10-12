@@ -31,3 +31,69 @@ CDEcom-specific processing rules:
 - `planRub`, `stockStoresPcs`, and `stockStoresDdp` are direct `BIGINT` fields; fractional values are invalid and are not rounded.
 - CDEcom decimal fields use `BigDecimal`, scale 2, `RoundingMode.HALF_UP`, and DECIMAL(18,2) range checking after rounding.
 - Scientific notation is accepted by numeric parsing where `BigDecimal` accepts it; `NaN` and infinity values are rejected.
+
+## Universal target-data deletion API
+
+The API derives datasets, target fields, physical target tables, and filter
+types exclusively from registered `DWHExcelLoadDefinition` instances. Technical
+columns absent from `definition.columns()` are not available as filters.
+
+List supported datasets:
+
+```http
+GET /data/v1.0/datasets
+```
+
+List fields for one dataset:
+
+```http
+GET /data/v1.0/datasets/CD_DATA/fields
+```
+
+Delete by one field:
+
+```http
+POST /data/v1.0/delete?requestedBy=one-c-user
+Content-Type: application/json
+
+{
+  "dataset": "CD_DATA",
+  "filters": {
+    "god": 2026
+  }
+}
+```
+
+Delete by multiple fields (all filters are combined with `AND`):
+
+```json
+{
+  "dataset": "CD_DATA",
+  "filters": {
+    "god": 2026,
+    "sezon": 2,
+    "store_rus": "ЦС"
+  }
+}
+```
+
+Preview the same operation without creating a deletion session or changing
+data:
+
+```json
+{
+  "dataset": "CD_DATA",
+  "filters": {
+    "god": 2026,
+    "sezon": 2
+  },
+  "dryRun": true
+}
+```
+
+Filter values must match the `DWHExcelValueKind` returned by the fields API.
+Dates use strict `yyyy-MM-dd`. A JSON `null` filter generates `IS NULL`. Empty
+filters are rejected. Clients cannot provide table names, operators, or SQL
+fragments. A real deletion creates a row in `DWH_Excel_Load_Session` and stores
+the filter object as JSON in `DeleteCriteria`; dry-run intentionally does not
+create a session.

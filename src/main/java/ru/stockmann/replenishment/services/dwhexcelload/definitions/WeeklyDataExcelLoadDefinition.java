@@ -1,9 +1,11 @@
 package ru.stockmann.replenishment.services.dwhexcelload.definitions;
 
+import org.springframework.stereotype.Component;
 import ru.stockmann.replenishment.services.dwhexcelload.core.*;
 
 import java.util.List;
 
+@Component
 public class WeeklyDataExcelLoadDefinition implements DWHExcelLoadDefinition {
 
     private static final int RAW_TEXT_LENGTH = 4000;

@@ -56,6 +56,20 @@ class DWHExcelStatusServiceTest {
     }
 
     @Test
+    void returnsUniversalDeleteCriteriaJsonWithoutInterpretation() {
+        Map<String, Object> row = row("SUCCESS");
+        row.put("OperationType", "DELETE");
+        row.put("OperationMode", "BY_CRITERIA");
+        row.put("DeleteCriterion", "UNIVERSAL");
+        row.put("DeleteCriteria", "{\"god\":2026,\"store_rus\":\"ЦС\"}");
+
+        DWHExcelLoadStatusResult result =
+                new DWHExcelStatusService(new FakeDataSource(row)).getStatus(10L);
+
+        assertEquals("{\"god\":2026,\"store_rus\":\"ЦС\"}", result.deleteCriteria());
+    }
+
+    @Test
     void returnsNullableNumericDeleteMetadataWithoutNullToZeroConversion() {
         Map<String, Object> row = row("RUNNING");
         row.put("OperationType", "DELETE");
@@ -160,6 +174,7 @@ class DWHExcelStatusServiceTest {
         values.put("LoadedRows", null);
         values.put("ErrorRows", null);
         values.put("RequestedBy", null);
+        values.put("DeleteCriteria", null);
         values.put("Status", status);
         values.put("Message", "message");
         values.put("StartedAt", Timestamp.valueOf(LocalDateTime.of(2026, 1, 1, 10, 0)));

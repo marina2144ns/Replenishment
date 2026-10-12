@@ -36,10 +36,11 @@ public class DWHDeletionSessionRepository {
                     DeleteParameter2Name,
                     DeleteParameter2Value,
                     RequestedBy,
+                    DeleteCriteria,
                     Status
                 )
                 OUTPUT INSERTED.Id
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         try (Connection connection = dataSource.getConnection();
@@ -60,7 +61,8 @@ public class DWHDeletionSessionRepository {
             setNullableString(ps, 14, session.deleteParameter2Name());
             setNullableString(ps, 15, session.deleteParameter2Value());
             setNullableString(ps, 16, session.requestedBy());
-            ps.setString(17, DWHExcelLoadStatus.RUNNING.name());
+            setNullableString(ps, 17, session.deleteCriteria());
+            ps.setString(18, DWHExcelLoadStatus.RUNNING.name());
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {

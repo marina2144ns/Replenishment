@@ -37,6 +37,7 @@ class DWHCommonTablesSchemaContractTest {
                 "deleteparameter1value",
                 "deleteparameter2name",
                 "deleteparameter2value",
+                "deletecriteria",
                 "deletedrows",
                 "totalrows",
                 "loadedrows",
@@ -69,6 +70,7 @@ class DWHCommonTablesSchemaContractTest {
         assertColumn(columns, "deleteparameter1value", "nvarchar(1000)", "null");
         assertColumn(columns, "deleteparameter2name", "nvarchar(50)", "null");
         assertColumn(columns, "deleteparameter2value", "nvarchar(1000)", "null");
+        assertColumn(columns, "deletecriteria", "nvarchar(max)", "null");
         assertColumn(columns, "deletedrows", "bigint", "null");
         assertColumn(columns, "status", "nvarchar(30)", "not null");
         assertColumn(columns, "startedat", "datetime2(0)", "not null");

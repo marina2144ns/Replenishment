@@ -50,6 +50,7 @@ public class DWHExcelStatusService {
                     LoadedRows,
                     ErrorRows,
                     RequestedBy,
+                    DeleteCriteria,
                     Status,
                     Message,
                     StartedAt,
@@ -95,7 +96,8 @@ public class DWHExcelStatusService {
                         rs.getString("Status"),
                         rs.getString("Message"),
                         toStringOrNull(rs.getTimestamp("StartedAt")),
-                        toStringOrNull(rs.getTimestamp("FinishedAt"))
+                        toStringOrNull(rs.getTimestamp("FinishedAt")),
+                        rs.getString("DeleteCriteria")
                 );
             }
 

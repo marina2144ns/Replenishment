@@ -1,10 +1,12 @@
 package ru.stockmann.replenishment.services.dwhexcelload.definitions;
 
+import org.springframework.stereotype.Component;
 import ru.stockmann.replenishment.services.dwhexcelload.core.*;
 
 
 import java.util.List;
 
+@Component
 public class CDDataExcelLoadDefinition implements DWHExcelLoadDefinition {
 
     private static final int RAW_TEXT_LENGTH = 4000;
@@ -84,7 +86,7 @@ public class CDDataExcelLoadDefinition implements DWHExcelLoadDefinition {
                 DWHExcelColumns.text(15, "Campaign Sales Type", "campaign_sales", "campaign_sales",
                         RAW_TEXT_LENGTH, false, DWHExcelNullHandling.KEEP_NULL),
 
-                DWHExcelColumns.intNumber(16, "SKU StyleColor", "sku_style_color", "sku_style_color",
+                DWHExcelColumns.bigint(16, "SKU StyleColor", "sku_style_color", "sku_style_color",
                         50, false, DWHExcelNullHandling.KEEP_NULL),
 
                 DWHExcelColumns.text(17, "SKU Phase", "sku_phase", "sku_phase",

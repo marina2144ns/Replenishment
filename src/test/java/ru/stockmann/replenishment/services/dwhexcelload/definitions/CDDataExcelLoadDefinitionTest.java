@@ -118,7 +118,7 @@ class CDDataExcelLoadDefinitionTest {
                 .filter(column -> "sku_style_color".equals(column.rawColumnName()))
                 .findFirst()
                 .orElseThrow();
-        assertEquals(DWHExcelValueKind.INT, skuStyleColor.valueKind());
+        assertEquals(DWHExcelValueKind.BIGINT, skuStyleColor.valueKind());
         assertEquals(false, skuStyleColor.required());
         assertEquals(DWHExcelNullHandling.KEEP_NULL, skuStyleColor.nullHandling());
     }

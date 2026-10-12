@@ -14,7 +14,8 @@ public record DWHDeletionSession(
         String deleteParameter1Value,
         String deleteParameter2Name,
         String deleteParameter2Value,
-        String requestedBy
+        String requestedBy,
+        String deleteCriteria
 ) {
 
     public static DWHDeletionSession byPeriod(
@@ -23,7 +24,7 @@ public record DWHDeletionSession(
             int week
     ) {
         return new DWHDeletionSession(loadType, DWHDeletionOperationMode.BY_PERIOD,
-                year, week, null, null, null, null, null, null, null, null, null, null);
+                year, week, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     public static DWHDeletionSession byYearAndMonth(
@@ -32,7 +33,7 @@ public record DWHDeletionSession(
             int month
     ) {
         return new DWHDeletionSession(loadType, DWHDeletionOperationMode.BY_PERIOD,
-                year, null, month, null, null, null, null, null, null, null, null, null);
+                year, null, month, null, null, null, null, null, null, null, null, null, null);
     }
 
     public static DWHDeletionSession byTextYearAndMonth(
@@ -41,7 +42,7 @@ public record DWHDeletionSession(
             String month
     ) {
         return new DWHDeletionSession(loadType, DWHDeletionOperationMode.BY_PERIOD,
-                null, null, null, year, month, null, null, null, null, null, null, null);
+                null, null, null, year, month, null, null, null, null, null, null, null, null);
     }
 
     public static DWHDeletionSession byLoadSession(
@@ -49,7 +50,7 @@ public record DWHDeletionSession(
             long sourceLoadSessionId
     ) {
         return new DWHDeletionSession(loadType, DWHDeletionOperationMode.BY_LOAD_SESSION,
-                null, null, null, null, null, sourceLoadSessionId, null, null, null, null, null, null);
+                null, null, null, null, null, sourceLoadSessionId, null, null, null, null, null, null, null);
     }
 
     public static DWHDeletionSession byCriteria(
@@ -62,13 +63,22 @@ public record DWHDeletionSession(
     ) {
         return new DWHDeletionSession(loadType, DWHDeletionOperationMode.BY_CRITERIA,
                 null, null, null, null, null, null, criterion,
-                parameter1Name, parameter1Value, parameter2Name, parameter2Value, null);
+                parameter1Name, parameter1Value, parameter2Name, parameter2Value, null, null);
+    }
+
+    public static DWHDeletionSession universal(
+            DWHExcelLoadType loadType,
+            String deleteCriteria
+    ) {
+        return new DWHDeletionSession(loadType, DWHDeletionOperationMode.BY_CRITERIA,
+                null, null, null, null, null, null, "UNIVERSAL",
+                null, null, null, null, null, deleteCriteria);
     }
 
     public DWHDeletionSession withRequestedBy(String value) {
         return new DWHDeletionSession(loadType, operationMode, deleteYear, deleteWeek, deleteMonth,
                 deleteYearText, deleteMonthText, sourceLoadSessionId, deleteCriterion,
                 deleteParameter1Name, deleteParameter1Value, deleteParameter2Name,
-                deleteParameter2Value, DWHRequestedBy.normalizeAndValidate(value));
+                deleteParameter2Value, DWHRequestedBy.normalizeAndValidate(value), deleteCriteria);
     }
 }
