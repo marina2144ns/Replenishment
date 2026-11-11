@@ -177,18 +177,24 @@ class CDEcomValidatorTest {
     }
 
     @Test
-    void validatesChangedMetricsAsExactDecimal18Scale2() {
+    void changedMetricsUseTheSameHalfUpDecimal18Scale2Rules() {
         for (String field : changedDecimalMetrics()) {
             for (String value : List.of("123", "123.45", "0.01", "-123.45", "123,45", "1e2")) {
                 CDEcomRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
                 assertTrue(result.valid(), field + "=" + value + ": " + result.errors());
             }
 
+            assertRoundedMetric(field, "123.456", "123.46");
+            assertRoundedMetric(field, "123.454", "123.45");
+            assertRoundedMetric(field, "123.455", "123.46");
+            assertRoundedMetric(field, "-123.455", "-123.46");
+            assertRoundedMetric(field, "9999999999999999.994", "9999999999999999.99");
+
             assertEquals("NUMERIC_OVERFLOW",
                     validator.validate(rowWithMetric(field, "10000000000000000.00"))
                             .errors().get(0).errorCode(), field);
-            assertEquals("DECIMAL_SCALE_EXCEEDED",
-                    validator.validate(rowWithMetric(field, "123.456"))
+            assertEquals("NUMERIC_OVERFLOW",
+                    validator.validate(rowWithMetric(field, "9999999999999999.995"))
                             .errors().get(0).errorCode(), field);
             assertEquals("INVALID_DECIMAL",
                     validator.validate(rowWithMetric(field, "invalid"))
@@ -198,6 +204,14 @@ class CDEcomValidatorTest {
                     rowWithMetric(field, "9999999999999999.99")
             ).stageRow();
             assertEquals(new BigDecimal("9999999999999999.99"), decimalMetricValue(boundary, field));
+        }
+    }
+
+    @Test
+    void allDecimalMetricsShareHalfUpRounding() {
+        for (String field : metricFields()) {
+            assertRoundedMetric(field, "123.455", "123.46");
+            assertRoundedMetric(field, "-123.455", "-123.46");
         }
     }
 
@@ -325,6 +339,13 @@ class CDEcomValidatorTest {
             case "stockStoresDdp" -> builder.withStockStoresDdp(value).build();
             default -> throw new IllegalArgumentException(field);
         };
+    }
+
+    private void assertRoundedMetric(String field, String input, String expected) {
+        CDEcomRowValidationResult result = validator.validateAndMap(rowWithMetric(field, input));
+
+        assertTrue(result.valid(), field + "=" + input + ": " + result.errors());
+        assertEquals(new BigDecimal(expected), decimalMetricValue(result.stageRow(), field), field);
     }
 
     private static BigDecimal decimalMetricValue(CDEcomStageRow row, String field) {

@@ -66,23 +66,14 @@ class CDEcomRowMapperTest {
     }
 
     @Test
-    void mapsChangedMetricsAsExactDecimalsWithoutRounding() {
+    void mapsChangedMetricsWithTheCommonHalfUpRounding() {
         CDEcomTargetRow row = mapper.toTargetRow(
-                validRow("2026", "12", "1", "12.34", "-12,50", "1e2")
+                validRow("2026", "12", "1", "123.456", "123.454", "-123.455")
         );
 
-        assertEquals(new BigDecimal("12.34"), row.planRub());
-        assertEquals(new BigDecimal("-12.50"), row.stockStoresPcs());
-        assertEquals(new BigDecimal("100.00"), row.stockStoresDdp());
-
-        IllegalStateException ex = assertThrows(
-                IllegalStateException.class,
-                () -> mapper.toTargetRow(validRow("2026", "12", "1", "12.345", "1", "1"))
-        );
-
-        assertTrue(ex.getMessage().contains("field [planRub]"));
-        assertTrue(ex.getMessage().contains("DECIMAL_SCALE_EXCEEDED"));
-        assertTrue(ex.getMessage().contains("originalValue=[12.345]"));
+        assertEquals(new BigDecimal("123.46"), row.planRub());
+        assertEquals(new BigDecimal("123.45"), row.stockStoresPcs());
+        assertEquals(new BigDecimal("-123.46"), row.stockStoresDdp());
     }
 
     @Test

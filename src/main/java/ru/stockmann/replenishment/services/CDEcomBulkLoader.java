@@ -1,6 +1,5 @@
 package ru.stockmann.replenishment.services;
 
-import org.apache.poi.ss.usermodel.DataFormatter;
 import org.springframework.stereotype.Service;
 import ru.stockmann.replenishment.services.cdecom.process.CDEcomProcessResult;
 import ru.stockmann.replenishment.services.cdecom.process.CDEcomProcessor;
@@ -9,7 +8,6 @@ import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadSession
 import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDEcomExcelLoadDefinition;
 
 import javax.sql.DataSource;
-import java.math.BigDecimal;
 
 @Service
 public class CDEcomBulkLoader extends AbstractDWHExcelLoader {
@@ -38,27 +36,4 @@ public class CDEcomBulkLoader extends AbstractDWHExcelLoader {
         );
     }
 
-    @Override
-    protected DataFormatter createDataFormatter() {
-        return new DataFormatter() {
-            @Override
-            public String formatRawCellContents(double value, int formatIndex, String formatString) {
-                return rawNumericValue(value);
-            }
-
-            @Override
-            public String formatRawCellContents(
-                    double value,
-                    int formatIndex,
-                    String formatString,
-                    boolean use1904Windowing
-            ) {
-                return rawNumericValue(value);
-            }
-        };
-    }
-
-    private static String rawNumericValue(double value) {
-        return BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
-    }
 }

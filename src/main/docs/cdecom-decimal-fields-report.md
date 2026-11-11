@@ -5,9 +5,10 @@
 ## Результат
 
 Для `planRub`, `stockStoresPcs` и `stockStoresDdp` весь активный путь данных
-переведён с целочисленного представления на точный `DECIMAL(18,2)` / `BigDecimal`:
-Excel → raw → validation → stage → target. Значения с более чем двумя значащими
-дробными знаками не округляются, а регистрируются как ошибка валидации.
+переведён с целочисленного представления на `DECIMAL(18,2)` / `BigDecimal`:
+Excel → raw → validation → stage → target. Все 13 дробных метрик CDEcom используют
+единый `DWHValueParser.parseDecimal(value, 18, 2)`: scale 2 формируется с
+`RoundingMode.HALF_UP`, затем проверяется переполнение `DECIMAL(18,2)`.
 
 | Поле | Java до | Java после | SQL stage/target до | SQL stage/target после |
 |---|---|---|---|---|
@@ -17,15 +18,16 @@ Excel → raw → validation → stage → target. Значения с боле�
 
 ## Аудит цепочки
 
-- Excel: порядок колонок 28–30 сохранён. Они объявлены как `DECIMAL`. Для CDEcom
-  числовое значение извлекается независимо от display-формата Excel, поэтому
-  скрытое форматирование `123.456` как `123.46` не обходит строгую валидацию.
+- Excel: порядок колонок 28–30 сохранён, они объявлены как `DECIMAL`. Загрузчик
+  снова использует стандартный общий `DataFormatter`, поэтому одинаковая прежняя
+  display-семантика применяется ко всем 38 колонкам CDEcom и другим сервисам.
 - Raw: `CD_ecom_raw` остаётся `NVARCHAR(100)`; JDBC продолжает использовать
   `setString`, дробная часть и запятая сохраняются. `CDEcomRawRow` остаётся строковым.
-- Validation: для трёх полей используется строгий `BigDecimal`. Допускаются пустые
-  значения по прежнему правилу `ZERO`, точные значения масштаба 0–2, отрицательные
-  значения, научная запись и запятая. Переполнение, некорректный текст и фактический
-  масштаб больше 2 создают стандартную validation error; округления нет.
+- Validation: отдельного parser/branch для трёх полей нет. Они вызывают тот же
+  `parseDecimal`, что `orderPcs`, `orderRub`, `foundPcs`, `foundRub`, `salesPcs`,
+  `salesRub`, `revenue`, `gp`, `cogs`, `salesDiscount`. Поддерживаются прежние
+  правила `ZERO`, отрицательные значения, научная запись и запятая; лишние дробные
+  знаки округляются `HALF_UP`, а overflow проверяется после округления.
 - Stage: `CDEcomStageRow` использует `BigDecimal`; JDBC использует
   `setBigDecimal` и `Types.DECIMAL` для `NULL`.
 - Target: `CDEcomTargetRow` и JPA `CDEcom` используют `BigDecimal`; публикация
@@ -35,9 +37,9 @@ Excel → raw → validation → stage → target. Значения с боле�
 - API/deletion: controller, удаление по фильтрам и по сессии не используют эти
   метрики; код не менялся, endpoint-тесты пройдены.
 - SQL procedure: `usp_CDEcom_ProcessLoadSession.sql` документирован как исторический,
-  Java остаётся единственным runtime-путём. Тем не менее процедура исправлена:
-  три значения нормализуются как decimal, строго проверяются без округления и
-  записываются как `DECIMAL(18,2)`.
+  Java остаётся единственным runtime-путём. Процедура использует для новых полей
+  тот же `TRY_CONVERT(FLOAT)` + `ROUND(..., 2)` + `CAST(... AS DECIMAL(18,2))`,
+  что и для остальных decimal-метрик CDEcom.
 - DDL/старые установочные скрипты: основной DDL, zero-metrics migration и
   агрегированная migration 2026-08 больше не закрепляют `BIGINT` для этих колонок.
 
@@ -83,6 +85,17 @@ SQL и документация:
 
 ## Тестирование
 
+### Сравнение всех decimal-полей
+
+| Группа полей | До корректировки | После корректировки |
+|---|---|---|
+| `orderPcs`, `orderRub`, `foundPcs`, `foundRub`, `salesPcs`, `salesRub`, `revenue`, `gp`, `cogs`, `salesDiscount` | общий `parseDecimal(18,2)`, `HALF_UP` | без изменений |
+| `planRub`, `stockStoresPcs`, `stockStoresDdp` | отдельный `parseExactDecimal`; scale > 2 отклонялся | тот же общий `parseDecimal(18,2)`, `HALF_UP` |
+
+В `CDEcomValidator`, `CDEcomRowMapper` и `CDEcomValueParser` отсутствует отдельная
+ветка обработки трёх новых полей. Совпадение подтверждается параметризованным
+тестом округления всех 13 decimal-метрик.
+
 | Сценарий | Результат |
 |---|---|
 | `123` | `123.00` |
@@ -91,14 +104,28 @@ SQL и документация:
 | `-123.45` | `-123.45` |
 | `9999999999999999.99` | принято |
 | `10000000000000000.00` | `NUMERIC_OVERFLOW` |
-| `123.456` | `DECIMAL_SCALE_EXCEEDED`, без округления |
+| `123.456` | `123.46` |
+| `123.454` | `123.45` |
+| `123.455` | `123.46` |
+| `-123.455` | `-123.46` |
 | пустое / special-null | прежнее правило: `0.00` |
 | некорректный текст | `INVALID_DECIMAL` |
 | старое целое значение | принято и преобразовано в scale 2 |
-| Excel numeric `123.456` с display format `0.00` | raw получает `123.456`; validation отклоняет |
+| Excel numeric `123.456` с display format `0.00` | стандартный `DataFormatter` передаёт raw `123.46` |
 
-- Профильный прогон: 91 тест, 0 failures, 0 errors, 0 skipped.
-- Полный прогон `./mvnw test`: 506 тестов, 0 failures, 0 errors, 0 skipped.
+### Общий загрузчик и DataFormatter
+
+- Удалён добавленный hook `AbstractDWHExcelLoader.createDataFormatter()`.
+- Удалён CDEcom-specific formatter и `rawNumericValue` из `CDEcomBulkLoader`.
+- В общем загрузчике восстановлено прямое создание стандартного `new DataFormatter()`.
+- Изменений общего механизма чтения Excel после корректировки не осталось; поведение
+  остальных колонок CDEcom и остальных сервисов совпадает с состоянием до задачи.
+- Если в будущем понадобится хранить физическое значение numeric cell независимо
+  от Excel display-format, это следует проектировать как явную общую policy в ядре
+  с выбором на уровне `DWHExcelColumnSpec`, а не переопределять formatter всего сервиса.
+
+- Профильный прогон: 92 теста, 0 failures, 0 errors, 0 skipped.
+- Полный прогон `./mvnw test`: 507 тестов, 0 failures, 0 errors, 0 skipped.
 - SQL Server в среде не обнаружен; реальная миграция и интеграционная проверка
   блокировок/плана выполнения не запускались, как и требовалось.
 
@@ -127,7 +154,7 @@ README миграции.
 
 | Слой | Проверен | Исправлен | Тест |
 |---|---|---|---|
-| Excel | да | да | XLSX numeric/text, display rounding, order |
+| Excel | да | восстановлена общая семантика | XLSX numeric/text, display rounding, order |
 | Raw | да | тип не требовал изменения; сохранение исправлено | raw JDBC и repository mapping |
 | Validation | да | да | границы, scale, overflow, comma, empty, invalid |
 | Stage model | да | да | compile/validator/processor |
@@ -149,7 +176,7 @@ README миграции.
   большие таблицы и существенно увеличить transaction log; нужен maintenance window.
 - Контрольные суммы миграции основаны на row count и трёх decimal sums; operator
   дополнительно сравнивает сохраненные precheck/verify result sets.
-- Историческая процедура исправлена статически, но не выполнялась на SQL Server;
+- Историческая процедура приведена к общему правилу округления статически, но не выполнялась на SQL Server;
   активный Java runtime полностью покрыт автоматическими тестами.
 
 Ветка: `master`.
@@ -157,4 +184,4 @@ README миграции.
 Commit SHA публикации: последний commit ветки `master`; точный SHA сообщается в
 handoff после создания commit, поскольку Git вычисляет его из содержимого этого файла.
 
-Итог автоматических тестов: 506 пройдено, 0 пропущено.
+Итог автоматических тестов: 507 пройдено, 0 пропущено.

@@ -135,7 +135,7 @@ class CDEcomBulkLoaderTest {
     }
 
     @Test
-    void streamsFractionalChangedMetricsFromExcelToRawStringsWithoutLoss() throws Exception {
+    void streamsChangedMetricsWithTheStandardExcelDisplaySemantics() throws Exception {
         RawRecordingDataSource dataSource = new RawRecordingDataSource();
         TestCDEcomBulkLoader loader = new TestCDEcomBulkLoader(
                 dataSource, new CDEcomExcelLoadDefinition(), fakeProcessor(true)
@@ -166,7 +166,7 @@ class CDEcomBulkLoaderTest {
         loader.read(file, 91L);
 
         assertEquals(1, dataSource.rows);
-        assertEquals("123.456", dataSource.lastRow.get(31));
+        assertEquals("123.46", dataSource.lastRow.get(31));
         assertEquals("0,01", dataSource.lastRow.get(32));
         assertEquals("-123.45", dataSource.lastRow.get(33));
         assertEquals(1, dataSource.commits);

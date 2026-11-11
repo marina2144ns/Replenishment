@@ -37,7 +37,10 @@ class CDEcomSqlMigrationTest {
         assertFalse(sql.contains("FROM dbo.CD_ecom_load_session"));
         assertFalse(sql.contains("dbo.CD_ecom_load_error"));
         for (String field : new String[]{"planRub", "stockStoresPcs", "stockStoresDdp"}) {
-            assertTrue(sql.contains("TRY_CONVERT(DECIMAL(18,2), s." + field + "_clean)"));
+            assertTrue(sql.contains(
+                    "CAST(ROUND(TRY_CONVERT(FLOAT, s." + field
+                            + "_clean), 2) AS DECIMAL(18,2))"
+            ));
             assertFalse(sql.contains("TRY_CONVERT(BIGINT, p." + field + "_clean)"));
             assertFalse(sql.contains("TRY_CONVERT(BIGINT, s." + field + "_clean)"));
         }

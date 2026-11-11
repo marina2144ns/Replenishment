@@ -28,7 +28,7 @@ CDEcom was not deployed to production before Java processing, so the current CDE
 CDEcom-specific processing rules:
 
 - `skuStyleColor` is cleaned as numeric text, parsed as `BigDecimal`, rounded to 0 digits with `RoundingMode.HALF_UP`, then range-checked as `BIGINT`.
-- `planRub`, `stockStoresPcs`, and `stockStoresDdp` are strict `DECIMAL(18,2)` fields. Fractional values are preserved; values with more than two significant fractional digits are rejected instead of rounded.
+- `planRub`, `stockStoresPcs`, and `stockStoresDdp` use the same `DECIMAL(18,2)` parsing as every other CDEcom decimal metric.
 - CDEcom decimal fields use `BigDecimal`, scale 2, `RoundingMode.HALF_UP`, and DECIMAL(18,2) range checking after rounding.
 - Scientific notation is accepted by numeric parsing where `BigDecimal` accepts it; `NaN` and infinity values are rejected.
 

@@ -317,7 +317,7 @@ public abstract class AbstractDWHExcelLoader {
                 XSSFReader reader = new XSSFReader(pkg);
                 StylesTable styles = reader.getStylesTable();
                 ReadOnlySharedStringsTable strings = new ReadOnlySharedStringsTable(pkg);
-                DataFormatter formatter = createDataFormatter();
+                DataFormatter formatter = new DataFormatter();
                 XSSFReader.SheetIterator sheets = (XSSFReader.SheetIterator) reader.getSheetsData();
 
                 if (!sheets.hasNext()) {
@@ -449,10 +449,6 @@ public abstract class AbstractDWHExcelLoader {
         }
 
         return new ExcelRowData(rowNum, values);
-    }
-
-    protected DataFormatter createDataFormatter() {
-        return new DataFormatter();
     }
 
     protected void validateHeaderRow(String[] headerValues) {

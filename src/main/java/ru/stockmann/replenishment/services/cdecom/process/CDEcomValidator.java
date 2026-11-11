@@ -65,12 +65,11 @@ public class CDEcomValidator {
         DWHParseResult<BigDecimal> cogs = parseDecimal(errors, row, "cogs", row.cogs());
         DWHParseResult<BigDecimal> salesDiscount =
                 parseDecimal(errors, row, "salesDiscount", row.salesDiscount());
-        DWHParseResult<BigDecimal> planRub =
-                parseExactDecimal(errors, row, "planRub", row.planRub());
+        DWHParseResult<BigDecimal> planRub = parseDecimal(errors, row, "planRub", row.planRub());
         DWHParseResult<BigDecimal> stockStoresPcs =
-                parseExactDecimal(errors, row, "stockStoresPcs", row.stockStoresPcs());
+                parseDecimal(errors, row, "stockStoresPcs", row.stockStoresPcs());
         DWHParseResult<BigDecimal> stockStoresDdp =
-                parseExactDecimal(errors, row, "stockStoresDdp", row.stockStoresDdp());
+                parseDecimal(errors, row, "stockStoresDdp", row.stockStoresDdp());
         String cdDrivers = cleanText(errors, row, "cdDrivers", row.cdDrivers(), false);
         String skuSupplierModel =
                 cleanText(errors, row, "skuSupplierModel", row.skuSupplierModel(), false);
@@ -136,14 +135,6 @@ public class CDEcomValidator {
             List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value
     ) {
         DWHParseResult<BigDecimal> result = parser.parseDecimal(value);
-        addParseError(errors, row, fieldName, value, result);
-        return result;
-    }
-
-    private DWHParseResult<BigDecimal> parseExactDecimal(
-            List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value
-    ) {
-        DWHParseResult<BigDecimal> result = parser.parseExactDecimal(value);
         addParseError(errors, row, fieldName, value, result);
         return result;
     }

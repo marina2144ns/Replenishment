@@ -220,9 +220,9 @@ BEGIN
                           gp_num = TRY_CONVERT(FLOAT, s.gp_clean),
                           cogs_num = TRY_CONVERT(FLOAT, s.cogs_clean),
                           salesDiscount_num = TRY_CONVERT(FLOAT, s.salesDiscount_clean),
-                          planRub_num = TRY_CONVERT(DECIMAL(38,18), s.planRub_clean),
-                          stockStoresPcs_num = TRY_CONVERT(DECIMAL(38,18), s.stockStoresPcs_clean),
-                          stockStoresDdp_num = TRY_CONVERT(DECIMAL(38,18), s.stockStoresDdp_clean)
+                          planRub_num = TRY_CONVERT(FLOAT, s.planRub_clean),
+                          stockStoresPcs_num = TRY_CONVERT(FLOAT, s.stockStoresPcs_clean),
+                          stockStoresDdp_num = TRY_CONVERT(FLOAT, s.stockStoresDdp_clean)
                       FROM Src s
                   ),
               Validation AS
@@ -278,19 +278,13 @@ BEGIN
                                       AND p.salesDiscount_num IS NULL THEN N'salesDiscount'
 
                                   WHEN p.planRub_clean IS NOT NULL
-                                      AND (p.planRub_num IS NULL
-                                          OR p.planRub_num <> ROUND(p.planRub_num, 2, 1)
-                                          OR ABS(p.planRub_num) > 9999999999999999.99) THEN N'planRub'
+                                      AND p.planRub_num IS NULL THEN N'planRub'
 
                                   WHEN p.stockStoresPcs_clean IS NOT NULL
-                                      AND (p.stockStoresPcs_num IS NULL
-                                          OR p.stockStoresPcs_num <> ROUND(p.stockStoresPcs_num, 2, 1)
-                                          OR ABS(p.stockStoresPcs_num) > 9999999999999999.99) THEN N'stockStoresPcs'
+                                      AND p.stockStoresPcs_num IS NULL THEN N'stockStoresPcs'
 
                                   WHEN p.stockStoresDdp_clean IS NOT NULL
-                                      AND (p.stockStoresDdp_num IS NULL
-                                          OR p.stockStoresDdp_num <> ROUND(p.stockStoresDdp_num, 2, 1)
-                                          OR ABS(p.stockStoresDdp_num) > 9999999999999999.99) THEN N'stockStoresDdp'
+                                      AND p.stockStoresDdp_num IS NULL THEN N'stockStoresDdp'
 
                                   WHEN p.name_clean IS NOT NULL
                                       AND LEN(p.name_clean) > 255 THEN N'name'
@@ -417,21 +411,15 @@ BEGIN
                                       CONCAT(N'RawId=', p.Id, N'. Invalid DECIMAL(18,2) value in [salesDiscount]: [', p.salesDiscount, N']')
 
                                   WHEN p.planRub_clean IS NOT NULL
-                                      AND (p.planRub_num IS NULL
-                                          OR p.planRub_num <> ROUND(p.planRub_num, 2, 1)
-                                          OR ABS(p.planRub_num) > 9999999999999999.99) THEN
+                                      AND p.planRub_num IS NULL THEN
                                       CONCAT(N'RawId=', p.Id, N'. Invalid DECIMAL(18,2) value in [planRub]: [', p.planRub, N']')
 
                                   WHEN p.stockStoresPcs_clean IS NOT NULL
-                                      AND (p.stockStoresPcs_num IS NULL
-                                          OR p.stockStoresPcs_num <> ROUND(p.stockStoresPcs_num, 2, 1)
-                                          OR ABS(p.stockStoresPcs_num) > 9999999999999999.99) THEN
+                                      AND p.stockStoresPcs_num IS NULL THEN
                                       CONCAT(N'RawId=', p.Id, N'. Invalid DECIMAL(18,2) value in [stockStoresPcs]: [', p.stockStoresPcs, N']')
 
                                   WHEN p.stockStoresDdp_clean IS NOT NULL
-                                      AND (p.stockStoresDdp_num IS NULL
-                                          OR p.stockStoresDdp_num <> ROUND(p.stockStoresDdp_num, 2, 1)
-                                          OR ABS(p.stockStoresDdp_num) > 9999999999999999.99) THEN
+                                      AND p.stockStoresDdp_num IS NULL THEN
                                       CONCAT(N'RawId=', p.Id, N'. Invalid DECIMAL(18,2) value in [stockStoresDdp]: [', p.stockStoresDdp, N']')
 
                                   WHEN p.name_clean IS NOT NULL
@@ -714,9 +702,9 @@ BEGIN
                           CAST(ROUND(TRY_CONVERT(FLOAT, s.cogs_clean), 2) AS DECIMAL(18,2)) AS cogs_val,
                           CAST(ROUND(TRY_CONVERT(FLOAT, s.salesDiscount_clean), 2) AS DECIMAL(18,2)) AS salesDiscount_val,
 
-                          TRY_CONVERT(DECIMAL(18,2), s.planRub_clean) AS planRub_val,
-                          TRY_CONVERT(DECIMAL(18,2), s.stockStoresPcs_clean) AS stockStoresPcs_val,
-                          TRY_CONVERT(DECIMAL(18,2), s.stockStoresDdp_clean) AS stockStoresDdp_val,
+                          CAST(ROUND(TRY_CONVERT(FLOAT, s.planRub_clean), 2) AS DECIMAL(18,2)) AS planRub_val,
+                          CAST(ROUND(TRY_CONVERT(FLOAT, s.stockStoresPcs_clean), 2) AS DECIMAL(18,2)) AS stockStoresPcs_val,
+                          CAST(ROUND(TRY_CONVERT(FLOAT, s.stockStoresDdp_clean), 2) AS DECIMAL(18,2)) AS stockStoresDdp_val,
 
                           s.cdDrivers_clean,
                           s.skuSupplierModel_clean,
