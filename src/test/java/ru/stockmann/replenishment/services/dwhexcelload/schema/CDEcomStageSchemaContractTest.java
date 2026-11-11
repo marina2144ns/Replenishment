@@ -322,6 +322,43 @@ class CDEcomStageSchemaContractTest {
         assertEquals(6, occurrences(verify, "c.is_nullable = 0"));
     }
 
+    @Test
+    void decimalFieldsMigrationDropsOnlyAutoCreatedStatistics() throws Exception {
+        String rawPrecheck = read(DECIMAL_FIELDS_MIGRATION_DIRECTORY + "00_precheck.sql");
+        String rawMigration = read(
+                DECIMAL_FIELDS_MIGRATION_DIRECTORY + "01_production_migration.sql"
+        );
+        String rawVerify = read(DECIMAL_FIELDS_MIGRATION_DIRECTORY + "02_verify.sql");
+        String precheck = normalizeSql(rawPrecheck);
+        String migration = normalizeSql(rawMigration);
+        String verify = normalizeSql(rawVerify);
+
+        for (String sql : List.of(precheck, migration, verify)) {
+            assertTrue(sql.contains("sys.stats"));
+            assertTrue(sql.contains("sys.stats_columns"));
+            assertTrue(sql.contains("sys.columns"));
+            assertFalse(sql.contains("_wa_sys_"));
+        }
+
+        assertTrue(rawPrecheck.toLowerCase(java.util.Locale.ROOT).contains("as [rowcount]"));
+        assertTrue(rawVerify.toLowerCase(java.util.Locale.ROOT).contains("as [rowcount]"));
+        assertFalse(rawPrecheck.toLowerCase(java.util.Locale.ROOT).contains("as rowcount"));
+        assertFalse(rawMigration.toLowerCase(java.util.Locale.ROOT).contains("as rowcount"));
+        assertFalse(rawVerify.toLowerCase(java.util.Locale.ROOT).contains("as rowcount"));
+
+        assertTrue(precheck.contains("s.auto_created = 0"));
+        assertTrue(precheck.contains("isautocreated"));
+        assertTrue(precheck.contains("isblocking"));
+        assertTrue(migration.contains("s.auto_created = 0"));
+        assertTrue(migration.contains("s.auto_created = 1"));
+        assertTrue(migration.contains("drop statistics"));
+        assertTrue(migration.contains("quotename(@statisticsschemaname)"));
+        assertTrue(migration.indexOf("drop statistics")
+                < migration.indexOf("alter table dbo.cd_ecom alter column planrub"));
+        assertTrue(verify.contains("s.auto_created as isautocreated"));
+        assertTrue(verify.contains("s.user_created as isusercreated"));
+    }
+
     private static List<String> decimalMetrics() {
         return List.of(
                 "orderpcs", "orderrub", "foundpcs", "foundrub", "salespcs", "salesrub",

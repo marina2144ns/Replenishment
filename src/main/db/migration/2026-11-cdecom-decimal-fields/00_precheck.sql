@@ -76,7 +76,7 @@ ORDER BY e.QualifiedTableName, c.column_id;
 
 SELECT
     N'dbo.CD_ecom' AS QualifiedTableName,
-    COUNT_BIG(*) AS RowCount,
+    COUNT_BIG(*) AS [RowCount],
     SUM(CONVERT(DECIMAL(38,2), planRub)) AS PlanRubSum,
     SUM(CONVERT(DECIMAL(38,2), stockStoresPcs)) AS StockStoresPcsSum,
     SUM(CONVERT(DECIMAL(38,2), stockStoresDdp)) AS StockStoresDdpSum
@@ -94,7 +94,9 @@ SELECT
     e.QualifiedTableName,
     e.ColumnName,
     i.name AS DependencyName,
-    N'INDEX' AS DependencyType
+    N'INDEX' AS DependencyType,
+    CONVERT(BIT, NULL) AS IsAutoCreated,
+    CONVERT(BIT, 1) AS IsBlocking
 FROM @ExpectedColumns e
 JOIN sys.columns c ON c.object_id = e.ObjectId AND c.name = e.ColumnName
 JOIN sys.index_columns ic ON ic.object_id = c.object_id AND ic.column_id = c.column_id
@@ -105,18 +107,28 @@ SELECT
     e.QualifiedTableName,
     e.ColumnName,
     s.name,
-    N'STATISTICS'
+    N'STATISTICS',
+    s.auto_created,
+    CONVERT
+    (
+        BIT,
+        CASE
+            WHEN TYPE_NAME(c.user_type_id) = N'bigint' AND s.auto_created = 0 THEN 1
+            ELSE 0
+        END
+    )
 FROM @ExpectedColumns e
 JOIN sys.columns c ON c.object_id = e.ObjectId AND c.name = e.ColumnName
 JOIN sys.stats_columns sc ON sc.object_id = c.object_id AND sc.column_id = c.column_id
 JOIN sys.stats s ON s.object_id = sc.object_id AND s.stats_id = sc.stats_id
-WHERE TYPE_NAME(c.user_type_id) = N'bigint'
 UNION ALL
 SELECT
     e.QualifiedTableName,
     e.ColumnName,
     OBJECT_SCHEMA_NAME(d.referencing_id) + N'.' + OBJECT_NAME(d.referencing_id),
-    N'SCHEMA_BOUND_EXPRESSION'
+    N'SCHEMA_BOUND_EXPRESSION',
+    CONVERT(BIT, NULL),
+    CONVERT(BIT, 1)
 FROM @ExpectedColumns e
 JOIN sys.columns c ON c.object_id = e.ObjectId AND c.name = e.ColumnName
 JOIN sys.sql_expression_dependencies d
@@ -129,7 +141,9 @@ SELECT
     e.QualifiedTableName,
     e.ColumnName,
     OBJECT_SCHEMA_NAME(dc.object_id) + N'.' + dc.name,
-    N'DEFAULT_CONSTRAINT'
+    N'DEFAULT_CONSTRAINT',
+    CONVERT(BIT, NULL),
+    CONVERT(BIT, 1)
 FROM @ExpectedColumns e
 JOIN sys.columns c ON c.object_id = e.ObjectId AND c.name = e.ColumnName
 JOIN sys.default_constraints dc
@@ -141,7 +155,9 @@ SELECT
     e.QualifiedTableName,
     e.ColumnName,
     OBJECT_SCHEMA_NAME(fk.object_id) + N'.' + fk.name,
-    N'FOREIGN_KEY'
+    N'FOREIGN_KEY',
+    CONVERT(BIT, NULL),
+    CONVERT(BIT, 1)
 FROM @ExpectedColumns e
 JOIN sys.columns c ON c.object_id = e.ObjectId AND c.name = e.ColumnName
 JOIN sys.foreign_key_columns fkc
@@ -154,7 +170,9 @@ SELECT
     e.QualifiedTableName,
     e.ColumnName,
     OBJECT_SCHEMA_NAME(cc.object_id) + N'.' + cc.name,
-    N'CHECK_CONSTRAINT'
+    N'CHECK_CONSTRAINT',
+    CONVERT(BIT, NULL),
+    CONVERT(BIT, 1)
 FROM @ExpectedColumns e
 JOIN sys.columns c ON c.object_id = e.ObjectId AND c.name = e.ColumnName
 JOIN sys.sql_expression_dependencies d
@@ -177,7 +195,9 @@ OR EXISTS
     FROM @ExpectedColumns e
     JOIN sys.columns c ON c.object_id = e.ObjectId AND c.name = e.ColumnName
     JOIN sys.stats_columns sc ON sc.object_id = c.object_id AND sc.column_id = c.column_id
+    JOIN sys.stats s ON s.object_id = sc.object_id AND s.stats_id = sc.stats_id
     WHERE TYPE_NAME(c.user_type_id) = N'bigint'
+      AND s.auto_created = 0
 )
 OR EXISTS
 (
@@ -221,5 +241,5 @@ OR EXISTS
     JOIN sys.check_constraints cc ON cc.object_id = d.referencing_id
     WHERE TYPE_NAME(c.user_type_id) = N'bigint'
 )
-    THROW 54010, 'Precheck failed: a blocking index, statistic, constraint, or schema-bound expression depends on a selected BIGINT column.', 1;
+    THROW 54010, 'Precheck failed: a blocking index, user-created statistic, constraint, or schema-bound expression depends on a selected BIGINT column.', 1;
 GO

@@ -16,12 +16,18 @@ blocks execution.
 2. Take a current full database backup and verify that it can be restored.
 3. Run `00_precheck.sql` with an account that can read catalog views and both
    tables. Save both the metadata and row-count/control-total result sets.
-4. Do not continue if the precheck reports an index, statistic, or schema-bound
-   dependency. Script that dependency, remove it in a separately reviewed change,
-   and recreate it after this migration; then rerun the precheck.
+4. Review the dependency result. Rows with `DependencyType = STATISTICS`,
+   `IsAutoCreated = 1`, and `IsBlocking = 0` are diagnostic only and are removed
+   automatically by the production script. Do not continue for any row with
+   `IsBlocking = 1`, including user-created statistics, indexes, constraints, or
+   schema-bound expressions. Script and resolve such dependencies in a separately
+   reviewed change, then rerun the precheck.
 5. Run `01_production_migration.sql` during an approved maintenance window.
-6. Run `02_verify.sql`. Confirm six `decimal / 18 / 2 / is_nullable=0` rows and
-   compare both row counts and three control totals with the saved precheck output.
+6. Run `02_verify.sql`. Confirm six `decimal / 18 / 2 / is_nullable=0` rows,
+   compare both row counts and three control totals with the saved precheck output,
+   and retain the statistics diagnostic result. Auto-created statistics do not
+   need to be present: SQL Server may recreate them later when queries require
+   them.
 7. Deploy the matching application and run one CDEcom test load containing integer,
    fractional, negative, comma-decimal, and empty metric values. Verify a repeated
    load and both deletion paths.
@@ -43,6 +49,14 @@ dependencies. Before commit it verifies the final metadata plus row counts and
 numeric control totals. A failure rolls the transaction back. Re-running after a
 successful deployment performs the checks and skips all six `ALTER COLUMN`
 statements because the columns already have the target type.
+
+Immediately before `ALTER COLUMN`, while the transaction holds table locks, the
+script discovers statistics through `sys.stats`, `sys.stats_columns`, and
+`sys.columns`. It drops only rows where `sys.stats.auto_created = 1` and only when
+they reference one of the six source `BIGINT` columns. Statistics are not selected
+by `_WA_Sys_` naming. User-created statistics remain blocking, and the script does
+not recreate automatic statistics manually. Dropped automatic statistics and all
+column alterations roll back together if the transaction fails.
 
 ## Recovery
 

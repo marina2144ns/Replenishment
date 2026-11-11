@@ -63,7 +63,9 @@ BEGIN TRY
         FROM @ExpectedColumns e
         JOIN sys.columns c ON c.object_id = e.ObjectId AND c.name = e.ColumnName
         JOIN sys.stats_columns sc ON sc.object_id = c.object_id AND sc.column_id = c.column_id
+        JOIN sys.stats s ON s.object_id = sc.object_id AND s.stats_id = sc.stats_id
         WHERE TYPE_NAME(c.user_type_id) = N'bigint'
+          AND s.auto_created = 0
     )
     OR EXISTS
     (
@@ -107,7 +109,7 @@ BEGIN TRY
         JOIN sys.check_constraints cc ON cc.object_id = d.referencing_id
         WHERE TYPE_NAME(c.user_type_id) = N'bigint'
     )
-        THROW 54104, 'Migration blocked: a blocking index, statistic, constraint, or schema-bound expression depends on a selected BIGINT column.', 1;
+        THROW 54104, 'Migration blocked: a blocking index, user-created statistic, constraint, or schema-bound expression depends on a selected BIGINT column.', 1;
 
     IF EXISTS (SELECT 1 FROM dbo.CD_ecom WHERE TRY_CONVERT(DECIMAL(18,2), planRub) IS NULL)
         THROW 54105, 'Migration blocked: dbo.CD_ecom.planRub cannot be converted to DECIMAL(18,2).', 1;
@@ -145,6 +147,49 @@ BEGIN TRY
         @StagePcsBefore = COALESCE(SUM(CONVERT(DECIMAL(38,2), stockStoresPcs)), 0),
         @StageDdpBefore = COALESCE(SUM(CONVERT(DECIMAL(38,2), stockStoresDdp)), 0)
     FROM dbo.CD_ecom_stage WITH (HOLDLOCK, TABLOCKX);
+
+    DECLARE
+        @StatisticsSchemaName SYSNAME,
+        @StatisticsTableName SYSNAME,
+        @StatisticsName SYSNAME,
+        @DropStatisticsSql NVARCHAR(MAX);
+
+    DECLARE AutoStatisticsCursor CURSOR LOCAL FAST_FORWARD FOR
+        SELECT DISTINCT
+            OBJECT_SCHEMA_NAME(s.object_id),
+            OBJECT_NAME(s.object_id),
+            s.name
+        FROM @ExpectedColumns e
+        JOIN sys.columns c
+          ON c.object_id = e.ObjectId
+         AND c.name = e.ColumnName
+        JOIN sys.stats_columns sc
+          ON sc.object_id = c.object_id
+         AND sc.column_id = c.column_id
+        JOIN sys.stats s
+          ON s.object_id = sc.object_id
+         AND s.stats_id = sc.stats_id
+        WHERE TYPE_NAME(c.user_type_id) = N'bigint'
+          AND s.auto_created = 1;
+
+    OPEN AutoStatisticsCursor;
+    FETCH NEXT FROM AutoStatisticsCursor
+        INTO @StatisticsSchemaName, @StatisticsTableName, @StatisticsName;
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        SET @DropStatisticsSql = N'DROP STATISTICS '
+                + QUOTENAME(@StatisticsSchemaName) + N'.'
+                + QUOTENAME(@StatisticsTableName) + N'.'
+                + QUOTENAME(@StatisticsName) + N';';
+        EXEC sys.sp_executesql @DropStatisticsSql;
+
+        FETCH NEXT FROM AutoStatisticsCursor
+            INTO @StatisticsSchemaName, @StatisticsTableName, @StatisticsName;
+    END;
+
+    CLOSE AutoStatisticsCursor;
+    DEALLOCATE AutoStatisticsCursor;
 
     IF EXISTS (SELECT 1 FROM sys.columns c WHERE c.object_id = OBJECT_ID(N'dbo.CD_ecom') AND c.name = N'planRub' AND TYPE_NAME(c.user_type_id) = N'bigint')
         ALTER TABLE dbo.CD_ecom ALTER COLUMN planRub DECIMAL(18,2) NOT NULL;

@@ -32,7 +32,7 @@ ORDER BY TableName, c.column_id;
 
 SELECT
     N'dbo.CD_ecom' AS QualifiedTableName,
-    COUNT_BIG(*) AS RowCount,
+    COUNT_BIG(*) AS [RowCount],
     SUM(CONVERT(DECIMAL(38,2), planRub)) AS PlanRubSum,
     SUM(CONVERT(DECIMAL(38,2), stockStoresPcs)) AS StockStoresPcsSum,
     SUM(CONVERT(DECIMAL(38,2), stockStoresDdp)) AS StockStoresDdpSum,
@@ -47,4 +47,31 @@ SELECT
     SUM(CONVERT(DECIMAL(38,2), stockStoresDdp)),
     SUM(CASE WHEN planRub IS NULL OR stockStoresPcs IS NULL OR stockStoresDdp IS NULL THEN 1 ELSE 0 END)
 FROM dbo.CD_ecom_stage;
+
+SELECT
+    e.QualifiedTableName,
+    e.ColumnName,
+    s.name AS StatisticsName,
+    s.auto_created AS IsAutoCreated,
+    s.user_created AS IsUserCreated
+FROM
+(
+    VALUES
+        (OBJECT_ID(N'dbo.CD_ecom'), N'dbo.CD_ecom', N'planRub'),
+        (OBJECT_ID(N'dbo.CD_ecom'), N'dbo.CD_ecom', N'stockStoresPcs'),
+        (OBJECT_ID(N'dbo.CD_ecom'), N'dbo.CD_ecom', N'stockStoresDdp'),
+        (OBJECT_ID(N'dbo.CD_ecom_stage'), N'dbo.CD_ecom_stage', N'planRub'),
+        (OBJECT_ID(N'dbo.CD_ecom_stage'), N'dbo.CD_ecom_stage', N'stockStoresPcs'),
+        (OBJECT_ID(N'dbo.CD_ecom_stage'), N'dbo.CD_ecom_stage', N'stockStoresDdp')
+) e (ObjectId, QualifiedTableName, ColumnName)
+JOIN sys.columns c
+  ON c.object_id = e.ObjectId
+ AND c.name = e.ColumnName
+JOIN sys.stats_columns sc
+  ON sc.object_id = c.object_id
+ AND sc.column_id = c.column_id
+JOIN sys.stats s
+  ON s.object_id = sc.object_id
+ AND s.stats_id = sc.stats_id
+ORDER BY e.QualifiedTableName, e.ColumnName, s.name;
 GO

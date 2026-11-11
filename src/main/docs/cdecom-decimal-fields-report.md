@@ -135,14 +135,41 @@ SQL и документация:
 
 - `00_precheck.sql` проверяет наличие и допустимое состояние шести колонок,
   convertibility, индексы, statistics, default/check/FK constraints,
-  schema-bound dependencies, количество строк и контрольные суммы.
+  schema-bound dependencies, количество строк и контрольные суммы. Автоматические
+  statistics (`sys.stats.auto_created = 1`) выводятся диагностически, но не
+  блокируют выполнение; пользовательские statistics остаются блокирующими.
 - `01_production_migration.sql` работает в одной транзакции с `XACT_ABORT ON`,
-  принимает только `BIGINT NOT NULL` или уже целевой тип, изменяет ровно шесть
-  колонок и перед commit повторно проверяет метаданные, row counts и суммы.
+  принимает только `BIGINT NOT NULL` или уже целевой тип, по системным catalog
+  views удаляет только auto-created statistics, зависимые от шести исходных
+  `BIGINT`-колонок, изменяет ровно шесть колонок и перед commit повторно проверяет
+  метаданные, row counts и суммы. Statistics не определяются по `_WA_Sys_` и не
+  создаются вручную после изменения типа.
 - `02_verify.sql` строго проверяет `decimal`, precision 18, scale 2,
-  `is_nullable = 0` и выводит row counts/control totals.
+  `is_nullable = 0`, выводит row counts/control totals и текущее состояние
+  statistics для шести колонок.
 - Повторный запуск после успешной миграции не выполняет `ALTER COLUMN` и не падает
   из-за зависимостей уже целевых decimal-колонок.
+
+### Корректировка auto-created statistics для SQL Server 2014
+
+После production precheck выявлены шесть автоматически созданных statistics — по
+одной на каждую изменяемую колонку. Миграция скорректирована без привязки к их
+именам:
+
+- precheck выводит `IsAutoCreated` и `IsBlocking`; auto-created statistics имеют
+  `IsBlocking = 0`, а statistics с `auto_created = 0` остаются блокирующими;
+- production migration после получения table locks и до `ALTER COLUMN` находит
+  statistics через `sys.stats`, `sys.stats_columns`, `sys.columns` и удаляет
+  только `auto_created = 1` для шести исходных `BIGINT`-колонок;
+- `DROP STATISTICS` и шесть `ALTER COLUMN` находятся в одной транзакции;
+- после успешной миграции statistics вручную не создаются; повторный запуск не
+  удаляет statistics на уже целевых `DECIMAL(18,2)`-колонках;
+- verify выводит текущее состояние auto-created/user-created statistics;
+- псевдоним `[RowCount]` экранирован в precheck и verify для SQL Server 2014.
+
+Профильный тест миграции: 12 passed, 0 failed, 0 skipped. Полный прогон после
+корректировки: 515 passed, 0 failed, 0 skipped. Скрипты на SQL Server не
+запускались; требуется повторный precheck и rehearsal по инструкции README.
 
 Порядок применения: остановить writers → проверить backup → выполнить и сохранить
 результаты precheck → выполнить production migration в maintenance window → выполнить
