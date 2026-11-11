@@ -164,9 +164,9 @@ class CDEcomRepositoryTest {
         row.put("gp", "-12.34");
         row.put("cogs", "5");
         row.put("salesDiscount", "10");
-        row.put("planRub", "123");
-        row.put("stockStoresPcs", "3");
-        row.put("stockStoresDdp", "4");
+        row.put("planRub", "123.45");
+        row.put("stockStoresPcs", "0.01");
+        row.put("stockStoresDdp", "-123.45");
         row.put("cdDrivers", "Driver");
         row.put("skuColorRussian", "Color");
         row.put("skuComposition", "Composition");
@@ -206,9 +206,9 @@ class CDEcomRepositoryTest {
         assertEquals("-12.34", row.gp());
         assertEquals("5", row.cogs());
         assertEquals("10", row.salesDiscount());
-        assertEquals("3", row.stockStoresPcs());
-        assertEquals("4", row.stockStoresDdp());
-        assertEquals("123", row.planRub());
+        assertEquals("0.01", row.stockStoresPcs());
+        assertEquals("-123.45", row.stockStoresDdp());
+        assertEquals("123.45", row.planRub());
         assertEquals("Driver", row.cdDrivers());
         assertEquals("Color", row.skuColorRussian());
         assertEquals("Composition", row.skuComposition());
@@ -253,9 +253,9 @@ class CDEcomRepositoryTest {
                 new BigDecimal("99.99"),
                 new BigDecimal("10.00"),
                 new BigDecimal("11.00"),
-                123L,
-                456L,
-                789L,
+                new BigDecimal("123.00"),
+                new BigDecimal("456.00"),
+                new BigDecimal("789.00"),
                 "Driver",
                 "Supplier",
                 "Composition",

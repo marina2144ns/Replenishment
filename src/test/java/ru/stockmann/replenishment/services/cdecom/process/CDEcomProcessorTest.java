@@ -31,9 +31,9 @@ class CDEcomProcessorTest {
         )) {
             assertEquals(0, value.compareTo(BigDecimal.ZERO));
         }
-        assertEquals(0L, row.planRub());
-        assertEquals(0L, row.stockStoresPcs());
-        assertEquals(0L, row.stockStoresDdp());
+        assertEquals(0, row.planRub().compareTo(BigDecimal.ZERO));
+        assertEquals(0, row.stockStoresPcs().compareTo(BigDecimal.ZERO));
+        assertEquals(0, row.stockStoresDdp().compareTo(BigDecimal.ZERO));
         assertEquals(null, row.skuStyleColor());
     }
 

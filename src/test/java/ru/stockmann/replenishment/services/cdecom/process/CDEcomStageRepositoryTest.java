@@ -35,6 +35,9 @@ class CDEcomStageRepositoryTest {
         assertEquals("setObject:7:2025-01-31:" + Types.DATE, jdbc.calls.get(6));
         assertEquals("setLong:19:123", jdbc.calls.get(18));
         assertEquals("setBigDecimal:21:1.25", jdbc.calls.get(20));
+        assertEquals("setBigDecimal:31:100.00", jdbc.calls.get(30));
+        assertEquals("setBigDecimal:32:200.00", jdbc.calls.get(31));
+        assertEquals("setBigDecimal:33:300.00", jdbc.calls.get(32));
         assertEquals("setLong:41:99", jdbc.calls.get(40));
         assertEquals(1, jdbc.addBatchCalls);
         assertEquals(1, jdbc.executeBatchCalls);
@@ -57,6 +60,17 @@ class CDEcomStageRepositoryTest {
     }
 
     @Test
+    void nullableChangedMetricsUseDecimalSqlType() {
+        RecordingJdbc jdbc = new RecordingJdbc(new int[]{1});
+
+        new CDEcomStageRepository().insertBatch(jdbc.connection(), 10L, List.of(stageRow(25L, null)));
+
+        assertEquals("setNull:31:" + Types.DECIMAL, jdbc.calls.get(30));
+        assertEquals("setNull:32:" + Types.DECIMAL, jdbc.calls.get(31));
+        assertEquals("setNull:33:" + Types.DECIMAL, jdbc.calls.get(32));
+    }
+
+    @Test
     void rejectsAnotherLoadSession() {
         assertThrows(IllegalArgumentException.class, () -> new CDEcomStageRepository().insertBatch(
                 new RecordingJdbc(new int[]{1}).connection(), 11L, List.of(stageRow(25L))
@@ -64,13 +78,20 @@ class CDEcomStageRepositoryTest {
     }
 
     private static CDEcomStageRow stageRow(Long excelRowNum) {
+        return stageRow(excelRowNum, new BigDecimal("100.00"));
+    }
+
+    private static CDEcomStageRow stageRow(Long excelRowNum, BigDecimal changedMetric) {
         BigDecimal decimal = new BigDecimal("1.25");
         return new CDEcomStageRow(
                 10L, excelRowNum, "name", 2025, 1, 31, LocalDate.of(2025, 1, 31),
                 "channel", "store", "division", "department", "subDepartment", "brand", "tm",
                 "node", "section", "group", "campaign", 123L, "phase",
                 decimal, decimal, decimal, decimal, decimal, decimal, decimal, decimal, decimal,
-                decimal, 100L, 200L, 300L, "drivers", "supplier", "composition", "color", "sku",
+                decimal, changedMetric,
+                changedMetric == null ? null : new BigDecimal("200.00"),
+                changedMetric == null ? null : new BigDecimal("300.00"),
+                "drivers", "supplier", "composition", "color", "sku",
                 "comment", "collection", 99L
         );
     }

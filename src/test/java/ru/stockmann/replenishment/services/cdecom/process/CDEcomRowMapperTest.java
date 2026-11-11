@@ -27,9 +27,9 @@ class CDEcomRowMapperTest {
         assertEquals(Date.valueOf("2026-01-31"), row.data());
         assertEquals(13L, row.skuStyleColor());
         assertEquals(new BigDecimal("1234.57"), row.orderPcs());
-        assertEquals(123L, row.planRub());
-        assertEquals(456L, row.stockStoresPcs());
-        assertEquals(789L, row.stockStoresDdp());
+        assertEquals(new BigDecimal("123.00"), row.planRub());
+        assertEquals(new BigDecimal("456.00"), row.stockStoresPcs());
+        assertEquals(new BigDecimal("789.00"), row.stockStoresDdp());
         assertEquals("Collection", row.skuCollection());
         assertEquals(10L, row.rawRowId());
     }
@@ -66,21 +66,23 @@ class CDEcomRowMapperTest {
     }
 
     @Test
-    void mapsDirectBigintDecimalsOnlyWhenMathematicallyIntegral() {
-        CDEcomTargetRow row = mapper.toTargetRow(validRow("2026", "12", "1", "12.00", "-12.0", "1e2"));
+    void mapsChangedMetricsAsExactDecimalsWithoutRounding() {
+        CDEcomTargetRow row = mapper.toTargetRow(
+                validRow("2026", "12", "1", "12.34", "-12,50", "1e2")
+        );
 
-        assertEquals(12L, row.planRub());
-        assertEquals(-12L, row.stockStoresPcs());
-        assertEquals(100L, row.stockStoresDdp());
+        assertEquals(new BigDecimal("12.34"), row.planRub());
+        assertEquals(new BigDecimal("-12.50"), row.stockStoresPcs());
+        assertEquals(new BigDecimal("100.00"), row.stockStoresDdp());
 
         IllegalStateException ex = assertThrows(
                 IllegalStateException.class,
-                () -> mapper.toTargetRow(validRow("2026", "12", "1", "12.5", "1", "1"))
+                () -> mapper.toTargetRow(validRow("2026", "12", "1", "12.345", "1", "1"))
         );
 
         assertTrue(ex.getMessage().contains("field [planRub]"));
-        assertTrue(ex.getMessage().contains("INVALID_BIGINT"));
-        assertTrue(ex.getMessage().contains("originalValue=[12.5]"));
+        assertTrue(ex.getMessage().contains("DECIMAL_SCALE_EXCEEDED"));
+        assertTrue(ex.getMessage().contains("originalValue=[12.345]"));
     }
 
     @Test

@@ -65,11 +65,12 @@ public class CDEcomValidator {
         DWHParseResult<BigDecimal> cogs = parseDecimal(errors, row, "cogs", row.cogs());
         DWHParseResult<BigDecimal> salesDiscount =
                 parseDecimal(errors, row, "salesDiscount", row.salesDiscount());
-        DWHParseResult<Long> planRub = parseDirectLong(errors, row, "planRub", row.planRub());
-        DWHParseResult<Long> stockStoresPcs =
-                parseDirectLong(errors, row, "stockStoresPcs", row.stockStoresPcs());
-        DWHParseResult<Long> stockStoresDdp =
-                parseDirectLong(errors, row, "stockStoresDdp", row.stockStoresDdp());
+        DWHParseResult<BigDecimal> planRub =
+                parseExactDecimal(errors, row, "planRub", row.planRub());
+        DWHParseResult<BigDecimal> stockStoresPcs =
+                parseExactDecimal(errors, row, "stockStoresPcs", row.stockStoresPcs());
+        DWHParseResult<BigDecimal> stockStoresDdp =
+                parseExactDecimal(errors, row, "stockStoresDdp", row.stockStoresDdp());
         String cdDrivers = cleanText(errors, row, "cdDrivers", row.cdDrivers(), false);
         String skuSupplierModel =
                 cleanText(errors, row, "skuSupplierModel", row.skuSupplierModel(), false);
@@ -92,8 +93,8 @@ public class CDEcomValidator {
                 skuStyleColor.value(), skuPhase, decimalValueOrZero(orderPcs), decimalValueOrZero(orderRub),
                 decimalValueOrZero(foundPcs), decimalValueOrZero(foundRub), decimalValueOrZero(salesPcs),
                 decimalValueOrZero(salesRub), decimalValueOrZero(revenue), decimalValueOrZero(gp),
-                decimalValueOrZero(cogs), decimalValueOrZero(salesDiscount), longValueOrZero(planRub),
-                longValueOrZero(stockStoresPcs), longValueOrZero(stockStoresDdp),
+                decimalValueOrZero(cogs), decimalValueOrZero(salesDiscount), decimalValueOrZero(planRub),
+                decimalValueOrZero(stockStoresPcs), decimalValueOrZero(stockStoresDdp),
                 cdDrivers, skuSupplierModel, skuComposition, skuColorRussian,
                 skuName, skuCommentBuyer, skuCollection, row.id()
         ), List.of());
@@ -139,10 +140,10 @@ public class CDEcomValidator {
         return result;
     }
 
-    private DWHParseResult<Long> parseDirectLong(
+    private DWHParseResult<BigDecimal> parseExactDecimal(
             List<CDEcomValidationError> errors, CDEcomRawRow row, String fieldName, String value
     ) {
-        DWHParseResult<Long> result = parser.parseDirectLong(value);
+        DWHParseResult<BigDecimal> result = parser.parseExactDecimal(value);
         addParseError(errors, row, fieldName, value, result);
         return result;
     }
@@ -194,10 +195,6 @@ public class CDEcomValidator {
 
     private BigDecimal decimalValueOrZero(DWHParseResult<BigDecimal> result) {
         return result.value() != null ? result.value() : BigDecimal.ZERO;
-    }
-
-    private Long longValueOrZero(DWHParseResult<Long> result) {
-        return result.value() != null ? result.value() : 0L;
     }
 
     private CDEcomValidationError parseError(

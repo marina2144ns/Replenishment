@@ -121,11 +121,7 @@ class CDEcomExcelLoadDefinitionTest {
         definition.columns().stream()
                 .filter(column -> ZERO_METRICS.contains(column.rawColumnName()))
                 .forEach(column -> {
-                    DWHExcelValueKind expected = Set.of("planRub", "stockStoresPcs", "stockStoresDdp")
-                            .contains(column.rawColumnName())
-                            ? DWHExcelValueKind.BIGINT
-                            : DWHExcelValueKind.DECIMAL;
-                    assertEquals(expected, column.valueKind(), column.rawColumnName());
+                    assertEquals(DWHExcelValueKind.DECIMAL, column.valueKind(), column.rawColumnName());
                     assertEquals(false, column.required(), column.rawColumnName());
                     assertEquals(DWHExcelNullHandling.ZERO, column.nullHandling(), column.rawColumnName());
                 });

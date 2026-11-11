@@ -177,17 +177,28 @@ class CDEcomValidatorTest {
     }
 
     @Test
-    void validatesDirectBigintFieldsWithoutRounding() {
-        assertTrue(validator.validate(row().withPlanRub("12").build()).valid());
-        assertTrue(validator.validate(row().withPlanRub("12.0").build()).valid());
-        assertTrue(validator.validate(row().withPlanRub("12.00").build()).valid());
-        assertTrue(validator.validate(row().withPlanRub("-12.0").build()).valid());
-        assertTrue(validator.validate(row().withStockStoresDdp("1e2").build()).valid());
-        assertTrue(validator.validate(row().withPlanRub("9223372036854775807").build()).valid());
-        assertEquals("INVALID_BIGINT", validator.validate(row().withPlanRub("12.5").build())
-                .errors().get(0).errorCode());
-        assertEquals("NUMERIC_OVERFLOW", validator.validate(row().withStockStoresPcs("9223372036854775808").build())
-                .errors().get(0).errorCode());
+    void validatesChangedMetricsAsExactDecimal18Scale2() {
+        for (String field : changedDecimalMetrics()) {
+            for (String value : List.of("123", "123.45", "0.01", "-123.45", "123,45", "1e2")) {
+                CDEcomRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
+                assertTrue(result.valid(), field + "=" + value + ": " + result.errors());
+            }
+
+            assertEquals("NUMERIC_OVERFLOW",
+                    validator.validate(rowWithMetric(field, "10000000000000000.00"))
+                            .errors().get(0).errorCode(), field);
+            assertEquals("DECIMAL_SCALE_EXCEEDED",
+                    validator.validate(rowWithMetric(field, "123.456"))
+                            .errors().get(0).errorCode(), field);
+            assertEquals("INVALID_DECIMAL",
+                    validator.validate(rowWithMetric(field, "invalid"))
+                            .errors().get(0).errorCode(), field);
+
+            CDEcomStageRow boundary = validator.validateAndMap(
+                    rowWithMetric(field, "9999999999999999.99")
+            ).stageRow();
+            assertEquals(new BigDecimal("9999999999999999.99"), decimalMetricValue(boundary, field));
+        }
     }
 
     @Test
@@ -197,12 +208,8 @@ class CDEcomValidatorTest {
                 CDEcomRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
 
                 assertTrue(result.valid(), field + "=" + value + ": " + result.errors());
-                if (bigintMetrics().contains(field)) {
-                    assertEquals(0L, bigintMetricValue(result.stageRow(), field), field + "=" + value);
-                } else {
-                    assertEquals(0, decimalMetricValue(result.stageRow(), field).compareTo(BigDecimal.ZERO),
-                            field + "=" + value);
-                }
+                assertEquals(0, decimalMetricValue(result.stageRow(), field).compareTo(BigDecimal.ZERO),
+                        field + "=" + value);
             }
         }
     }
@@ -214,12 +221,8 @@ class CDEcomValidatorTest {
                 CDEcomRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
 
                 assertTrue(result.valid(), field + "=" + value + ": " + result.errors());
-                if (bigintMetrics().contains(field)) {
-                    assertEquals(Long.valueOf(value), bigintMetricValue(result.stageRow(), field), field);
-                } else {
-                    assertEquals(0,
-                            decimalMetricValue(result.stageRow(), field).compareTo(new BigDecimal(value)), field);
-                }
+                assertEquals(0,
+                        decimalMetricValue(result.stageRow(), field).compareTo(new BigDecimal(value)), field);
             }
         }
     }
@@ -231,7 +234,7 @@ class CDEcomValidatorTest {
                 CDEcomRowValidationResult result = validator.validateAndMap(rowWithMetric(field, value));
 
                 assertTrue(result.stageRow() == null, field + "=" + value);
-                String code = bigintMetrics().contains(field) ? "INVALID_BIGINT" : "INVALID_DECIMAL";
+                String code = "INVALID_DECIMAL";
                 assertTrue(result.errors().stream().anyMatch(error ->
                         field.equals(error.fieldName()) && code.equals(error.errorCode())),
                         field + "=" + value + ": " + result.errors());
@@ -300,7 +303,7 @@ class CDEcomValidatorTest {
         );
     }
 
-    private static List<String> bigintMetrics() {
+    private static List<String> changedDecimalMetrics() {
         return List.of("planRub", "stockStoresPcs", "stockStoresDdp");
     }
 
@@ -336,12 +339,6 @@ class CDEcomValidatorTest {
             case "gp" -> row.gp();
             case "cogs" -> row.cogs();
             case "salesDiscount" -> row.salesDiscount();
-            default -> throw new IllegalArgumentException(field);
-        };
-    }
-
-    private static Long bigintMetricValue(CDEcomStageRow row, String field) {
-        return switch (field) {
             case "planRub" -> row.planRub();
             case "stockStoresPcs" -> row.stockStoresPcs();
             case "stockStoresDdp" -> row.stockStoresDdp();

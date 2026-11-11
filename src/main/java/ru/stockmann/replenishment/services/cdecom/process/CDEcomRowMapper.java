@@ -49,9 +49,9 @@ public class CDEcomRowMapper {
                 parseDecimal(row.gp(), "gp"),
                 parseDecimal(row.cogs(), "cogs"),
                 parseDecimal(row.salesDiscount(), "salesDiscount"),
-                parseDirectLong(row.planRub(), "planRub"),
-                parseDirectLong(row.stockStoresPcs(), "stockStoresPcs"),
-                parseDirectLong(row.stockStoresDdp(), "stockStoresDdp"),
+                parseExactDecimal(row.planRub(), "planRub"),
+                parseExactDecimal(row.stockStoresPcs(), "stockStoresPcs"),
+                parseExactDecimal(row.stockStoresDdp(), "stockStoresDdp"),
                 parser.cleanText(row.cdDrivers()),
                 parser.cleanText(row.skuSupplierModel()),
                 parser.cleanText(row.skuComposition()),
@@ -95,8 +95,8 @@ public class CDEcomRowMapper {
         return result.value();
     }
 
-    private Long parseDirectLong(String value, String fieldName) {
-        DWHParseResult<Long> result = parser.parseDirectLong(value);
+    private BigDecimal parseExactDecimal(String value, String fieldName) {
+        DWHParseResult<BigDecimal> result = parser.parseExactDecimal(value);
         if (!result.success()) {
             throw invalidValue(fieldName, result);
         }

@@ -23,6 +23,8 @@ class CDEcomStageSchemaContractTest {
             "src/main/db/tables/cdecom_required_delete_fields_migration.sql";
     private static final String ZERO_METRICS_MIGRATION =
             "src/main/db/tables/cdecom_zero_metrics_migration.sql";
+    private static final String DECIMAL_FIELDS_MIGRATION_DIRECTORY =
+            "src/main/db/migration/2026-11-cdecom-decimal-fields/";
 
     private static final List<String> BUSINESS_COLUMNS = List.of(
             "name",
@@ -82,13 +84,10 @@ class CDEcomStageSchemaContractTest {
         assertColumn(columns, "rawrowid", "bigint", true);
 
         assertColumn(columns, "skustylecolor", "bigint", true);
-        for (String name : List.of("planrub", "stockstorespcs", "stockstoresddp")) {
-            assertColumn(columns, name, "bigint", false);
-        }
-
         for (String name : List.of(
                 "orderpcs", "orderrub", "foundpcs", "foundrub", "salespcs",
-                "salesrub", "revenue", "gp", "cogs", "salesdiscount"
+                "salesrub", "revenue", "gp", "cogs", "salesdiscount",
+                "planrub", "stockstorespcs", "stockstoresddp"
         )) {
             assertColumn(columns, name, "decimal(18,2)", false);
         }
@@ -122,10 +121,6 @@ class CDEcomStageSchemaContractTest {
         for (String name : decimalMetrics()) {
             assertColumn(stage, name, "decimal(18,2)", false);
             assertColumn(target, name, "decimal(18,2)", false);
-        }
-        for (String name : bigintMetrics()) {
-            assertColumn(stage, name, "bigint", false);
-            assertColumn(target, name, "bigint", false);
         }
         assertColumn(stage, "skustylecolor", "bigint", true);
         assertColumn(target, "skustylecolor", "bigint", true);
@@ -270,14 +265,6 @@ class CDEcomStageSchemaContractTest {
                                 + " decimal(18,2) not null"
                 ), table + "." + field);
             }
-            for (String field : bigintMetrics()) {
-                assertTrue(migration.contains(
-                        "update " + table + " set " + field + " = 0 where " + field + " is null"
-                ), table + "." + field);
-                assertTrue(migration.contains(
-                        "alter table " + table + " alter column " + field + " bigint not null"
-                ), table + "." + field);
-            }
         }
 
         assertEquals(26, occurrences(migration, "is_nullable = 1"));
@@ -291,15 +278,56 @@ class CDEcomStageSchemaContractTest {
         assertFalse(migration.contains("default"));
     }
 
+    @Test
+    void decimalFieldsMigrationGuardsDependenciesPreservesRowsAndVerifiesContract() throws Exception {
+        String precheck = normalizeSql(read(DECIMAL_FIELDS_MIGRATION_DIRECTORY + "00_precheck.sql"));
+        String migration = normalizeSql(read(
+                DECIMAL_FIELDS_MIGRATION_DIRECTORY + "01_production_migration.sql"
+        ));
+        String verify = normalizeSql(read(DECIMAL_FIELDS_MIGRATION_DIRECTORY + "02_verify.sql"));
+
+        for (String table : List.of("dbo.cd_ecom", "dbo.cd_ecom_stage")) {
+            assertTrue(precheck.contains("object_id(n'" + table + "')"), table);
+            assertTrue(migration.contains("object_id(n'" + table + "')"), table);
+            for (String field : List.of("planrub", "stockstorespcs", "stockstoresddp")) {
+                assertTrue(migration.contains(
+                        "alter table " + table + " alter column " + field
+                                + " decimal(18,2) not null"
+                ), table + "." + field);
+                assertTrue(verify.contains(
+                        table + "." + field + " is not decimal(18,2) not null"
+                ), table + "." + field);
+            }
+        }
+
+        assertTrue(precheck.contains("try_convert(decimal(18,2)"));
+        assertTrue(precheck.contains("sys.index_columns"));
+        assertTrue(precheck.contains("sys.stats_columns"));
+        assertTrue(precheck.contains("sys.sql_expression_dependencies"));
+        assertTrue(precheck.contains("sys.default_constraints"));
+        assertTrue(precheck.contains("sys.foreign_key_columns"));
+        assertTrue(precheck.contains("sys.check_constraints"));
+        assertTrue(migration.contains("set xact_abort on"));
+        assertTrue(migration.contains("begin transaction"));
+        assertTrue(migration.contains("commit transaction"));
+        assertTrue(migration.contains("rollback transaction"));
+        assertTrue(migration.contains("count_big(*)"));
+        assertEquals(6, occurrences(migration, "alter table dbo.cd_ecom"));
+        assertFalse(migration.contains("delete "));
+        assertFalse(migration.contains("truncate "));
+        assertFalse(migration.contains("drop table"));
+        assertTrue(verify.contains("type_name(c.user_type_id) = n'decimal'"));
+        assertEquals(6, occurrences(verify, "c.precision = 18"));
+        assertEquals(6, occurrences(verify, "c.scale = 2"));
+        assertEquals(6, occurrences(verify, "c.is_nullable = 0"));
+    }
+
     private static List<String> decimalMetrics() {
         return List.of(
                 "orderpcs", "orderrub", "foundpcs", "foundrub", "salespcs", "salesrub",
-                "revenue", "gp", "cogs", "salesdiscount"
+                "revenue", "gp", "cogs", "salesdiscount", "planrub", "stockstorespcs",
+                "stockstoresddp"
         );
-    }
-
-    private static List<String> bigintMetrics() {
-        return List.of("planrub", "stockstorespcs", "stockstoresddp");
     }
 
     private static List<String> concat(List<String> first, List<String> second) {

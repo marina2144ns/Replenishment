@@ -232,13 +232,13 @@ VALUES
 (N'CD_ecom',N'salesPcs',N'DECIMAL(18,2)'),(N'CD_ecom',N'salesRub',N'DECIMAL(18,2)'),
 (N'CD_ecom',N'revenue',N'DECIMAL(18,2)'),(N'CD_ecom',N'gp',N'DECIMAL(18,2)'),
 (N'CD_ecom',N'cogs',N'DECIMAL(18,2)'),(N'CD_ecom',N'salesDiscount',N'DECIMAL(18,2)'),
-(N'CD_ecom',N'planRub',N'BIGINT'),(N'CD_ecom',N'stockStoresPcs',N'BIGINT'),(N'CD_ecom',N'stockStoresDdp',N'BIGINT'),
+(N'CD_ecom',N'planRub',N'DECIMAL(18,2)'),(N'CD_ecom',N'stockStoresPcs',N'DECIMAL(18,2)'),(N'CD_ecom',N'stockStoresDdp',N'DECIMAL(18,2)'),
 (N'CD_ecom_stage',N'orderPcs',N'DECIMAL(18,2)'),(N'CD_ecom_stage',N'orderRub',N'DECIMAL(18,2)'),
 (N'CD_ecom_stage',N'foundPcs',N'DECIMAL(18,2)'),(N'CD_ecom_stage',N'foundRub',N'DECIMAL(18,2)'),
 (N'CD_ecom_stage',N'salesPcs',N'DECIMAL(18,2)'),(N'CD_ecom_stage',N'salesRub',N'DECIMAL(18,2)'),
 (N'CD_ecom_stage',N'revenue',N'DECIMAL(18,2)'),(N'CD_ecom_stage',N'gp',N'DECIMAL(18,2)'),
 (N'CD_ecom_stage',N'cogs',N'DECIMAL(18,2)'),(N'CD_ecom_stage',N'salesDiscount',N'DECIMAL(18,2)'),
-(N'CD_ecom_stage',N'planRub',N'BIGINT'),(N'CD_ecom_stage',N'stockStoresPcs',N'BIGINT'),(N'CD_ecom_stage',N'stockStoresDdp',N'BIGINT');
+(N'CD_ecom_stage',N'planRub',N'DECIMAL(18,2)'),(N'CD_ecom_stage',N'stockStoresPcs',N'DECIMAL(18,2)'),(N'CD_ecom_stage',N'stockStoresDdp',N'DECIMAL(18,2)');
 
 DECLARE @ETable SYSNAME, @EColumn SYSNAME, @EType NVARCHAR(50), @ESql NVARCHAR(MAX);
 DECLARE ECursor CURSOR LOCAL FAST_FORWARD FOR SELECT TableName, ColumnName, SqlType FROM @EcomMetrics;

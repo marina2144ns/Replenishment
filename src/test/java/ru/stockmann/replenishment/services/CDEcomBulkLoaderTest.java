@@ -1,6 +1,8 @@
 package ru.stockmann.replenishment.services;
 
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import ru.stockmann.replenishment.services.cdecom.process.CDEcomProcessResult;
 import ru.stockmann.replenishment.services.cdecom.process.CDEcomProcessor;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHExcelLoadSessionResult;
@@ -9,8 +11,12 @@ import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDEcomExcelL
 
 import javax.sql.DataSource;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -21,6 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CDEcomBulkLoaderTest {
+
+    @TempDir
+    Path tempDir;
 
     private static final List<String> PRODUCTION_HEADERS = List.of(
             "название", "ГОД", "Сезон", "день", "дата", "Sales Channel_BPO", "StoreRUS",
@@ -111,12 +120,57 @@ class CDEcomBulkLoaderTest {
         row[0] = " name ";
         row[4] = "1/2/2026";
         row[18] = " 1\u00A0234,50 ";
+        row[28] = " 123,45 ";
+        row[29] = " 0.01 ";
+        row[30] = " -123.45 ";
 
         ExcelRowData normalized = loader.normalize(2, row);
 
         assertEquals("name", normalized.get("name"));
         assertEquals("01.02.2026", normalized.get("data"));
         assertEquals("1 234,50", normalized.get("orderPcs"));
+        assertEquals("123,45", normalized.get("planRub"));
+        assertEquals("0.01", normalized.get("stockStoresPcs"));
+        assertEquals("-123.45", normalized.get("stockStoresDdp"));
+    }
+
+    @Test
+    void streamsFractionalChangedMetricsFromExcelToRawStringsWithoutLoss() throws Exception {
+        RawRecordingDataSource dataSource = new RawRecordingDataSource();
+        TestCDEcomBulkLoader loader = new TestCDEcomBulkLoader(
+                dataSource, new CDEcomExcelLoadDefinition(), fakeProcessor(true)
+        );
+        Path file = tempDir.resolve("cdecom-decimals.xlsx");
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+             var output = Files.newOutputStream(file)) {
+            var sheet = workbook.createSheet("data");
+            var header = sheet.createRow(0);
+            for (int index = 0; index < PRODUCTION_HEADERS.size(); index++) {
+                header.createCell(index).setCellValue(PRODUCTION_HEADERS.get(index));
+            }
+            var row = sheet.createRow(1);
+            row.createCell(0).setCellValue("name");
+            row.createCell(1).setCellValue(2026);
+            row.createCell(2).setCellValue(1);
+            row.createCell(3).setCellValue(31);
+            var roundedDisplayStyle = workbook.createCellStyle();
+            roundedDisplayStyle.setDataFormat(workbook.createDataFormat().getFormat("0.00"));
+            row.createCell(28).setCellValue(123.456);
+            row.getCell(28).setCellStyle(roundedDisplayStyle);
+            row.createCell(29).setCellValue("0,01");
+            row.createCell(30).setCellValue(-123.45);
+            workbook.write(output);
+        }
+
+        loader.read(file, 91L);
+
+        assertEquals(1, dataSource.rows);
+        assertEquals("123.456", dataSource.lastRow.get(31));
+        assertEquals("0,01", dataSource.lastRow.get(32));
+        assertEquals("-123.45", dataSource.lastRow.get(33));
+        assertEquals(1, dataSource.commits);
+        assertEquals(0, dataSource.rollbacks);
     }
 
     @Test
@@ -186,6 +240,59 @@ class CDEcomBulkLoaderTest {
         private void validate(String[] headers) {
             validateHeaderRow(headers);
         }
+
+        private void read(Path file, long loadSessionId) throws Exception {
+            readAndInsertExcel(file.toString(), loadSessionId);
+        }
+    }
+
+    private static final class RawRecordingDataSource implements DataSource {
+        private int rows;
+        private int commits;
+        private int rollbacks;
+        private Map<Integer, Object> lastRow = Map.of();
+
+        @Override
+        public Connection getConnection() {
+            Map<Integer, Object> current = new LinkedHashMap<>();
+            PreparedStatement statement = (PreparedStatement) Proxy.newProxyInstance(
+                    getClass().getClassLoader(), new Class<?>[]{PreparedStatement.class},
+                    (proxy, method, args) -> switch (method.getName()) {
+                        case "setLong", "setString" -> {
+                            current.put((Integer) args[0], args[1]);
+                            yield null;
+                        }
+                        case "addBatch" -> {
+                            rows++;
+                            lastRow = new LinkedHashMap<>(current);
+                            current.clear();
+                            yield null;
+                        }
+                        case "executeBatch" -> new int[rows];
+                        case "close" -> null;
+                        default -> defaultValue(method.getReturnType());
+                    }
+            );
+            return (Connection) Proxy.newProxyInstance(
+                    getClass().getClassLoader(), new Class<?>[]{Connection.class},
+                    (proxy, method, args) -> switch (method.getName()) {
+                        case "prepareStatement" -> statement;
+                        case "commit" -> { commits++; yield null; }
+                        case "rollback" -> { rollbacks++; yield null; }
+                        case "setAutoCommit", "close" -> null;
+                        default -> defaultValue(method.getReturnType());
+                    }
+            );
+        }
+
+        @Override public Connection getConnection(String username, String password) { return getConnection(); }
+        @Override public <T> T unwrap(Class<T> iface) { return null; }
+        @Override public boolean isWrapperFor(Class<?> iface) { return false; }
+        @Override public java.io.PrintWriter getLogWriter() { return null; }
+        @Override public void setLogWriter(java.io.PrintWriter out) { }
+        @Override public void setLoginTimeout(int seconds) { }
+        @Override public int getLoginTimeout() { return 0; }
+        @Override public java.util.logging.Logger getParentLogger() { return null; }
     }
 
     private static final class RecordingDataSource implements DataSource {

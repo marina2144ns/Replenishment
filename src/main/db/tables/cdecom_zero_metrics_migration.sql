@@ -61,19 +61,19 @@ GO
 IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.CD_ecom') AND name = N'planRub' AND is_nullable = 1)
 BEGIN
     UPDATE dbo.CD_ecom SET planRub = 0 WHERE planRub IS NULL;
-    ALTER TABLE dbo.CD_ecom ALTER COLUMN planRub BIGINT NOT NULL;
+    ALTER TABLE dbo.CD_ecom ALTER COLUMN planRub DECIMAL(18,2) NOT NULL;
 END;
 GO
 IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.CD_ecom') AND name = N'stockStoresPcs' AND is_nullable = 1)
 BEGIN
     UPDATE dbo.CD_ecom SET stockStoresPcs = 0 WHERE stockStoresPcs IS NULL;
-    ALTER TABLE dbo.CD_ecom ALTER COLUMN stockStoresPcs BIGINT NOT NULL;
+    ALTER TABLE dbo.CD_ecom ALTER COLUMN stockStoresPcs DECIMAL(18,2) NOT NULL;
 END;
 GO
 IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.CD_ecom') AND name = N'stockStoresDdp' AND is_nullable = 1)
 BEGIN
     UPDATE dbo.CD_ecom SET stockStoresDdp = 0 WHERE stockStoresDdp IS NULL;
-    ALTER TABLE dbo.CD_ecom ALTER COLUMN stockStoresDdp BIGINT NOT NULL;
+    ALTER TABLE dbo.CD_ecom ALTER COLUMN stockStoresDdp DECIMAL(18,2) NOT NULL;
 END;
 GO
 
@@ -140,18 +140,18 @@ GO
 IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.CD_ecom_stage') AND name = N'planRub' AND is_nullable = 1)
 BEGIN
     UPDATE dbo.CD_ecom_stage SET planRub = 0 WHERE planRub IS NULL;
-    ALTER TABLE dbo.CD_ecom_stage ALTER COLUMN planRub BIGINT NOT NULL;
+    ALTER TABLE dbo.CD_ecom_stage ALTER COLUMN planRub DECIMAL(18,2) NOT NULL;
 END;
 GO
 IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.CD_ecom_stage') AND name = N'stockStoresPcs' AND is_nullable = 1)
 BEGIN
     UPDATE dbo.CD_ecom_stage SET stockStoresPcs = 0 WHERE stockStoresPcs IS NULL;
-    ALTER TABLE dbo.CD_ecom_stage ALTER COLUMN stockStoresPcs BIGINT NOT NULL;
+    ALTER TABLE dbo.CD_ecom_stage ALTER COLUMN stockStoresPcs DECIMAL(18,2) NOT NULL;
 END;
 GO
 IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.CD_ecom_stage') AND name = N'stockStoresDdp' AND is_nullable = 1)
 BEGIN
     UPDATE dbo.CD_ecom_stage SET stockStoresDdp = 0 WHERE stockStoresDdp IS NULL;
-    ALTER TABLE dbo.CD_ecom_stage ALTER COLUMN stockStoresDdp BIGINT NOT NULL;
+    ALTER TABLE dbo.CD_ecom_stage ALTER COLUMN stockStoresDdp DECIMAL(18,2) NOT NULL;
 END;
 GO

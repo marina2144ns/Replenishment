@@ -100,14 +100,14 @@ public class CDEcom {
     @Column(name = "salesDiscount", precision = 18, scale = 2)
     private BigDecimal salesDiscount;
 
-    @Column(name = "planRub")
-    private Long planRub;
+    @Column(name = "planRub", precision = 18, scale = 2)
+    private BigDecimal planRub;
 
-    @Column(name = "stockStoresPcs")
-    private Long stockStoresPcs;
+    @Column(name = "stockStoresPcs", precision = 18, scale = 2)
+    private BigDecimal stockStoresPcs;
 
-    @Column(name = "stockStoresDdp")
-    private Long stockStoresDdp;
+    @Column(name = "stockStoresDdp", precision = 18, scale = 2)
+    private BigDecimal stockStoresDdp;
 
     @Column(name = "cdDrivers")
     private String cdDrivers;
@@ -373,27 +373,27 @@ public class CDEcom {
         this.salesDiscount = salesDiscount;
     }
 
-    public Long getPlanRub() {
+    public BigDecimal getPlanRub() {
         return planRub;
     }
 
-    public void setPlanRub(Long planRub) {
+    public void setPlanRub(BigDecimal planRub) {
         this.planRub = planRub;
     }
 
-    public Long getStockStoresPcs() {
+    public BigDecimal getStockStoresPcs() {
         return stockStoresPcs;
     }
 
-    public void setStockStoresPcs(Long stockStoresPcs) {
+    public void setStockStoresPcs(BigDecimal stockStoresPcs) {
         this.stockStoresPcs = stockStoresPcs;
     }
 
-    public Long getStockStoresDdp() {
+    public BigDecimal getStockStoresDdp() {
         return stockStoresDdp;
     }
 
-    public void setStockStoresDdp(Long stockStoresDdp) {
+    public void setStockStoresDdp(BigDecimal stockStoresDdp) {
         this.stockStoresDdp = stockStoresDdp;
     }
 

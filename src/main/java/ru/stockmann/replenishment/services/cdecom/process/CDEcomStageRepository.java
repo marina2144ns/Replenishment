@@ -140,9 +140,9 @@ public class CDEcomStageRepository {
         setNullableDecimal(ps, 28, row.gp());
         setNullableDecimal(ps, 29, row.cogs());
         setNullableDecimal(ps, 30, row.salesDiscount());
-        setNullableLong(ps, 31, row.planRub());
-        setNullableLong(ps, 32, row.stockStoresPcs());
-        setNullableLong(ps, 33, row.stockStoresDdp());
+        setNullableDecimal(ps, 31, row.planRub());
+        setNullableDecimal(ps, 32, row.stockStoresPcs());
+        setNullableDecimal(ps, 33, row.stockStoresDdp());
         setNullableString(ps, 34, row.cdDrivers());
         setNullableString(ps, 35, row.skuSupplierModel());
         setNullableString(ps, 36, row.skuComposition());

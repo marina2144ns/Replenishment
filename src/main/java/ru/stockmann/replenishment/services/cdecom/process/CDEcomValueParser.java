@@ -81,6 +81,37 @@ class CDEcomValueParser {
         return parser.parseDecimal(value, 18, 2);
     }
 
+    DWHParseResult<BigDecimal> parseExactDecimal(String value) {
+        DWHParseResult<BigDecimal> parsed = parser.parseDecimal(value);
+        if (!parsed.success() || parsed.value() == null) {
+            return parsed;
+        }
+
+        BigDecimal valueWithoutInsignificantZeros = parsed.value().stripTrailingZeros();
+        if (valueWithoutInsignificantZeros.scale() > 2) {
+            return DWHParseResult.failure(
+                    "DECIMAL_SCALE_EXCEEDED",
+                    "DECIMAL(18,2) value has more than 2 fractional digits: " + value,
+                    value,
+                    parsed.normalizedValue(),
+                    "DECIMAL"
+            );
+        }
+
+        BigDecimal scaled = parsed.value().setScale(2);
+        if (scaled.precision() > 18) {
+            return DWHParseResult.failure(
+                    "NUMERIC_OVERFLOW",
+                    "DECIMAL(18,2) value is out of range: " + value,
+                    value,
+                    parsed.normalizedValue(),
+                    "DECIMAL"
+            );
+        }
+
+        return DWHParseResult.success(scaled, value, scaled.toPlainString(), "DECIMAL");
+    }
+
     DWHParseResult<LocalDate> parseDate(String value) {
         String cleaned = parser.cleanText(value);
         if (cleaned == null || parser.isSpecialNull(cleaned)) {
