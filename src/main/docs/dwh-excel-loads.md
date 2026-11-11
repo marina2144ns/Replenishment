@@ -32,6 +32,31 @@ CDEcom-specific processing rules:
 - CDEcom decimal fields use `BigDecimal`, scale 2, `RoundingMode.HALF_UP`, and DECIMAL(18,2) range checking after rounding.
 - Scientific notation is accepted by numeric parsing where `BigDecimal` accepts it; `NaN` and infinity values are rejected.
 
+## Optional operation initiator
+
+All session-based bulk endpoints accept `requestedBy` as an optional query
+parameter:
+
+```http
+POST /cdecom/v1.0/bulk?requestedBy=Ivanov
+Content-Type: application/json
+
+{
+  "filePath": "C:\\Data\\CD_ecom.xlsx"
+}
+```
+
+The same contract applies to `/cddata/v1.0/bulk`, `/weeklydata/v1.0/bulk`,
+`/salesbychannel/v1.0/bulk`, and `/storeturnover/v2.0/bulk`. For backward
+compatibility, `requestedBy` may remain in the JSON body. A query parameter,
+including an explicitly empty one, takes precedence over JSON. An empty or
+absent selected value is stored as SQL `NULL`; values longer than 100
+characters are rejected by the shared `DWHRequestedBy` validation.
+
+Legacy DELETE endpoints retain their existing query-string contract. ABCData
+and StoreTurnover v1 do not create common DWH load sessions and therefore do
+not accept `requestedBy`.
+
 ## Universal target-data deletion API
 
 The API derives datasets, target fields, physical target tables, and filter
@@ -53,12 +78,11 @@ GET /data/v1.0/datasets/CD_DATA/fields
 Delete by one field:
 
 ```http
-POST /data/v1.0/delete
+POST /data/v1.0/delete?requestedBy=one-c-user
 Content-Type: application/json
 
 {
   "dataset": "CD_DATA",
-  "requestedBy": "one-c-user",
   "filters": {
     "god": 2026
   },
@@ -100,6 +124,7 @@ Dates use strict `yyyy-MM-dd`. A JSON `null` filter generates `IS NULL`. Empty
 filters are rejected. Clients cannot provide table names, operators, or SQL
 fragments. A real deletion creates a row in `DWH_Excel_Load_Session` and stores
 the filter object as JSON in `DeleteCriteria`; dry-run intentionally does not
-create a session. For this endpoint, optional `requestedBy` is read only from
-the JSON body, validated with the shared 100-character limit, and stored in the
-existing session `RequestedBy` column. A query-string `requestedBy` is ignored.
+create a session. Optional `requestedBy` follows the same query-before-JSON
+precedence as bulk loading, is validated with the shared 100-character limit,
+and is stored in the existing session `RequestedBy` column. No session is
+created for dry-run even when `requestedBy` is supplied.

@@ -1,8 +1,5 @@
 package ru.stockmann.replenishment.services.dwhexcelload.core;
 
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
-
 /** Common validation and normalization for the optional session initiator. */
 public final class DWHRequestedBy {
 
@@ -21,10 +18,8 @@ public final class DWHRequestedBy {
         return value;
     }
 
-    public static String fromCurrentRequest() {
-        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes) {
-            return normalizeAndValidate(attributes.getRequest().getParameter("requestedBy"));
-        }
-        return null;
+    /** Query value takes precedence whenever the parameter is present, including an empty value. */
+    public static String resolve(String queryValue, String jsonValue) {
+        return normalizeAndValidate(queryValue != null ? queryValue : jsonValue);
     }
 }

@@ -27,17 +27,17 @@ class SalesByChannelControllerTest {
     void endpointMatchesEstablishedServicePattern() throws Exception {
         RequestMapping classMapping = SalesByChannelController.class.getAnnotation(RequestMapping.class);
         PostMapping methodMapping = SalesByChannelController.class
-                .getDeclaredMethod("bulk", DWHExcelLoadRequest.class)
+                .getDeclaredMethod("bulk", DWHExcelLoadRequest.class, String.class)
                 .getAnnotation(PostMapping.class);
 
         assertEquals("/salesbychannel/v1.0", classMapping.value()[0]);
         assertEquals("/bulk", methodMapping.value()[0]);
 
         DeleteMapping yearMonth = SalesByChannelController.class
-                .getDeclaredMethod("deleteByYearAndMonth", Map.class)
+                .getDeclaredMethod("deleteByYearAndMonth", Map.class, String.class)
                 .getAnnotation(DeleteMapping.class);
         DeleteMapping loadSession = SalesByChannelController.class
-                .getDeclaredMethod("deleteByLoadSessionId", Long.class)
+                .getDeclaredMethod("deleteByLoadSessionId", Long.class, String.class)
                 .getAnnotation(DeleteMapping.class);
         assertEquals("/year-month", yearMonth.value()[0]);
         assertEquals("/session", loadSession.value()[0]);
@@ -50,15 +50,15 @@ class SalesByChannelControllerTest {
                 new SalesByChannelController(null, null, deletion);
 
         assertEquals(new DWHDataDeleteResult(12), controller.deleteByYearAndMonth(
-                Map.of("year", "FY2025", "month", "April")).getBody());
+                Map.of("year", "FY2025", "month", "April"), null).getBody());
         assertEquals("FY2025", deletion.year);
         assertEquals("April", deletion.month);
 
         assertEquals(new DWHDataDeleteResult(7),
-                controller.deleteByLoadSessionId(10521L).getBody());
+                controller.deleteByLoadSessionId(10521L, null).getBody());
         assertEquals(10521L, deletion.loadSessionId);
 
-        assertEquals(400, controller.deleteByLoadSessionId(0L).getStatusCode().value());
+        assertEquals(400, controller.deleteByLoadSessionId(0L, null).getStatusCode().value());
     }
 
     @Test
@@ -69,7 +69,7 @@ class SalesByChannelControllerTest {
         DWHExcelLoadRequest request = new DWHExcelLoadRequest();
         request.setFilePath("/tmp/sales-by-channel.xlsx");
 
-        ResponseEntity<?> response = controller.bulk(request);
+        ResponseEntity<?> response = controller.bulk(request, null);
 
         assertEquals(200, response.getStatusCode().value());
         assertEquals(new DWHExcelLoadResult(31L, "OK", "accepted"), response.getBody());
@@ -84,7 +84,7 @@ class SalesByChannelControllerTest {
         SalesByChannelController controller =
                 new SalesByChannelController(loader, new FakeAsyncLoadService(), null);
 
-        ResponseEntity<?> response = controller.bulk(new DWHExcelLoadRequest());
+        ResponseEntity<?> response = controller.bulk(new DWHExcelLoadRequest(), null);
 
         assertEquals(400, response.getStatusCode().value());
         assertEquals(DWHExcelLoadResult.error(null, "filePath is empty"), response.getBody());

@@ -37,16 +37,20 @@ public class SalesByChannelController {
     }
 
     @PostMapping("/bulk")
-    public ResponseEntity<?> bulk(@RequestBody DWHExcelLoadRequest request) {
+    public ResponseEntity<?> bulk(
+            @RequestBody DWHExcelLoadRequest request,
+            @RequestParam(required = false) String requestedBy
+    ) {
         if (request == null || request.getFilePath() == null || request.getFilePath().isBlank()) {
             return ResponseEntity
                     .badRequest()
                     .body(DWHExcelLoadResult.error(null, "filePath is empty"));
         }
 
-        DWHExcelLoadResult result = request.getRequestedBy() == null
+        String resolvedRequestedBy = DWHRequestedBy.resolve(requestedBy, request.getRequestedBy());
+        DWHExcelLoadResult result = resolvedRequestedBy == null
                 ? bulkLoader.acceptFile(request.getFilePath())
-                : bulkLoader.acceptFile(request.getFilePath(), request.getRequestedBy());
+                : bulkLoader.acceptFile(request.getFilePath(), resolvedRequestedBy);
         if ("OK".equals(result.status()) && result.loadSessionId() != null) {
             asyncLoadService.startAsync(
                     bulkLoader,
@@ -62,13 +66,16 @@ public class SalesByChannelController {
     }
 
     @DeleteMapping("/session")
-    public ResponseEntity<?> deleteByLoadSessionId(@RequestParam Long loadSessionId) {
+    public ResponseEntity<?> deleteByLoadSessionId(
+            @RequestParam Long loadSessionId,
+            @RequestParam(required = false) String requestedBy
+    ) {
         if (loadSessionId == null || loadSessionId <= 0) {
             return ResponseEntity.badRequest().body(
                     Map.of("error", "loadSessionId must be positive")
             );
         }
-        String requestedBy = DWHRequestedBy.fromCurrentRequest();
+        requestedBy = DWHRequestedBy.normalizeAndValidate(requestedBy);
         DWHDataDeleteResult result = requestedBy == null
                 ? deletionService.deleteByLoadSessionId(loadSessionId)
                 : deletionService.deleteByLoadSessionId(loadSessionId, requestedBy);
@@ -76,7 +83,10 @@ public class SalesByChannelController {
     }
 
     @DeleteMapping("/year-month")
-    public ResponseEntity<?> deleteByYearAndMonth(@RequestParam Map<String, String> parameters) {
+    public ResponseEntity<?> deleteByYearAndMonth(
+            @RequestParam Map<String, String> parameters,
+            @RequestParam(required = false) String requestedBy
+    ) {
         if (!java.util.Set.of("year", "month").equals(parameters.keySet())
                 && !java.util.Set.of("year", "month", "requestedBy").equals(parameters.keySet())) {
             return ResponseEntity.badRequest().body(
@@ -91,7 +101,7 @@ public class SalesByChannelController {
                     Map.of("error", "year and month must not be blank or longer than 50 characters")
             );
         }
-        String requestedBy = parameters.get("requestedBy");
+        requestedBy = DWHRequestedBy.normalizeAndValidate(requestedBy);
         return ResponseEntity.ok(requestedBy == null
                 ? deletionService.deleteByYearAndMonth(year, month)
                 : deletionService.deleteByYearAndMonth(year, month, requestedBy));

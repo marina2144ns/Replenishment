@@ -28,13 +28,17 @@ public class StoreTurnoverV2Controller {
     }
 
     @PostMapping("/bulk")
-    public ResponseEntity<?> bulk(@RequestBody DWHExcelLoadRequest request) {
+    public ResponseEntity<?> bulk(
+            @RequestBody DWHExcelLoadRequest request,
+            @RequestParam(required = false) String requestedBy
+    ) {
         if (request == null || request.getFilePath() == null || request.getFilePath().isBlank()) {
             return ResponseEntity.badRequest().body(DWHExcelLoadResult.error(null, "filePath is empty"));
         }
-        DWHExcelLoadResult result = request.getRequestedBy() == null
+        String resolvedRequestedBy = DWHRequestedBy.resolve(requestedBy, request.getRequestedBy());
+        DWHExcelLoadResult result = resolvedRequestedBy == null
                 ? loader.acceptFile(request.getFilePath())
-                : loader.acceptFile(request.getFilePath(), request.getRequestedBy());
+                : loader.acceptFile(request.getFilePath(), resolvedRequestedBy);
         if ("OK".equals(result.status()) && result.loadSessionId() != null) {
             async.startAsync(loader, result.loadSessionId(), request.getFilePath());
         }
@@ -43,11 +47,14 @@ public class StoreTurnoverV2Controller {
     }
 
     @DeleteMapping("/session")
-    public ResponseEntity<?> deleteByLoadSessionId(@RequestParam Long loadSessionId) {
+    public ResponseEntity<?> deleteByLoadSessionId(
+            @RequestParam Long loadSessionId,
+            @RequestParam(required = false) String requestedBy
+    ) {
         if (loadSessionId == null || loadSessionId <= 0) {
             return ResponseEntity.badRequest().body(Map.of("error", "loadSessionId must be positive"));
         }
-        String requestedBy = DWHRequestedBy.fromCurrentRequest();
+        requestedBy = DWHRequestedBy.normalizeAndValidate(requestedBy);
         DWHDataDeleteResult result = requestedBy == null
                 ? deletionService.deleteByLoadSessionId(loadSessionId)
                 : deletionService.deleteByLoadSessionId(loadSessionId, requestedBy);

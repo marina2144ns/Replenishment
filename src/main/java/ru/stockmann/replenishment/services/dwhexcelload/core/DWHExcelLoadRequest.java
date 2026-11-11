@@ -18,6 +18,6 @@ public class DWHExcelLoadRequest {
     }
 
     public void setRequestedBy(String requestedBy) {
-        this.requestedBy = DWHRequestedBy.normalizeAndValidate(requestedBy);
+        this.requestedBy = requestedBy;
     }
 }

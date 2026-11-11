@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import ru.stockmann.replenishment.services.dwhexcelload.core.DWHRequestedBy;
 import ru.stockmann.replenishment.services.dwhexcelload.delete.DWHDatasetFieldsResponse;
@@ -36,11 +37,13 @@ public class DWHDataController {
 
     @PostMapping("/delete")
     public ResponseEntity<DWHUniversalDeleteResult> delete(
-            @RequestBody(required = false) DWHUniversalDeleteRequest request
+            @RequestBody(required = false) DWHUniversalDeleteRequest request,
+            @RequestParam(required = false) String requestedBy
     ) {
-        String requestedBy = request == null
-                ? null
-                : DWHRequestedBy.normalizeAndValidate(request.requestedBy());
-        return ResponseEntity.ok(service.execute(request, requestedBy));
+        String jsonRequestedBy = request == null ? null : request.requestedBy();
+        return ResponseEntity.ok(service.execute(
+                request,
+                DWHRequestedBy.resolve(requestedBy, jsonRequestedBy)
+        ));
     }
 }

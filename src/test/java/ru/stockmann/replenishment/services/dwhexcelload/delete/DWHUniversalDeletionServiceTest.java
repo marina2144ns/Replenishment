@@ -143,7 +143,7 @@ class DWHUniversalDeletionServiceTest {
     }
 
     @Test
-    void httpBodyRequestedByReachesDeletionSessionAndUrlValueIsIgnored() throws Exception {
+    void httpUrlRequestedByTakesPriorityAndReachesDeletionSession() throws Exception {
         RecordingJdbc jdbc = new RecordingJdbc();
         jdbc.updateCount = 5L;
         Sessions sessions = new Sessions();
@@ -163,11 +163,11 @@ class DWHUniversalDeletionServiceTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deletedRows").value(5));
 
-        assertEquals("TestUser", sessions.created.requestedBy());
+        assertEquals("UrlUser", sessions.created.requestedBy());
     }
 
     @Test
-    void httpUrlOnlyRequestedByIsIgnoredAndNullIsStored() throws Exception {
+    void httpUrlOnlyRequestedByIsStored() throws Exception {
         RecordingJdbc jdbc = new RecordingJdbc();
         Sessions sessions = new Sessions();
 
@@ -182,7 +182,7 @@ class DWHUniversalDeletionServiceTest {
                                 """))
                 .andExpect(status().isOk());
 
-        assertNull(sessions.created.requestedBy());
+        assertEquals("UrlOnlyUser", sessions.created.requestedBy());
     }
 
     @Test

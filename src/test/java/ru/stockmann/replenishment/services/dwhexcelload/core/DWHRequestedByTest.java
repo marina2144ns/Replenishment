@@ -22,4 +22,13 @@ class DWHRequestedByTest {
                 () -> DWHRequestedBy.normalizeAndValidate("x".repeat(101)));
         assertEquals("requestedBy must not be longer than 100 characters", error.getMessage());
     }
+
+    @Test
+    void resolvesQueryBeforeJsonAndTreatsPresentEmptyQueryAsNull() {
+        assertEquals("url-user", DWHRequestedBy.resolve("url-user", "json-user"));
+        assertEquals("json-user", DWHRequestedBy.resolve(null, "json-user"));
+        assertNull(DWHRequestedBy.resolve("", "json-user"));
+        assertNull(DWHRequestedBy.resolve(null, null));
+        assertEquals("url-user", DWHRequestedBy.resolve("url-user", "x".repeat(101)));
+    }
 }

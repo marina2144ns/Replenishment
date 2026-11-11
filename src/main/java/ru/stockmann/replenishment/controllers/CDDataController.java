@@ -33,16 +33,20 @@ public class CDDataController {
     }
 
     @PostMapping("/bulk")
-    public ResponseEntity<?> bulk(@RequestBody DWHExcelLoadRequest req) {
+    public ResponseEntity<?> bulk(
+            @RequestBody DWHExcelLoadRequest req,
+            @RequestParam(required = false) String requestedBy
+    ) {
         if (req == null || req.getFilePath() == null || req.getFilePath().isBlank()) {
             return ResponseEntity
                     .badRequest()
                     .body(DWHExcelLoadResult.error(null, "filePath is empty"));
         }
 
-        DWHExcelLoadResult result = req.getRequestedBy() == null
+        String resolvedRequestedBy = DWHRequestedBy.resolve(requestedBy, req.getRequestedBy());
+        DWHExcelLoadResult result = resolvedRequestedBy == null
                 ? bulkLoader.acceptFile(req.getFilePath())
-                : bulkLoader.acceptFile(req.getFilePath(), req.getRequestedBy());
+                : bulkLoader.acceptFile(req.getFilePath(), resolvedRequestedBy);
 
         if ("OK".equals(result.status()) && result.loadSessionId() != null) {
             asyncLoadService.startAsync(
@@ -62,23 +66,27 @@ public class CDDataController {
     @DeleteMapping("/god-sezon")
     public ResponseEntity<?> deleteByPeriod(
             @RequestParam(required = false) Integer god,
-            @RequestParam(required = false) Integer sezon
+            @RequestParam(required = false) Integer sezon,
+            @RequestParam(required = false) String requestedBy
     ) {
         if (god == null || sezon == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "god and sezon are required"));
         }
-        String requestedBy = DWHRequestedBy.fromCurrentRequest();
+        requestedBy = DWHRequestedBy.normalizeAndValidate(requestedBy);
         return ResponseEntity.ok(requestedBy == null
                 ? deletionService.deleteByPeriod(god, sezon)
                 : deletionService.deleteByPeriod(god, sezon, requestedBy));
     }
 
     @DeleteMapping("/session")
-    public ResponseEntity<?> deleteByLoadSessionId(@RequestParam Long loadSessionId) {
+    public ResponseEntity<?> deleteByLoadSessionId(
+            @RequestParam Long loadSessionId,
+            @RequestParam(required = false) String requestedBy
+    ) {
         if (loadSessionId == null || loadSessionId <= 0) {
             return ResponseEntity.badRequest().body(Map.of("error", "loadSessionId must be positive"));
         }
-        String requestedBy = DWHRequestedBy.fromCurrentRequest();
+        requestedBy = DWHRequestedBy.normalizeAndValidate(requestedBy);
         DWHDataDeleteResult result = requestedBy == null
                 ? deletionService.deleteByLoadSessionId(loadSessionId)
                 : deletionService.deleteByLoadSessionId(loadSessionId, requestedBy);
@@ -86,7 +94,10 @@ public class CDDataController {
     }
 
     @DeleteMapping("/nazvanie-den")
-    public ResponseEntity<?> deleteByNazvanieAndDen(@RequestParam Map<String, String> parameters) {
+    public ResponseEntity<?> deleteByNazvanieAndDen(
+            @RequestParam Map<String, String> parameters,
+            @RequestParam(required = false) String requestedBy
+    ) {
         if (!java.util.Set.of("nazvanie", "den").equals(parameters.keySet())
                 && !java.util.Set.of("nazvanie", "den", "requestedBy").equals(parameters.keySet())) {
             return ResponseEntity.badRequest().body(
@@ -101,7 +112,7 @@ public class CDDataController {
         }
         try {
             int den = Integer.parseInt(parameters.get("den"));
-            String requestedBy = parameters.get("requestedBy");
+            requestedBy = DWHRequestedBy.normalizeAndValidate(requestedBy);
             return ResponseEntity.ok(requestedBy == null
                     ? deletionService.deleteByNazvanieAndDen(nazvanie, den)
                     : deletionService.deleteByNazvanieAndDen(nazvanie, den, requestedBy));

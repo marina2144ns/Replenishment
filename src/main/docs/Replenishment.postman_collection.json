@@ -7,9 +7,63 @@
     {
       "key": "baseUrl",
       "value": "http://localhost:8080"
+    },
+    {
+      "key": "requestedBy",
+      "value": "postman-user"
     }
   ],
   "item": [
+    {
+      "name": "Session-based bulk loads",
+      "item": [
+        {
+          "name": "POST CD ecom bulk",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"filePath\": \"C:\\\\Data\\\\CD_ecom.xlsx\"\n}"},
+            "url": "{{baseUrl}}/cdecom/v1.0/bulk?requestedBy={{requestedBy}}"
+          }
+        },
+        {
+          "name": "POST CD data bulk",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"filePath\": \"C:\\\\Data\\\\CD_data.xlsx\"\n}"},
+            "url": "{{baseUrl}}/cddata/v1.0/bulk?requestedBy={{requestedBy}}"
+          }
+        },
+        {
+          "name": "POST weekly data bulk",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"filePath\": \"C:\\\\Data\\\\Weekly_data.xlsx\"\n}"},
+            "url": "{{baseUrl}}/weeklydata/v1.0/bulk?requestedBy={{requestedBy}}"
+          }
+        },
+        {
+          "name": "POST sales by channel bulk",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"filePath\": \"C:\\\\Data\\\\Sales_by_channel.xlsx\"\n}"},
+            "url": "{{baseUrl}}/salesbychannel/v1.0/bulk?requestedBy={{requestedBy}}"
+          }
+        },
+        {
+          "name": "POST store turnover v2 bulk",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"filePath\": \"C:\\\\Data\\\\Store_turnover.csv\"\n}"},
+            "url": "{{baseUrl}}/storeturnover/v2.0/bulk?requestedBy={{requestedBy}}"
+          }
+        }
+      ]
+    },
     {
       "name": "Universal deletion",
       "item": [
@@ -36,7 +90,7 @@
               "mode": "raw",
               "raw": "{\n  \"dataset\": \"CD_DATA\",\n  \"filters\": {\n    \"god\": 2026,\n    \"sezon\": 2\n  },\n  \"dryRun\": true\n}"
             },
-            "url": "{{baseUrl}}/data/v1.0/delete"
+            "url": "{{baseUrl}}/data/v1.0/delete?requestedBy={{requestedBy}}"
           }
         },
         {
@@ -48,7 +102,7 @@
               "mode": "raw",
               "raw": "{\n  \"dataset\": \"CD_DATA\",\n  \"requestedBy\": \"postman-user\",\n  \"filters\": {\n    \"god\": 2026\n  },\n  \"dryRun\": false\n}"
             },
-            "url": "{{baseUrl}}/data/v1.0/delete"
+            "url": "{{baseUrl}}/data/v1.0/delete?requestedBy={{requestedBy}}"
           }
         },
         {

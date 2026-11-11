@@ -32,7 +32,10 @@ public class WeeklyDataController {
     }
 
     @PostMapping("/bulk")
-    public ResponseEntity<DWHExcelLoadResult> bulk(@RequestBody DWHExcelLoadRequest req) {
+    public ResponseEntity<DWHExcelLoadResult> bulk(
+            @RequestBody DWHExcelLoadRequest req,
+            @RequestParam(required = false) String requestedBy
+    ) {
 
         if (req == null || req.getFilePath() == null || req.getFilePath().isBlank()) {
             return ResponseEntity
@@ -40,9 +43,10 @@ public class WeeklyDataController {
                     .body(DWHExcelLoadResult.error(null, "filePath is empty"));
         }
 
-        DWHExcelLoadResult result = req.getRequestedBy() == null
+        String resolvedRequestedBy = DWHRequestedBy.resolve(requestedBy, req.getRequestedBy());
+        DWHExcelLoadResult result = resolvedRequestedBy == null
                 ? bulkLoader.acceptFile(req.getFilePath())
-                : bulkLoader.acceptFile(req.getFilePath(), req.getRequestedBy());
+                : bulkLoader.acceptFile(req.getFilePath(), resolvedRequestedBy);
 
         if ("OK".equals(result.status()) && result.loadSessionId() != null) {
             asyncLoadService.startAsync(
@@ -62,23 +66,27 @@ public class WeeklyDataController {
     @DeleteMapping("/year-week")
     public ResponseEntity<?> deleteByPeriod(
             @RequestParam(required = false) Short year,
-            @RequestParam(required = false) Short week
+            @RequestParam(required = false) Short week,
+            @RequestParam(required = false) String requestedBy
     ) {
         if (year == null || week == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "year and week are required"));
         }
-        String requestedBy = DWHRequestedBy.fromCurrentRequest();
+        requestedBy = DWHRequestedBy.normalizeAndValidate(requestedBy);
         return ResponseEntity.ok(requestedBy == null
                 ? deletionService.deleteByPeriod(year, week)
                 : deletionService.deleteByPeriod(year, week, requestedBy));
     }
 
     @DeleteMapping("/session")
-    public ResponseEntity<?> deleteByLoadSessionId(@RequestParam Long loadSessionId) {
+    public ResponseEntity<?> deleteByLoadSessionId(
+            @RequestParam Long loadSessionId,
+            @RequestParam(required = false) String requestedBy
+    ) {
         if (loadSessionId == null || loadSessionId <= 0) {
             return ResponseEntity.badRequest().body(Map.of("error", "loadSessionId must be positive"));
         }
-        String requestedBy = DWHRequestedBy.fromCurrentRequest();
+        requestedBy = DWHRequestedBy.normalizeAndValidate(requestedBy);
         DWHDataDeleteResult result = requestedBy == null
                 ? deletionService.deleteByLoadSessionId(loadSessionId)
                 : deletionService.deleteByLoadSessionId(loadSessionId, requestedBy);

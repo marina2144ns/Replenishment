@@ -48,7 +48,7 @@ class DWHDataControllerTest {
     }
 
     @Test
-    void executesDeleteUsingBodyRequestedByAndIgnoresQueryParameter() throws Exception {
+    void executesDeleteUsingQueryRequestedByBeforeBody() throws Exception {
         FakeService service = new FakeService();
         service.result = DWHUniversalDeleteResult.deleted(91L, "CD_DATA", 18L);
         MockMvc mvc = mvc(service);
@@ -70,10 +70,62 @@ class DWHDataControllerTest {
                 .andExpect(jsonPath("$.dryRun").value(false))
                 .andExpect(jsonPath("$.status").value("SUCCESS"));
 
-        org.junit.jupiter.api.Assertions.assertEquals("body-user", service.requestedBy);
+        org.junit.jupiter.api.Assertions.assertEquals("url-user", service.requestedBy);
         org.junit.jupiter.api.Assertions.assertEquals("body-user", service.request.requestedBy());
         org.junit.jupiter.api.Assertions.assertEquals("CD_DATA", service.request.dataset());
         org.junit.jupiter.api.Assertions.assertEquals(2026, service.request.filters().get("god"));
+    }
+
+    @Test
+    void supportsBodyOnlyAbsentEmptyAndBoundaryRequestedByValues() throws Exception {
+        FakeService service = new FakeService();
+        service.result = DWHUniversalDeleteResult.deleted(91L, "CD_DATA", 1L);
+        MockMvc mvc = mvc(service);
+        String request = """
+                {"dataset":"CD_DATA","requestedBy":"body-user","filters":{"god":2026}}
+                """;
+
+        mvc.perform(post("/data/v1.0/delete")
+                        .contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isOk());
+        org.junit.jupiter.api.Assertions.assertEquals("body-user", service.requestedBy);
+
+        mvc.perform(post("/data/v1.0/delete").queryParam("requestedBy", "")
+                        .contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isOk());
+        org.junit.jupiter.api.Assertions.assertNull(service.requestedBy);
+
+        mvc.perform(post("/data/v1.0/delete").queryParam("requestedBy", "x".repeat(100))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"dataset\":\"CD_DATA\",\"filters\":{\"god\":2026}}"))
+                .andExpect(status().isOk());
+        org.junit.jupiter.api.Assertions.assertEquals("x".repeat(100), service.requestedBy);
+
+        mvc.perform(post("/data/v1.0/delete")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"dataset\":\"CD_DATA\",\"filters\":{\"god\":2026}}"))
+                .andExpect(status().isOk());
+        org.junit.jupiter.api.Assertions.assertNull(service.requestedBy);
+    }
+
+    @Test
+    void rejectsTooLongQueryButAllowsInvalidBodyWhenUrlOverridesIt() throws Exception {
+        FakeService service = new FakeService();
+        service.result = DWHUniversalDeleteResult.deleted(91L, "CD_DATA", 1L);
+        MockMvc mvc = mvc(service);
+
+        mvc.perform(post("/data/v1.0/delete").queryParam("requestedBy", "x".repeat(101))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"dataset\":\"CD_DATA\",\"filters\":{\"god\":2026}}"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(post("/data/v1.0/delete").queryParam("requestedBy", "url-user")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"dataset":"CD_DATA","requestedBy":"%s","filters":{"god":2026}}
+                                """.formatted("x".repeat(101))))
+                .andExpect(status().isOk());
+        org.junit.jupiter.api.Assertions.assertEquals("url-user", service.requestedBy);
     }
 
     @Test

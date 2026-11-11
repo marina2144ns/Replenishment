@@ -12,6 +12,7 @@ import ru.stockmann.replenishment.services.dwhexcelload.definitions.CDEcomExcelL
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CDEcomControllerTest {
 
@@ -25,7 +26,7 @@ class CDEcomControllerTest {
         DWHExcelLoadRequest request = new DWHExcelLoadRequest();
         request.setFilePath("/tmp/cdecom.xlsx");
 
-        ResponseEntity<?> response = controller.bulk(request);
+        ResponseEntity<?> response = controller.bulk(request, null);
 
         assertEquals(200, response.getStatusCode().value());
         assertEquals(new DWHExcelLoadResult(10L, "OK", "CD ecom file accepted for processing"), response.getBody());
@@ -42,11 +43,43 @@ class CDEcomControllerTest {
         );
         CDEcomController controller = new CDEcomController(loader, new FakeAsyncLoadService(), null);
 
-        ResponseEntity<?> response = controller.bulk(new DWHExcelLoadRequest());
+        ResponseEntity<?> response = controller.bulk(new DWHExcelLoadRequest(), null);
 
         assertEquals(400, response.getStatusCode().value());
         assertEquals(DWHExcelLoadResult.error(null, "filePath is empty"), response.getBody());
         assertEquals(0, loader.calls);
+    }
+
+    @Test
+    void requestedByUsesUrlThenJsonThenNullAndValidatesSelectedValue() {
+        FakeCDEcomBulkLoader loader = new FakeCDEcomBulkLoader(
+                DWHExcelLoadResult.ok(10L, "accepted")
+        );
+        CDEcomController controller = new CDEcomController(
+                loader, new FakeAsyncLoadService(), null
+        );
+        DWHExcelLoadRequest request = new DWHExcelLoadRequest();
+        request.setFilePath("/tmp/cdecom.xlsx");
+
+        request.setRequestedBy("json-user");
+        controller.bulk(request, "url-user");
+        assertEquals("url-user", loader.requestedBy);
+
+        controller.bulk(request, null);
+        assertEquals("json-user", loader.requestedBy);
+
+        controller.bulk(request, "");
+        assertEquals(null, loader.requestedBy);
+
+        request.setRequestedBy("x".repeat(101));
+        controller.bulk(request, "url-user");
+        assertEquals("url-user", loader.requestedBy);
+
+        request.setRequestedBy(null);
+        controller.bulk(request, "x".repeat(100));
+        assertEquals("x".repeat(100), loader.requestedBy);
+        assertThrows(IllegalArgumentException.class,
+                () -> controller.bulk(request, "x".repeat(101)));
     }
 
     private static final class FakeCDEcomBulkLoader extends CDEcomBulkLoader {
@@ -54,6 +87,7 @@ class CDEcomControllerTest {
         private final DWHExcelLoadResult result;
         private int calls;
         private String filePath;
+        private String requestedBy;
 
         private FakeCDEcomBulkLoader(DWHExcelLoadResult result) {
             super(null, new CDEcomExcelLoadDefinition(), new FakeCDEcomProcessor());
@@ -64,6 +98,15 @@ class CDEcomControllerTest {
         public DWHExcelLoadResult acceptFile(String filePath) {
             this.calls++;
             this.filePath = filePath;
+            this.requestedBy = null;
+            return result;
+        }
+
+        @Override
+        public DWHExcelLoadResult acceptFile(String filePath, String requestedBy) {
+            this.calls++;
+            this.filePath = filePath;
+            this.requestedBy = requestedBy;
             return result;
         }
     }
